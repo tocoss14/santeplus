@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+apps/api/uploads/
+.env
+.env.local
+coverage/

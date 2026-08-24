@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: santeplus
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-santeplus_dev}
+      POSTGRES_DB: santeplus
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U santeplus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./apps/api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://santeplus:${DB_PASSWORD:-santeplus_dev}@db:5432/santeplus
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      PORT: 4000
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      MOCK_PAYMENTS: "false"
+      PAY_PROVIDERS: FEDAPAY,CINETPAY
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+    volumes:
+      - uploads:/app/uploads
+
+  web:
+    build: ./apps/web
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  uploads:

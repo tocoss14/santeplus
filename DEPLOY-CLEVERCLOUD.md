@@ -1,71 +1,71 @@
-# Déploiement Clever Cloud — SantéPlus Bénin
+﻿# DÃ©ploiement Clever Cloud â€” SantÃ©Plus BÃ©nin
 
-> Clever Cloud (https://www.clever-cloud.com) : PaaS français établi depuis 2011, EU,
-> support francophone. Recommandé pour la mise en service avec des données réelles
-> (maturité + argument due diligence assureur).
+> Clever Cloud (https://www.clever-cloud.com) : PaaS franÃ§ais Ã©tabli depuis 2011, EU,
+> support francophone. RecommandÃ© pour la mise en service avec des donnÃ©es rÃ©elles
+> (maturitÃ© + argument due diligence assureur).
 
 ## Architecture cible
 
-| Composant Clever Cloud | Rôle | Type |
+| Composant Clever Cloud | RÃ´le | Type |
 |---|---|---|
 | **Application Node.js** (ou Docker) | API NestJS + cron interne | XS ou S (2 instances possible) |
-| **PostgreSQL managed** | Base de données | XS/S (add-on) |
-| **Cellar S3** | Documents médicaux | add-on |
-| **Static + redirect** ou app Node séparée | Frontend React | voir §5 |
+| **PostgreSQL managed** | Base de donnÃ©es | XS/S (add-on) |
+| **Cellar S3** | Documents mÃ©dicaux | add-on |
+| **Static + redirect** ou app Node sÃ©parÃ©e | Frontend React | voir Â§5 |
 
-## 0. Préparer
+## 0. PrÃ©parer
 
 ```bash
 npm install -g clever-tools
 clever login
-cd "C:\Users\HP\Desktop\mutuelle santé"
-git init && git add . && git commit -m "feat: SantéPlus Bénin"
-# Créez l'app depuis la console ou la CLI (étape 2) puis :
+cd "C:\Users\HP\Desktop\mutuelle santÃ©"
+git init && git add . && git commit -m "feat: SantÃ©Plus BÃ©nin"
+# CrÃ©ez l'app depuis la console ou la CLI (Ã©tape 2) puis :
 git remote add clever URL_GIT_FOURNIE_PAR_CLEVER
 ```
 
-## 1. PostgreSQL managé
+## 1. PostgreSQL managÃ©
 
-Console → **Add-on → PostgreSQL** → plan *XS* (ou *S* en production).
-Copiez la **connection string** (`postgresql://…`).
+Console â†’ **Add-on â†’ PostgreSQL** â†’ plan *XS* (ou *S* en production).
+Copiez la **connection string** (`postgresql://â€¦`).
 
 ## 2. API (application Node)
 
-Console → **Create → An application → Node.js**.
-Liez le dépôt Git ; **root path** : `apps/api`.
+Console â†’ **Create â†’ An application â†’ Node.js**.
+Liez le dÃ©pÃ´t Git ; **root path** : `apps/api`.
 
-Variables d'environnement (console → *Environment variables*) :
+Variables d'environnement (console â†’ *Environment variables*) :
 
 | Variable | Valeur |
 |---|---|
 | `CC_NODE_BUILD_TOOL` | `npm install && npx prisma generate && npm run build` |
 | `CC_RUN_COMMAND` | `npx prisma migrate deploy && node dist/main.js` |
-| `DATABASE_URL` | connection string de l'étape 1 (`?sslmode=require`) |
-| `JWT_SECRET` | aléatoire ≥ 64 caractères |
+| `DATABASE_URL` | connection string de l'Ã©tape 1 (`?sslmode=require`) |
+| `JWT_SECRET` | alÃ©atoire â‰¥ 64 caractÃ¨res |
 | `NODE_ENV` | `production` |
-| `PORT` | `4000` (Clever injecte `PORT` — utilisez `process.env.PORT` déjà géré) |
+| `PORT` | `4000` (Clever injecte `PORT` â€” utilisez `process.env.PORT` dÃ©jÃ  gÃ©rÃ©) |
 | `WEB_ORIGIN` | `https://VOTRE-FRONT.clever-apps.fr` |
 | `APP_URL` | `https://VOTRE-FRONT.clever-apps.fr` |
 | `MOCK_PAYMENTS` | `false` |
 | `PAY_PROVIDERS` | `FEDAPAY,CINETPAY` |
-| `FEDAPAY_SECRET_KEY` / `FEDAPAY_MODE` / `CINETPAY_API_KEY` / `CINETPAY_SITE_ID` | clés fournisseurs |
-| `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | credentials Cellar (§3) |
-| `NOTIFY_*`, `EMAIL_*`, `SMS_*`, `WA_*` | canaux de notification (optionnel au début) |
+| `FEDAPAY_SECRET_KEY` / `FEDAPAY_MODE` / `CINETPAY_API_KEY` / `CINETPAY_SITE_ID` | clÃ©s fournisseurs |
+| `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | credentials Cellar (Â§3) |
+| `NOTIFY_*`, `EMAIL_*`, `SMS_*`, `WA_*` | canaux de notification (optionnel au dÃ©but) |
 
-**Alternative Docker** : « Create → Docker » avec root path `apps/api` — le Dockerfile
-existant fonctionne tel quel (port exposé 4000).
+**Alternative Docker** : Â« Create â†’ Docker Â» avec root path `apps/api` â€” le Dockerfile
+existant fonctionne tel quel (port exposÃ© 4000).
 
-Déployez : `git push clever main`. Vérifiez `https://VOTRE-API.clever-apps.fr/api/admin/health`.
+DÃ©ployez : `git push clever main`. VÃ©rifiez `https://VOTRE-API.clever-apps.fr/api/health`.
 
 ## 3. Cellar (S3)
 
-Console → **Add-on → Cellar S3** → créez un bucket `santeplus-documents` + des clés.
-Reportez endpoint/keys dans les variables `S3_*` de l'API (§2).
+Console â†’ **Add-on â†’ Cellar S3** â†’ crÃ©ez un bucket `santeplus-documents` + des clÃ©s.
+Reportez endpoint/keys dans les variables `S3_*` de l'API (Â§2).
 
 ## 4. Migrations & seed
 
-Le `CC_RUN_COMMAND` applique `prisma migrate deploy` à chaque déploiement.
-Pour le seed de démonstration (optionnel), depuis votre machine :
+Le `CC_RUN_COMMAND` applique `prisma migrate deploy` Ã  chaque dÃ©ploiement.
+Pour le seed de dÃ©monstration (optionnel), depuis votre machine :
 
 ```bash
 cd apps/api
@@ -73,40 +73,40 @@ $env:DATABASE_URL="postgresql://...clever..."; npx prisma migrate deploy
 $env:DATABASE_URL="postgresql://...clever..."; npm run db:seed
 ```
 
-⚠️ Supprimez les comptes de démo avant mise en service réelle.
+âš ï¸ Supprimez les comptes de dÃ©mo avant mise en service rÃ©elle.
 
 ## 5. Frontend
 
-**Option A — Static site (simple)** :
-Console → **Create → Static site**, root path `apps/web` :
+**Option A â€” Static site (simple)** :
+Console â†’ **Create â†’ Static site**, root path `apps/web` :
 - `CC_STATIC_BUILD_COMMAND` = `npm install && npm run build`
 - `CC_STATIC_OUTPUT_PATH` = `dist`
-- Variable de build : `VITE_API_URL` = URL de l'API (§2)
+- Variable de build : `VITE_API_URL` = URL de l'API (Â§2)
 
 Le fichier `.htaccess` inclus dans `apps/web/public` active le fallback SPA sur Apache
-(config statique par défaut de Clever Cloud).
+(config statique par dÃ©faut de Clever Cloud).
 
-**Option B — même app Node que l'API (avancée)** : servir `dist` depuis l'API avec
-`express.static` + fallback `index.html` ; évite le CORS et une URL séparée.
-(Évolution possible, l'option A est suffisante pour démarrer.)
+**Option B â€” mÃªme app Node que l'API (avancÃ©e)** : servir `dist` depuis l'API avec
+`express.static` + fallback `index.html` ; Ã©vite le CORS et une URL sÃ©parÃ©e.
+(Ã‰volution possible, l'option A est suffisante pour dÃ©marrer.)
 
 ## 6. Webhooks paiements
 
 - FedaPay : `https://VOTRE-API.clever-apps.fr/api/payments/webhook/fedapay`
 - CinetPay : `https://VOTRE-API.clever-apps.fr/api/payments/webhook/cinetpay`
 
-## 7. Domaine personnalisé
+## 7. Domaine personnalisÃ©
 
-Console → application → *Domain names* → ajoutez `app.votredomaine.bj` / `api.votredomaine.bj`,
-CNAME chez le registrar, SSL Let's Encrypt automatique. Mettez à jour `WEB_ORIGIN`,
+Console â†’ application â†’ *Domain names* â†’ ajoutez `app.votredomaine.bj` / `api.votredomaine.bj`,
+CNAME chez le registrar, SSL Let's Encrypt automatique. Mettez Ã  jour `WEB_ORIGIN`,
 `APP_URL` et `VITE_API_URL` (redeploy du front).
 
 ## 8. Checklist de mise en production
 
-- [ ] `JWT_SECRET` fort, `MOCK_PAYMENTS=false`, clés live
-- [ ] Comptes de démo supprimés, mots de passe changés
-- [ ] Webhooks fournisseurs configurés
+- [ ] `JWT_SECRET` fort, `MOCK_PAYMENTS=false`, clÃ©s live
+- [ ] Comptes de dÃ©mo supprimÃ©s, mots de passe changÃ©s
+- [ ] Webhooks fournisseurs configurÃ©s
 - [ ] Backups PostgreSQL : activez les backups automatiques de l'add-on (console)
-- [ ] Scalabilité : ajoutez une 2ᵉ instance API si besoin (le cron in-process doit alors
-      être désactivé sur les instances secondaires — nous contacter)
-- [ ] Test complet de bout en bout (inscription → paiement réel → tiers payant)
+- [ ] ScalabilitÃ© : ajoutez une 2áµ‰ instance API si besoin (le cron in-process doit alors
+      Ãªtre dÃ©sactivÃ© sur les instances secondaires â€” nous contacter)
+- [ ] Test complet de bout en bout (inscription â†’ paiement rÃ©el â†’ tiers payant)

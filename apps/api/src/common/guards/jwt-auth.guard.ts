@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string;
   role: string;
   companyId: string | null;
+  providerId: string | null;
 }
 
 export const IS_PUBLIC_KEY = 'isPublic';
@@ -45,10 +46,10 @@ export class JwtAuthGuard implements CanActivate {
     if (payload.type !== 'access') throw new UnauthorizedException('Token invalide');
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, role: true, status: true, companyId: true },
+      select: { id: true, email: true, role: true, status: true, companyId: true, providerId: true },
     });
     if (!user || user.status === 'SUSPENDED') throw new UnauthorizedException('Compte inactif');
-    (req as any).user = { id: user.id, email: user.email, role: user.role, companyId: user.companyId } satisfies AuthUser;
+    (req as any).user = { id: user.id, email: user.email, role: user.role, companyId: user.companyId, providerId: user.providerId } satisfies AuthUser;
     return true;
   }
 }

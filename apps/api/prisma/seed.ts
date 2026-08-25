@@ -36,6 +36,8 @@ async function main() {
     prisma.claimDocument.deleteMany(),
     prisma.claimItem.deleteMany(),
     prisma.claim.deleteMany(),
+    prisma.careRecordEvent.deleteMany(),
+    prisma.careRecord.deleteMany(),
     prisma.deliveryLine.deleteMany(),
     prisma.delivery.deleteMany(),
     prisma.prescriptionLine.deleteMany(),
@@ -535,6 +537,85 @@ async function main() {
       decisionNote: 'Merci de joindre lâ€™ordonnance originale correspondant Ã  cette facture de pharmacie.',
       items: { create: [{ categoryLabel: 'PHARMACY', amountRequested: 45000 }] },
     },
+  });
+
+  const dossierProvider = await prisma.provider.findFirst({ where: { name: 'Clinique Mahouna' } });
+  const demoConsultation = await prisma.consultation.create({
+    data: {
+      reference: `CON-${new Date().getFullYear()}-DEMO01`,
+      patientUserId: jean.id,
+      providerId: dossierProvider!.id,
+      practitionerName: 'Dr Kouassi',
+      specialty: 'Medecine generale',
+      motif: 'Fievre, toux et fatigue depuis 3 jours',
+      diagnostic: 'Paludisme probable - bilan demande',
+    },
+  });
+  const demoPrescription = await prisma.prescription.create({
+    data: {
+      number: `ORD-${new Date().getFullYear()}-DEMO01`,
+      qrToken: 'demo_qr_dossier_001',
+      patientUserId: jean.id,
+      consultationId: demoConsultation.id,
+      providerId: dossierProvider!.id,
+      prescriberUserId: providerUser.id,
+      prescriberName: 'Dr Kouassi',
+      validFrom: new Date(),
+      validUntil: new Date(Date.now() + 30 * 86400000),
+      lines: {
+        create: [
+          { code: 'MED-AMOX', name: 'Amoxicilline 500mg (boite 12)', categoryId: 'PHARMACY', quantity: 1, unitPrice: 3500 },
+          { code: 'MED-ARTE', name: 'Artemether-Lumefantrine', categoryId: 'PHARMACY', quantity: 1, unitPrice: 2800 },
+          { code: 'LABO-001', name: 'Bilan sanguin complet', categoryId: 'LABORATORY', quantity: 1, unitPrice: 20000 },
+        ],
+      },
+    },
+    include: { lines: true },
+  });
+  const demoDelivery = await prisma.delivery.create({
+    data: {
+      reference: `DEL-${new Date().getFullYear()}-DEMO01`,
+      prescriptionId: demoPrescription.id,
+      providerId: dossierProvider!.id,
+      userId: providerUser.id,
+      patientUserId: jean.id,
+      totalAmount: 6300,
+      coveredAmount: 4725,
+      patientAmount: 1575,
+      lines: {
+        create: demoPrescription.lines.slice(0, 2).map(l => ({
+          lineId: l.id, code: l.code, name: l.name, categoryId: l.categoryId,
+          quantity: 1, unitPrice: l.unitPrice, amount: l.unitPrice,
+        })),
+      },
+    },
+    include: { lines: true },
+  });
+  await prisma.prescription.update({
+    where: { id: demoPrescription.id },
+    data: { status: 'PARTIALLY_EXECUTED' },
+  });
+  await prisma.prescriptionLine.updateMany({
+    where: { id: { in: demoPrescription.lines.slice(0, 2).map(l => l.id) } },
+    data: { deliveredQty: 1 },
+  });
+  const demoCareRecord = await prisma.careRecord.create({
+    data: {
+      reference: `DOS-${new Date().getFullYear()}-DEMO01`,
+      patientUserId: jean.id,
+      providerId: dossierProvider!.id,
+      consultationId: demoConsultation.id,
+      prescriptionId: demoPrescription.id,
+      deliveryId: demoDelivery.id,
+      status: 'OPEN',
+    },
+  });
+  await prisma.careRecordEvent.createMany({
+    data: [
+      { careRecordId: demoCareRecord.id, type: 'CONSULTATION_CREATED', title: `Consultation ${demoConsultation.reference}`, detail: demoConsultation.motif, actorUserId: providerUser.id, actorRole: 'PROVIDER' },
+      { careRecordId: demoCareRecord.id, type: 'PRESCRIPTION_CREATED', title: `Ordonnance ${demoPrescription.number}`, detail: '3 produits prescrits', actorUserId: providerUser.id, actorRole: 'PROVIDER' },
+      { careRecordId: demoCareRecord.id, type: 'DELIVERY_CREATED', title: `Delivrance ${demoDelivery.reference} — 2 produit(s)`, detail: 'Couvert 4725 FCFA', actorUserId: providerUser.id, actorRole: 'PROVIDER' },
+    ],
   });
 
   await prisma.auditLog.createMany({

@@ -11,6 +11,7 @@ import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization } from '../../do
 import { ClaimsModule, ClaimsService } from '../claims/claims.controller';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { ref, secureToken } from '../../common/utils';
+import { CareRecordController } from './care-record.controller';
 import { CareService } from './care.service';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
@@ -160,6 +161,18 @@ export class CareController {
       await this.prisma.consultation.update({ where: { id: consultation.id }, data: { claimId: claim.id } });
     }
 
+    const dossierId = await this.care.ensureCareRecord(patientUserId, {
+      beneficiaryId,
+      providerId: establishment.id,
+      consultationId: consultation.id,
+    });
+    await this.care.addEvent(dossierId, {
+      type: 'CONSULTATION_CREATED',
+      title: `Consultation ${consultation.reference} — ${consultation.motif}`,
+      detail: consultation.diagnostic ?? undefined,
+      actorUserId: auth.id, actorRole: auth.role,
+    });
+
     return consultation;
   }
 
@@ -275,6 +288,19 @@ export class CareController {
       topic: 'PRESCRIPTION_CREATED',
       title: `Ordonnance ${pres.number} : consultez vos prescriptions`,
       body: 'Une ordonnance a été créée par votre prescripteur. Procurez-vous les produits chez un prestataire partenaire.',
+    });
+
+    const dossierId2 = await this.care.ensureCareRecord(patientUserId, {
+      beneficiaryId,
+      providerId: establishment.id,
+      consultationId: pres.consultationId ?? undefined,
+      prescriptionId: pres.id,
+    });
+    await this.care.addEvent(dossierId2, {
+      type: 'PRESCRIPTION_CREATED',
+      title: `Ordonnance ${pres.number} — ${pres.lines.length} produit(s)`,
+      detail: pres.note ?? undefined,
+      actorUserId: auth.id, actorRole: auth.role,
     });
 
     return pres;
@@ -460,7 +486,7 @@ export class CareController {
     const thr = Number.isFinite(thrRaw) ? thrRaw : 150000;
     const status = needsPriorAuthorization(estimation.totals.approved, thr) ? 'AUTH_REQUIRED' : 'CONFIRMED';
 
-    const delivery = await this.prisma.$transaction(async tx => {
+    const result = await this.prisma.$transaction(async tx => {
       await tx.prescription.update({
         where: { id: pres.id },
         data: {
@@ -525,7 +551,23 @@ export class CareController {
         },
       });
       await tx.delivery.update({ where: { id: del.id }, data: { claimId: claim.id } });
-      return del;
+      return { del, claim };
+    });
+
+    const delivery = result.del;
+
+    const dossierId3 = await this.care.ensureCareRecord(patient.id ?? pres.patientUserId, {
+      beneficiaryId: pres.beneficiaryId ?? null,
+      providerId: establishment.id,
+      prescriptionId: pres.id,
+      deliveryId: delivery.id,
+      claimId: result.claim.id,
+    });
+    await this.care.addEvent(dossierId3, {
+      type: 'DELIVERY_CREATED',
+      title: `Délivrance ${result.del.reference} — ${result.del.lines.length} produit(s)`,
+      detail: `Couvert ${estimation.totals.approved} FCFA — à charge ${estimation.totals.outOfPocket} FCFA`,
+      actorUserId: auth.id, actorRole: auth.role,
     });
 
     if (status === 'AUTH_REQUIRED') {
@@ -633,7 +675,7 @@ export class CareController {
 }
 
 @Module({
-  controllers: [CareController],
+  controllers: [CareController, CareRecordController],
   providers: [CareService],
   imports: [ClaimsModule],
 })

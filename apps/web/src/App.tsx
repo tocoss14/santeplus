@@ -20,6 +20,8 @@ import Profile from './pages/shared/Profile';
 import Notifications from './pages/shared/Notifications';
 import MemberConsultations from './pages/member/MemberConsultations';
 import MemberPrescriptions from './pages/member/MemberPrescriptions';
+import CareRecordList from './pages/member/CareRecordList';
+import CareRecordDetail from './pages/member/CareRecordDetail';
 import CompanyDashboard from './pages/company/Dashboard';
 import Employees from './pages/company/Employees';
 import CollectiveContract from './pages/company/CollectiveContract';
@@ -38,6 +40,7 @@ import ProviderDashboard from './pages/provider/ProviderDashboard';
 import ProviderConsultations from './pages/provider/ProviderConsultations';
 import ProviderPrescriptions from './pages/provider/ProviderPrescriptions';
 import ProviderDeliveries from './pages/provider/ProviderDeliveries';
+import ProviderCareRecords from './pages/provider/ProviderCareRecords';
 import NewThirdParty from './pages/provider/NewThirdParty';
 import TpList from './pages/provider/TpList';
 import TpDetail from './pages/provider/TpDetail';
@@ -68,6 +71,8 @@ export default function App() {
         <Route path="souscrire" element={<SubscribeWizard />} />
         <Route path="contrat" element={<MyContract />} />
         <Route path="carte" element={<DigitalCard />} />
+        <Route path="soins" element={<CareRecordList />} />
+        <Route path="soins/:id" element={<CareRecordDetail />} />
         <Route path="ordonnances" element={<MemberPrescriptions />} />
         <Route path="consultations" element={<MemberConsultations />} />
         <Route path="beneficiaires" element={<Beneficiaries />} />
@@ -109,6 +114,8 @@ export default function App() {
         <Route path="consultations" element={<ProviderConsultations />} />
         <Route path="ordonnances" element={<ProviderPrescriptions />} />
         <Route path="delivrances" element={<ProviderDeliveries />} />
+        <Route path="dossiers" element={<ProviderCareRecords />} />
+        <Route path="dossiers/:id" element={<CareRecordDetail />} />
         <Route path="prises" element={<TpList />} />
         <Route path="prises/:id" element={<TpDetail />} />
         <Route path="paiements" element={<ProviderPayments />} />

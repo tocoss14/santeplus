@@ -46,6 +46,7 @@ model User {
   deliveries           Delivery[]       @relation("DeliveryUser")
   deliveriesAsPatient  Delivery[]       @relation("DeliveryPatient")
   claimsDecided        Claim[]          @relation("ClaimDecider")
+  careRecords          CareRecord[]     @relation("CareRecordPatient")
 
   @@index([role])
   @@index([status])
@@ -209,6 +210,7 @@ model Beneficiary {
 
   changes BeneficiaryChange[]
   claims  Claim[]
+  careRecords CareRecord[]
 
   @@index([contractId])
 }
@@ -297,6 +299,7 @@ model Claim {
   prescription  Prescription? @relation("ClaimPrescription", fields: [prescriptionId], references: [id])
   prescriptionId String?
   deliveryId     String?
+  careRecord     CareRecord?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -382,6 +385,7 @@ model Provider {
   consultations Consultation[]
   prescriptions Prescription[] @relation("PrescriptionProvider")
   deliveries Delivery[]
+  careRecords CareRecord[]
 
   @@index([city])
   @@index([type])
@@ -442,6 +446,7 @@ model Consultation {
   createdAt         DateTime @default(now())
 
   prescriptions     Prescription[]
+  careRecord        CareRecord?
 
   @@index([patientUserId])
   @@index([providerId])
@@ -469,6 +474,7 @@ model Prescription {
   renewalsUsed      Int      @default(0)
   note              String?
   claims            Claim[]  @relation("ClaimPrescription")
+  careRecord        CareRecord?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -518,6 +524,7 @@ model Delivery {
   patientAmount  Int
   claimId        String?  @unique
   claim          Claim?   @relation("DeliveryClaim", fields: [claimId], references: [id])
+  careRecord     CareRecord?
   createdAt      DateTime @default(now())
 
   lines          DeliveryLine[]
@@ -586,4 +593,48 @@ model RolePermission {
 model SystemConfig {
   key   String @id
   value String
+}
+
+model CareRecord {
+  id             String   @id @default(cuid())
+  reference      String   @unique
+  patientUserId  String
+  patientUser    User     @relation("CareRecordPatient", fields: [patientUserId], references: [id])
+  beneficiaryId  String?
+  beneficiary    Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+  providerId     String?
+  provider       Provider? @relation(fields: [providerId], references: [id])
+  consultationId String?  @unique
+  consultation   Consultation? @relation(fields: [consultationId], references: [id])
+  prescriptionId String?  @unique
+  prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
+  deliveryId     String?  @unique
+  delivery       Delivery? @relation(fields: [deliveryId], references: [id])
+  claimId        String?  @unique
+  claim          Claim?   @relation(fields: [claimId], references: [id])
+  status         String   @default("OPEN")
+  type           String   @default("GENERAL")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  events         CareRecordEvent[]
+
+  @@index([patientUserId])
+  @@index([providerId])
+  @@index([status])
+}
+
+model CareRecordEvent {
+  id           String     @id @default(cuid())
+  careRecordId String
+  careRecord   CareRecord @relation(fields: [careRecordId], references: [id], onDelete: Cascade)
+  type         String
+  title        String
+  detail       String?
+  actorUserId  String?
+  actorRole    String?
+  createdAt    DateTime   @default(now())
+
+  @@index([careRecordId])
+  @@index([type])
 }

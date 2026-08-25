@@ -13,11 +13,20 @@ export default function VerifyCard() {
   const [scanning, setScanning] = useState(false);
 
   async function verify(rawToken?: string) {
-    const value = (rawToken ?? token).trim().replace(/^"|"$/g, '');
+    let value = (rawToken ?? token).trim();
+    if (value.startsWith('{')) {
+      try { value = JSON.parse(value)?.t ?? value; } catch { /* texte brut */ }
+    }
+    value = value.replace(/^"|"$/g, '');
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<any>('/provider/verify', { cardToken: value });
+      const payload: Record<string, string> = /^CTR-/.test(value)
+        ? { contractNumber: value }
+        : value.startsWith('tok_') || value.length >= 20
+          ? { cardToken: value }
+          : { memberNumber: value };
+      const res = await api.post<any>('/provider/verify', payload);
       setResult(res);
     } catch (e: any) {
       setError(e?.message ?? 'Vérification impossible');
@@ -38,7 +47,7 @@ export default function VerifyCard() {
         <Field label="Jeton de vérification">
           <input
             className="input font-mono"
-            placeholder="tok_xxxxxxxxxxxx"
+            placeholder="tok / MEM-A00001 / CTR-2026-"
             value={token}
             onChange={e => setToken(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !busy && token.length >= 10 && verify()}

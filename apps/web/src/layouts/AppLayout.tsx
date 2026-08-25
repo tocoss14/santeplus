@@ -44,7 +44,17 @@ const MENUS: Record<string, { items: Item[] }> = {
     ],
   },
   provider: {
-    items: [{ to: '/prestataire', label: 'Vérification carte', icon: '📷', end: true }],
+    items: [
+      { to: '/prestataire', label: 'Tableau de bord', icon: '📊', end: true },
+      { to: '/prestataire/verifier', label: 'Vérifier un assuré', icon: '🪪' },
+      { to: '/prestataire/nouvelle', label: 'Nouvelle prise en charge', icon: '➕' },
+      { to: '/prestataire/prises', label: 'Prises en charge', icon: '🧾' },
+      { to: '/prestataire/paiements', label: 'Paiements', icon: '💰' },
+      { to: '/prestataire/etablissement', label: 'Mon établissement', icon: '🏥' },
+      { to: '/prestataire/personnel', label: 'Personnel', icon: '👥' },
+      { to: '/prestataire/notifications', label: 'Notifications', icon: '🔔' },
+      { to: '/prestataire/profil', label: 'Profil', icon: '⚙️' },
+    ],
   },
 };
 

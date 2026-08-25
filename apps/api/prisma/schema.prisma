@@ -25,6 +25,8 @@ model User {
   memberNumber     String?       @unique
   companyId        String?
   company          Company?      @relation(fields: [companyId], references: [id])
+  providerId       String?
+  providerStaff    Provider?     @relation(fields: [providerId], references: [id])
   language         String        @default("fr")
   lastLoginAt      DateTime?
   createdAt        DateTime      @default(now())
@@ -277,6 +279,9 @@ model Claim {
   decidedAt      DateTime?
   paidAt         DateTime?
   paidRef        String?
+  invoiceNumber  String?
+  invoicedAt     DateTime?
+  realizationNote String?
   estimation     String?
   flags          String    @default("[]")
 
@@ -296,6 +301,12 @@ model ClaimItem {
   id               String  @id @default(cuid())
   claimId          String
   claim            Claim   @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  actId            String?
+  code             String?
+  label            String?
+  quantity         Int?
+  unitPrice        Int?
+  practitioner     String?
   guaranteeId      String?
   categoryLabel    String
   amountRequested  Int
@@ -356,10 +367,26 @@ model Provider {
   active          Boolean @default(true)
   createdAt       DateTime @default(now())
 
+  staff  User[]
   claims Claim[]
 
   @@index([city])
   @@index([type])
+}
+
+model Act {
+  id             String  @id @default(cuid())
+  code           String  @unique
+  name           String
+  categoryId     String
+  referencePrice Int
+  active         Boolean @default(true)
+  sortOrder      Int     @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([active])
 }
 
 model Notification {

@@ -14,6 +14,7 @@ import { PaymentsModule } from './modules/payments/payments.controller';
 import { ClaimsModule } from './modules/claims/claims.controller';
 import { FilesModule } from './modules/files/files.service';
 import { ProvidersModule } from './modules/providers/providers.controller';
+import { ProviderPortalModule } from './modules/providers/provider-portal.controller';
 import { CompanyModule } from './modules/company/company.controller';
 import { NotificationsHttpModule } from './modules/notifications/notifications.controller';
 import { StatsModule } from './modules/stats/stats.controller';
@@ -34,6 +35,7 @@ import { CronService } from './jobs/cron.service';
     ClaimsModule,
     FilesModule,
     ProvidersModule,
+    ProviderPortalModule,
     CompanyModule,
     NotificationsHttpModule,
     StatsModule,

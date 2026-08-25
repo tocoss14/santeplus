@@ -13,7 +13,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
   COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],
   MEMBER: [],
-  PROVIDER: ['provider.verify', 'provider.thirdparty'],
+  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff'],
 };
 
 function daysFromNow(n: number): Date {
@@ -28,7 +28,7 @@ function date(year: number, month: number, day: number): Date {
 }
 
 async function main() {
-  console.log('Suppression des données existantes…');
+  console.log('Suppression des donnÃ©es existantesâ€¦');
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),
     prisma.notification.deleteMany(),
@@ -50,6 +50,7 @@ async function main() {
     prisma.provider.deleteMany(),
     prisma.user.deleteMany(),
     prisma.company.deleteMany(),
+    prisma.act.deleteMany(),
     prisma.rolePermission.deleteMany(),
     prisma.systemConfig.deleteMany(),
   ]);
@@ -62,8 +63,8 @@ async function main() {
       { key: 'suspendAfterOverdueDays', value: '45' },
       { key: 'expiryReminders', value: '[30,15,7]' },
       { key: 'thirdPartyAuthThreshold', value: '150000' },
-      { key: 'appName', value: '"SantéPlus Bénin"' },
-      { key: 'platformRole', value: '"Plateforme technologique — le risque est porté par un assureur/mutuelle partenaire agréé."' },
+      { key: 'appName', value: '"SantÃ©Plus BÃ©nin"' },
+      { key: 'platformRole', value: '"Plateforme technologique â€” le risque est portÃ© par un assureur/mutuelle partenaire agrÃ©Ã©."' },
     ],
   });
 
@@ -71,15 +72,15 @@ async function main() {
     if (role === 'SUPER_ADMIN') continue;
     await prisma.rolePermission.createMany({ data: keys.map(permissionKey => ({ role, permissionKey })) });
   }
-  console.log('Rôles et configuration OK');
+  console.log('RÃ´les et configuration OK');
 
   const guaranteesData = [
     { code: 'HOSP', name: 'Hospitalisation', category: 'HOSPITALIZATION', sortOrder: 1 },
     { code: 'CONS', name: 'Consultations', category: 'CONSULTATION', sortOrder: 2 },
     { code: 'PHAR', name: 'Pharmacie', category: 'PHARMACY', sortOrder: 3 },
     { code: 'LABO', name: 'Analyses & imagerie', category: 'LABORATORY', sortOrder: 4 },
-    { code: 'SPEC', name: 'Soins spécialisés', category: 'SPECIALIZED', sortOrder: 5 },
-    { code: 'MAT', name: 'Maternité', category: 'MATERNITY', sortOrder: 6 },
+    { code: 'SPEC', name: 'Soins spÃ©cialisÃ©s', category: 'SPECIALIZED', sortOrder: 5 },
+    { code: 'MAT', name: 'MaternitÃ©', category: 'MATERNITY', sortOrder: 6 },
     { code: 'DENT', name: 'Soins dentaires', category: 'DENTAL', sortOrder: 7 },
     { code: 'OPT', name: 'Optique', category: 'OPTICAL', sortOrder: 8 },
   ];
@@ -93,7 +94,7 @@ async function main() {
     data: { name: 'Assurance Partenaire SA', kind: 'INSURER', agreementNumber: 'CONV-2026-001', contactEmail: 'partenaire@assurance-bj.example', phone: '+229 21 30 00 01' },
   });
   const partnerB = await prisma.insurerPartner.create({
-    data: { name: 'Mutuelle Santé Zémidjan', kind: 'MUTUAL', agreementNumber: 'CONV-2026-002', contactEmail: 'contact@mutuelle-zem.example', phone: '+229 21 30 00 02' },
+    data: { name: 'Mutuelle SantÃ© ZÃ©midjan', kind: 'MUTUAL', agreementNumber: 'CONV-2026-002', contactEmail: 'contact@mutuelle-zem.example', phone: '+229 21 30 00 02' },
   });
 
   async function createProduct(data: any) {
@@ -135,7 +136,7 @@ async function main() {
 
   const prodConfort = await createProduct({
     code: 'CONF', name: 'Formule Confort', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 2,
-    description: 'Garanties renforcées : maternité, soins spécialisés et plafonds plus élevés.',
+    description: 'Garanties renforcÃ©es : maternitÃ©, soins spÃ©cialisÃ©s et plafonds plus Ã©levÃ©s.',
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
     basePremiumAnnual: 75000, pricePerAdditionalAdultAnnual: 45000, pricePerChildAnnual: 28000,
     insurerPartnerId: partnerA.id,
@@ -152,12 +153,12 @@ async function main() {
 
   const prodPremium = await createProduct({
     code: 'PREM', name: 'Formule Premium', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 3,
-    description: 'La protection la plus complète : plafonds élevés, optique et dentaire inclus.',
+    description: 'La protection la plus complÃ¨te : plafonds Ã©levÃ©s, optique et dentaire inclus.',
     minAge: 0, maxAge: 70, waitingPeriodDays: 0,
     basePremiumAnnual: 120000, pricePerAdditionalAdultAnnual: 70000, pricePerChildAnnual: 42000,
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 26, otherAllowed: true, maxBeneficiaries: 10 },
-    eligibilityConditions: "Aucun délai de carence. Questionnaire de santé simplifié.",
+    eligibilityConditions: "Aucun dÃ©lai de carence. Questionnaire de santÃ© simplifiÃ©.",
     guarantees: [
       { category: 'HOSPITALIZATION', limit: 10000000, rate: 90 },
       { category: 'CONSULTATION', limit: 250000, rate: 85 },
@@ -172,7 +173,7 @@ async function main() {
 
   const prodEntreprise = await createProduct({
     code: 'ENT-COLL', name: 'Collective Entreprise', clientType: 'COMPANY', status: 'ACTIVE', sortOrder: 1,
-    description: 'Couverture collective pour vos salariés et leurs ayants droit.',
+    description: 'Couverture collective pour vos salariÃ©s et leurs ayants droit.',
     minAge: 18, maxAge: 63, waitingPeriodDays: 15,
     basePremiumAnnual: 0, pricePerAdditionalAdultAnnual: 55000, pricePerChildAnnual: 35000,
     insurerPartnerId: partnerA.id,
@@ -186,26 +187,26 @@ async function main() {
       { category: 'MATERNITY', limit: 450000, rate: 65 },
     ],
   });
-  console.log('Produits créés');
+  console.log('Produits crÃ©Ã©s');
 
   const providersData = [
-    { name: 'CHU Hubert Koutoukou Maga', type: 'HOSPITAL', city: 'Cotonou', address: 'Avenue Jean-Paul II', phone: '+229 21 30 01 81', lat: 6.357, lng: 2.429, specialties: 'Médecine générale, chirurgie, pédiatrie', openingHours: '24h/24', services: 'Urgences, hospitalisation, imagerie', conventionLevel: 'PREMIUM', thirdPartyPayer: true },
-    { name: 'Clinique Mahouna', type: 'CLINIC', city: 'Cotonou', address: 'Carré 1100, Fidjrossè', phone: '+229 21 24 10 10', lat: 6.365, lng: 2.395, specialties: 'Gynécologie, médecine générale', openingHours: 'Lun-Sam 7h-20h', services: 'Consultations, échographie, petite chirurgie', conventionLevel: 'PLUS', thirdPartyPayer: true },
-    { name: 'Polyclinique Les Cocotiers', type: 'CLINIC', city: 'Cotonou', address: 'Rue 12.068, Haie Vive', phone: '+229 21 31 04 04', lat: 6.373, lng: 2.416, specialties: 'Cardiologie, diabétologie, ophtalmologie', openingHours: 'Lun-Ven 8h-19h', services: 'Consultations spécialisées, laboratoire', conventionLevel: 'PLUS', thirdPartyPayer: false },
-    { name: 'Pharmacie du Rond-Point', type: 'PHARMACY', city: 'Cotonou', address: 'Rond-point Dantokpa', phone: '+229 21 31 55 66', lat: 6.369, lng: 2.428, openingHours: 'Lun-Dim 8h-22h', services: 'Médicaments, parapharmacie', conventionLevel: 'BASIC', thirdPartyPayer: true },
-    { name: 'Laboratoire Bio Cotonou', type: 'LABORATORY', city: 'Cotonou', address: 'Avenue Steinmetz', phone: '+229 97 00 11 22', lat: 6.362, lng: 2.421, openingHours: 'Lun-Sam 7h-18h', services: 'Analyses médicales générales, sérologie', conventionLevel: 'PLUS', thirdPartyPayer: true },
-    { name: 'Centre de Santé d’Abomey-Calavi', type: 'HEALTH_CENTER', city: 'Abomey-Calavi', address: 'Carrefour Tankpè', phone: '+229 21 36 00 21', lat: 6.449, lng: 2.356, openingHours: '24h/24', services: 'Consultations, maternité, vaccination', conventionLevel: 'BASIC', thirdPartyPayer: false },
-    { name: 'Clinique Universitaire Godomey', type: 'CLINIC', city: 'Abomey-Calavi', address: 'Godomey Carrefour', phone: '+229 21 36 44 55', lat: 6.451, lng: 2.341, specialties: 'Médecine générale, pédiatrie', openingHours: 'Lun-Dim 7h-21h', services: 'Consultations, hospitalisation courte', conventionLevel: 'BASIC', thirdPartyPayer: true },
-    { name: 'CHU-MEL Départmental Ouémé', type: 'HOSPITAL', city: 'Porto-Novo', address: 'Quartier Djègan-Kpèvi', phone: '+229 20 22 50 40', lat: 6.497, lng: 2.605, specialties: 'Chirurgie, médecine interne', openingHours: '24h/24', services: 'Urgences, hospitalisation, scanner', conventionLevel: 'PLUS', thirdPartyPayer: true },
-    { name: 'Pharmacie Portovoise', type: 'PHARMACY', city: 'Porto-Novo', address: 'Avenue Bayol', phone: '+229 20 21 33 77', lat: 6.493, lng: 2.612, openingHours: 'Lun-Sam 8h-21h', services: 'Médicaments', conventionLevel: 'BASIC', thirdPartyPayer: true },
-    { name: 'CHU Borgou Alibori', type: 'HOSPITAL', city: 'Parakou', address: 'Boulevard de la République', phone: '+229 23 61 20 60', lat: 9.337, lng: 2.618, specialties: 'Chirurgie viscérale, traumatologie', openingHours: '24h/24', services: 'Urgences, hospitalisation', conventionLevel: 'PLUS', thirdPartyPayer: true },
-    { name: 'Cabinet Dentaire Sourire', type: 'MEDICAL_CABINET', city: 'Cotonou', address: 'Fidjrossè plage', phone: '+229 95 12 34 56', lat: 6.36, lng: 2.388, specialties: 'Odontostomatologie', openingHours: 'Lun-Ven 8h-17h', services: 'Soins dentaires, détartrage', conventionLevel: 'BASIC', thirdPartyPayer: false },
-    { name: 'Dr Sossah — Ophtalmologue', type: 'SPECIALIST', city: 'Cotonou', address: 'Cadjèhoun, rue des Ambassadeurs', phone: '+229 21 34 98 76', lat: 6.356, lng: 2.409, specialties: 'Ophtalmologie', openingHours: 'Sur rendez-vous', services: 'Consultation, chirurgie cataracte', conventionLevel: 'PLUS', thirdPartyPayer: false },
+    { name: 'CHU Hubert Koutoukou Maga', type: 'HOSPITAL', city: 'Cotonou', address: 'Avenue Jean-Paul II', phone: '+229 21 30 01 81', lat: 6.357, lng: 2.429, specialties: 'MÃ©decine gÃ©nÃ©rale, chirurgie, pÃ©diatrie', openingHours: '24h/24', services: 'Urgences, hospitalisation, imagerie', conventionLevel: 'PREMIUM', thirdPartyPayer: true },
+    { name: 'Clinique Mahouna', type: 'CLINIC', city: 'Cotonou', address: 'CarrÃ© 1100, FidjrossÃ¨', phone: '+229 21 24 10 10', lat: 6.365, lng: 2.395, specialties: 'GynÃ©cologie, mÃ©decine gÃ©nÃ©rale', openingHours: 'Lun-Sam 7h-20h', services: 'Consultations, Ã©chographie, petite chirurgie', conventionLevel: 'PLUS', thirdPartyPayer: true },
+    { name: 'Polyclinique Les Cocotiers', type: 'CLINIC', city: 'Cotonou', address: 'Rue 12.068, Haie Vive', phone: '+229 21 31 04 04', lat: 6.373, lng: 2.416, specialties: 'Cardiologie, diabÃ©tologie, ophtalmologie', openingHours: 'Lun-Ven 8h-19h', services: 'Consultations spÃ©cialisÃ©es, laboratoire', conventionLevel: 'PLUS', thirdPartyPayer: false },
+    { name: 'Pharmacie du Rond-Point', type: 'PHARMACY', city: 'Cotonou', address: 'Rond-point Dantokpa', phone: '+229 21 31 55 66', lat: 6.369, lng: 2.428, openingHours: 'Lun-Dim 8h-22h', services: 'MÃ©dicaments, parapharmacie', conventionLevel: 'BASIC', thirdPartyPayer: true },
+    { name: 'Laboratoire Bio Cotonou', type: 'LABORATORY', city: 'Cotonou', address: 'Avenue Steinmetz', phone: '+229 97 00 11 22', lat: 6.362, lng: 2.421, openingHours: 'Lun-Sam 7h-18h', services: 'Analyses mÃ©dicales gÃ©nÃ©rales, sÃ©rologie', conventionLevel: 'PLUS', thirdPartyPayer: true },
+    { name: 'Centre de SantÃ© dâ€™Abomey-Calavi', type: 'HEALTH_CENTER', city: 'Abomey-Calavi', address: 'Carrefour TankpÃ¨', phone: '+229 21 36 00 21', lat: 6.449, lng: 2.356, openingHours: '24h/24', services: 'Consultations, maternitÃ©, vaccination', conventionLevel: 'BASIC', thirdPartyPayer: false },
+    { name: 'Clinique Universitaire Godomey', type: 'CLINIC', city: 'Abomey-Calavi', address: 'Godomey Carrefour', phone: '+229 21 36 44 55', lat: 6.451, lng: 2.341, specialties: 'MÃ©decine gÃ©nÃ©rale, pÃ©diatrie', openingHours: 'Lun-Dim 7h-21h', services: 'Consultations, hospitalisation courte', conventionLevel: 'BASIC', thirdPartyPayer: true },
+    { name: 'CHU-MEL DÃ©partmental OuÃ©mÃ©', type: 'HOSPITAL', city: 'Porto-Novo', address: 'Quartier DjÃ¨gan-KpÃ¨vi', phone: '+229 20 22 50 40', lat: 6.497, lng: 2.605, specialties: 'Chirurgie, mÃ©decine interne', openingHours: '24h/24', services: 'Urgences, hospitalisation, scanner', conventionLevel: 'PLUS', thirdPartyPayer: true },
+    { name: 'Pharmacie Portovoise', type: 'PHARMACY', city: 'Porto-Novo', address: 'Avenue Bayol', phone: '+229 20 21 33 77', lat: 6.493, lng: 2.612, openingHours: 'Lun-Sam 8h-21h', services: 'MÃ©dicaments', conventionLevel: 'BASIC', thirdPartyPayer: true },
+    { name: 'CHU Borgou Alibori', type: 'HOSPITAL', city: 'Parakou', address: 'Boulevard de la RÃ©publique', phone: '+229 23 61 20 60', lat: 9.337, lng: 2.618, specialties: 'Chirurgie viscÃ©rale, traumatologie', openingHours: '24h/24', services: 'Urgences, hospitalisation', conventionLevel: 'PLUS', thirdPartyPayer: true },
+    { name: 'Cabinet Dentaire Sourire', type: 'MEDICAL_CABINET', city: 'Cotonou', address: 'FidjrossÃ¨ plage', phone: '+229 95 12 34 56', lat: 6.36, lng: 2.388, specialties: 'Odontostomatologie', openingHours: 'Lun-Ven 8h-17h', services: 'Soins dentaires, dÃ©tartrage', conventionLevel: 'BASIC', thirdPartyPayer: false },
+    { name: 'Dr Sossah â€” Ophtalmologue', type: 'SPECIALIST', city: 'Cotonou', address: 'CadjÃ¨houn, rue des Ambassadeurs', phone: '+229 21 34 98 76', lat: 6.356, lng: 2.409, specialties: 'Ophtalmologie', openingHours: 'Sur rendez-vous', services: 'Consultation, chirurgie cataracte', conventionLevel: 'PLUS', thirdPartyPayer: false },
   ];
   for (const p of providersData) {
     await prisma.provider.create({ data: { ...p, partnerStatus: 'ACTIVE', active: true } as any });
   }
-  console.log(`${providersData.length} prestataires créés`);
+  console.log(`${providersData.length} prestataires crÃ©Ã©s`);
 
   async function createUser(data: any) {
     return prisma.user.create({ data: { ...data, passwordHash: password } });
@@ -224,7 +225,7 @@ async function main() {
 
   const jean = await createUser({
     email: 'jean@demo.bj', role: 'MEMBER', firstName: 'Jean', lastName: 'Agbodjan', phone: '+229 96 11 22 33', birthDate: date(1988, 7, 14), gender: 'M',
-    address: 'Carré 405, Gbégamey', city: 'Cotonou', memberNumber: 'MEM-A00001',
+    address: 'CarrÃ© 405, GbÃ©gamey', city: 'Cotonou', memberNumber: 'MEM-A00001',
     emergencyContact: 'Sylvie Agbodjan (+229 97 88 77 66)',
   });
 
@@ -239,10 +240,41 @@ async function main() {
   });
 
   const providerUser = await createUser({
-    email: 'prestataire@santeplus.bj', role: 'PROVIDER', firstName: 'Réception', lastName: 'Clinique Mahouna', memberNumber: 'MEM-PREST1',
+    email: 'prestataire@santeplus.bj', role: 'PROVIDER', firstName: 'RÃ©ception', lastName: 'Clinique Mahouna', memberNumber: 'MEM-PREST1',
   });
 
-  console.log('Utilisateurs créés');
+  const actsData = [
+    { code: 'CONS-001', name: 'Consultation mÃ©decine gÃ©nÃ©rale', category: 'CONSULTATION', price: 10000 },
+    { code: 'CONS-002', name: 'Consultation spÃ©cialiste', category: 'CONSULTATION', price: 25000 },
+    { code: 'HOSP-001', name: 'Hospitalisation â€” journÃ©e', category: 'HOSPITALIZATION', price: 45000 },
+    { code: 'HOSP-002', name: 'Bloc opÃ©ratoire (forfait)', category: 'HOSPITALIZATION', price: 350000 },
+    { code: 'PHAR-001', name: 'MÃ©dicaments (ordonnance)', category: 'PHARMACY', price: 25000 },
+    { code: 'LABO-001', name: 'Bilan sanguin complet', category: 'LABORATORY', price: 20000 },
+    { code: 'LABO-002', name: 'Test paludisme (TDR)', category: 'LABORATORY', price: 5000 },
+    { code: 'LABO-003', name: 'Ã‰chographie', category: 'LABORATORY', price: 15000 },
+    { code: 'SPEC-001', name: 'SÃ©ance de dialyse', category: 'SPECIALIZED', price: 90000 },
+    { code: 'SPEC-002', name: 'KinÃ©sithÃ©rapie (sÃ©ance)', category: 'SPECIALIZED', price: 12000 },
+    { code: 'MAT-001', name: 'Accouchement simple', category: 'MATERNITY', price: 120000 },
+    { code: 'MAT-002', name: 'CÃ©sarienne', category: 'MATERNITY', price: 450000 },
+    { code: 'DENT-001', name: 'Extraction dentaire', category: 'DENTAL', price: 15000 },
+    { code: 'OPT-001', name: 'Lunettes (paire)', category: 'OPTICAL', price: 60000 },
+  ];
+  for (const [i, a] of actsData.entries()) {
+    await prisma.act.create({
+      data: { code: a.code, name: a.name, categoryId: a.category, referencePrice: a.price, sortOrder: i + 1 },
+    });
+  }
+
+  const mahounaProvider = await prisma.provider.findFirst({ where: { name: 'Clinique Mahouna' } });
+  if (mahounaProvider) {
+    await prisma.user.update({ where: { id: providerUser.id }, data: { providerId: mahounaProvider.id } });
+    await createUser({
+      email: 'caisse@santeplus.bj', role: 'PROVIDER', firstName: 'Caisse', lastName: 'Clinique Mahouna',
+      memberNumber: 'MEM-PREST2', providerId: mahounaProvider.id,
+    });
+  }
+
+  console.log('Utilisateurs crÃ©Ã©s');
 
   function quoteSnapshot(totalAnnual: number, frequency: string, periods: number) {
     const factorMap: Record<string, number> = { ANNUAL: 1, QUARTERLY: 1.03, MONTHLY: 1.06 };
@@ -315,7 +347,7 @@ async function main() {
     user: jean, product: prodConfort, status: 'ACTIVE', startOffset: -130, cardTokenSeed: 'JEAN01',
     beneficiaries: [
       { firstName: 'Sylvie', lastName: 'Agbodjan', birthDate: date(1990, 9, 21), gender: 'F', relation: 'SPOUSE', memberNumber: 'MEM-B00001' },
-      { firstName: 'Léo', lastName: 'Agbodjan', birthDate: date(2016, 2, 8), gender: 'M', relation: 'CHILD', memberNumber: 'MEM-B00002' },
+      { firstName: 'LÃ©o', lastName: 'Agbodjan', birthDate: date(2016, 2, 8), gender: 'M', relation: 'CHILD', memberNumber: 'MEM-B00002' },
       { firstName: 'Maya', lastName: 'Agbodjan', birthDate: date(2019, 6, 30), gender: 'F', relation: 'CHILD', memberNumber: 'MEM-B00003' },
     ],
     contributionsPaid: 4, contributionCount: 12,
@@ -352,10 +384,10 @@ async function main() {
 
   const employeesData = [
     { firstName: 'Rodrigue', lastName: 'Ahouandjinou', email: 'rodrigue.sotraben@demo.bj', phone: '+229 97 12 34 01', birthDate: date(1987, 5, 3), gender: 'M', position: 'Chauffeur senior', beneficiaries: [] },
-    { firstName: 'Nadège', lastName: 'Tossou', email: 'nadege.sotraben@demo.bj', phone: '+229 97 12 34 02', birthDate: date(1992, 8, 19), gender: 'F', position: 'Comptable', beneficiaries: [] },
+    { firstName: 'NadÃ¨ge', lastName: 'Tossou', email: 'nadege.sotraben@demo.bj', phone: '+229 97 12 34 02', birthDate: date(1992, 8, 19), gender: 'F', position: 'Comptable', beneficiaries: [] },
     { firstName: 'Ibrahim', lastName: 'Soumanou', email: 'ibrahim.sotraben@demo.bj', phone: '+229 97 12 34 03', birthDate: date(1990, 1, 27), gender: 'M', position: 'Magasinier', beneficiaries: [] },
     { firstName: 'Chantal', lastName: 'Djidjoho', email: 'chantal.sotraben@demo.bj', phone: '+229 97 12 34 04', birthDate: date(1996, 12, 5), gender: 'F', position: 'Assistante RH', beneficiaries: [] },
-    { firstName: 'Éric', lastName: 'Kpossou', email: 'eric.sotraben@demo.bj', phone: '+229 97 12 34 05', birthDate: date(1994, 4, 14), gender: 'M', position: 'Chauffeur', beneficiaries: [] },
+    { firstName: 'Ã‰ric', lastName: 'Kpossou', email: 'eric.sotraben@demo.bj', phone: '+229 97 12 34 05', birthDate: date(1994, 4, 14), gender: 'M', position: 'Chauffeur', beneficiaries: [] },
     { firstName: 'Reine', lastName: 'Zinsou', email: 'reine.sotraben@demo.bj', phone: '+229 97 12 34 06', birthDate: date(1989, 10, 9), gender: 'F', position: 'Responsable commercial', beneficiaries: [] },
   ];
 
@@ -383,7 +415,7 @@ async function main() {
       principalUserId: companyAdmin.id, productId: prodEntreprise.id, companyId: company1.id,
       startDate: groupStart, endDate: groupEnd,
       premiumAnnual: 330000, frequency: 'QUARTERLY',
-      quote: JSON.stringify({ lines: [{ label: 'Salariés assurés (6)', amount: 330000 }], employeesCount: 6, periodicAmount: 84150 }),
+      quote: JSON.stringify({ lines: [{ label: 'SalariÃ©s assurÃ©s (6)', amount: 330000 }], employeesCount: 6, periodicAmount: 84150 }),
       cardToken: 'tok_group_sotraben_demo',
     },
   });
@@ -394,7 +426,7 @@ async function main() {
       data: { contractId: groupContract.id, sequence: i + 1, dueDate, amount: 82500, status: paid ? 'PAID' : 'PENDING', paidAt: paid ? new Date(dueDate.getTime() + 172800000) : null },
     });
   }
-  console.log('Contrats créés (individuels + collectif)');
+  console.log('Contrats crÃ©Ã©s (individuels + collectif)');
 
   const mahouna = await prisma.provider.findFirst({ where: { name: 'Clinique Mahouna' } });
   const bioLabo = await prisma.provider.findFirst({ where: { name: 'Laboratoire Bio Cotonou' } });
@@ -457,7 +489,7 @@ async function main() {
       reference: 'SIN-2026-A00003', contractId: jeanContract.id, claimantUserId: jean.id, beneficiaryId: leo!.id, providerId: mahouna!.id,
       careDate: daysFromNow(-70), status: 'APPROVED', submittedAt: daysFromNow(-68), decidedAt: daysFromNow(-64),
       totalRequested: 24000, totalApproved: 19200,
-      decisionNote: 'Consultation pédiatrique validée.',
+      decisionNote: 'Consultation pÃ©diatrique validÃ©e.',
       items: { create: [{ categoryLabel: 'CONSULTATION', amountRequested: 24000, amountEligible: 24000, rateApplied: 80, deductibleApplied: 0, amountApproved: 19200 }] },
     },
   });
@@ -478,7 +510,7 @@ async function main() {
       reference: 'SIN-2026-A00005', contractId: fatouContract.id, claimantUserId: fatou.id,
       careDate: daysFromNow(-5), status: 'INFO_REQUESTED', submittedAt: daysFromNow(-3),
       totalRequested: 45000,
-      decisionNote: 'Merci de joindre l’ordonnance originale correspondant à cette facture de pharmacie.',
+      decisionNote: 'Merci de joindre lâ€™ordonnance originale correspondant Ã  cette facture de pharmacie.',
       items: { create: [{ categoryLabel: 'PHARMACY', amountRequested: 45000 }] },
     },
   });
@@ -492,24 +524,24 @@ async function main() {
 
   await prisma.notification.createMany({
     data: [
-      { userId: jean.id, topic: 'CLAIM_STATUS', title: 'Votre demande SIN-2026-A00001 est en cours de traitement', body: 'Nous avons bien reçu votre demande de remboursement.', channel: 'IN_APP' },
-      { userId: jean.id, topic: 'PAYMENT_CONFIRMED', title: 'Paiement reçu : 13250 FCFA', body: 'Votre cotisation mensuelle a été encaissée. Merci !', channel: 'IN_APP' },
-      { userId: fatou.id, topic: 'EXPIRY_REMINDER', title: 'Votre contrat expire bientôt', body: 'Renouvelez avant son expiration pour rester couvert.', channel: 'IN_APP' },
-      { userId: companyAdmin.id, topic: 'DUE_REMINDER', title: 'Cotisation collective à régler', body: 'Prochaine échéance du contrat collectif SOTRABEN.', channel: 'IN_APP' },
+      { userId: jean.id, topic: 'CLAIM_STATUS', title: 'Votre demande SIN-2026-A00001 est en cours de traitement', body: 'Nous avons bien reÃ§u votre demande de remboursement.', channel: 'IN_APP' },
+      { userId: jean.id, topic: 'PAYMENT_CONFIRMED', title: 'Paiement reÃ§u : 13250 FCFA', body: 'Votre cotisation mensuelle a Ã©tÃ© encaissÃ©e. Merci !', channel: 'IN_APP' },
+      { userId: fatou.id, topic: 'EXPIRY_REMINDER', title: 'Votre contrat expire bientÃ´t', body: 'Renouvelez avant son expiration pour rester couvert.', channel: 'IN_APP' },
+      { userId: companyAdmin.id, topic: 'DUE_REMINDER', title: 'Cotisation collective Ã  rÃ©gler', body: 'Prochaine Ã©chÃ©ance du contrat collectif SOTRABEN.', channel: 'IN_APP' },
     ],
   });
 
-  console.log('Seed terminé.');
+  console.log('Seed terminÃ©.');
   console.log('');
-  console.log('Comptes de démonstration (mot de passe : Demo1234!) :');
+  console.log('Comptes de dÃ©monstration (mot de passe : Demo1234!) :');
   console.log('  admin@santeplus.bj         Super administrateur');
   console.log('  gestionnaire@santeplus.bj  Gestionnaire assurance');
   console.log('  support@santeplus.bj       Agent support');
   console.log('  entreprise@santeplus.bj    Admin entreprise SOTRABEN');
-  console.log('  jean@demo.bj               Assuré (formule Confort)');
-  console.log('  fatou@demo.bj              Assurée (formule Essentielle)');
-  console.log('  kossi@demo.bj              Assuré (souscription à payer)');
-  console.log('  prestataire@santeplus.bj   Prestataire (vérification QR)');
+  console.log('  jean@demo.bj               AssurÃ© (formule Confort)');
+  console.log('  fatou@demo.bj              AssurÃ©e (formule Essentielle)');
+  console.log('  kossi@demo.bj              AssurÃ© (souscription Ã  payer)');
+  console.log('  prestataire@santeplus.bj   Prestataire (vÃ©rification QR)');
 }
 
 main()

@@ -17,8 +17,7 @@ import NewClaim from './pages/member/NewClaim';
 import ClaimDetail from './pages/member/ClaimDetail';
 import ProvidersDirectory from './pages/member/ProvidersDirectory';
 import Profile from './pages/shared/Profile';
-import Notifications from './pages/shared/Notifications';
-import CompanyDashboard from './pages/company/Dashboard';
+import Notifications from './pages/shared/Notifications';import CompanyDashboard from './pages/company/Dashboard';
 import Employees from './pages/company/Employees';
 import CollectiveContract from './pages/company/CollectiveContract';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -32,6 +31,13 @@ import AdminPartners from './pages/admin/AdminPartners';
 import AdminRoles from './pages/admin/AdminRoles';
 import AdminAudit from './pages/admin/AdminAudit';
 import VerifyCard from './pages/provider/VerifyCard';
+import ProviderDashboard from './pages/provider/ProviderDashboard';
+import NewThirdParty from './pages/provider/NewThirdParty';
+import TpList from './pages/provider/TpList';
+import TpDetail from './pages/provider/TpDetail';
+import ProviderPayments from './pages/provider/ProviderPayments';
+import Establishment from './pages/provider/Establishment';
+import Staff from './pages/provider/Staff';
 
 function Require({ roles, children }: { roles: string[]; children: React.ReactNode }) {
   const { me, loading } = useAuth();
@@ -89,7 +95,16 @@ export default function App() {
       </Route>
 
       <Route path="/prestataire" element={<Require roles={['PROVIDER', 'SUPER_ADMIN']}><AppLayout variant="provider" /></Require>}>
-        <Route index element={<VerifyCard />} />
+        <Route index element={<ProviderDashboard />} />
+        <Route path="verifier" element={<VerifyCard />} />
+        <Route path="nouvelle" element={<NewThirdParty />} />
+        <Route path="prises" element={<TpList />} />
+        <Route path="prises/:id" element={<TpDetail />} />
+        <Route path="paiements" element={<ProviderPayments />} />
+        <Route path="etablissement" element={<Establishment />} />
+        <Route path="personnel" element={<Staff />} />
+        <Route path="notifications" element={<Notifications />} />
+        <Route path="profil" element={<Profile />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,0 +1,1 @@
+feat: refonte complete parcours de soins - Dossier de soins, prescriptions, ordonnances QR, delivrances, tiers payant, photos, dossier de soins unifie, menus 17 items assure, portail prestataire complet  

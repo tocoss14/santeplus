@@ -23,6 +23,7 @@ model User {
   nationalIdEnc    String?
   emergencyContact String?
   memberNumber     String?       @unique
+  photoFileId      String?
   companyId        String?
   company          Company?      @relation(fields: [companyId], references: [id])
   providerId       String?
@@ -205,6 +206,7 @@ model Beneficiary {
   gender       String
   relation     String
   memberNumber String    @unique
+  photoFileId  String?
   status       String    @default("COVERED")
   removedAt    DateTime?
 

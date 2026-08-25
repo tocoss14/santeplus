@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Module, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Module, NotFoundException, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import * as bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { AuditInterceptor } from '../../common/audit.interceptor';
@@ -9,6 +10,7 @@ import { PERMISSION_LABELS, ROLES } from '../../common/permissions';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { decryptField, encryptField } from '../../common/crypto';
+import { StorageService } from '../files/files.service';
 import { updateProfileSchema } from '../auth/dto';
 
 const createStaffSchema = z.object({
@@ -28,7 +30,31 @@ const adminUpdateUserSchema = z.object({
 @Controller()
 @UseInterceptors(AuditInterceptor)
 export class UsersController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storage: StorageService,
+  ) {}
+
+  @Post('users/me/photo')
+  @UseInterceptors(FileInterceptor('photo'))
+  async uploadPhoto(
+    @CurrentUser() auth: AuthUser,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    if (!file) throw new BadRequestException('Fichier photo requis');
+    const saved = await this.storage.save(auth.id, file);
+    const fileObj = await this.prisma.fileObject.create({
+      data: { storagePath: saved.storagePath, mime: saved.mime, size: saved.size, sha256: saved.sha256, ownerId: auth.id },
+    });
+    await this.prisma.user.update({ where: { id: auth.id }, data: { photoFileId: fileObj.id } });
+    return { ok: true, fileId: fileObj.id };
+  }
+
+  @Get('users/me/photo')
+  async getPhotoId(@CurrentUser() auth: AuthUser) {
+    const u = await this.prisma.user.findUnique({ where: { id: auth.id }, select: { photoFileId: true } });
+    return { fileId: u?.photoFileId ?? null };
+  }
 
   @Patch('users/me')
   async updateProfile(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(updateProfileSchema)) dto: any) {
@@ -154,12 +180,43 @@ export class UsersController {
     return { role, keys };
   }
 
-  private safeSelect() {
+private safeSelect() {
     return {
       id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true,
       birthDate: true, gender: true, address: true, city: true, emergencyContact: true,
       memberNumber: true, companyId: true, language: true, lastLoginAt: true, createdAt: true,
     } as const;
+  }
+
+  @Get('users/me/photo')
+  async getMyPhoto(@CurrentUser() auth: AuthUser) {
+    const u = await this.prisma.user.findUnique({ where: { id: auth.id }, select: { photoFileId: true } });
+    return { fileId: u?.photoFileId ?? null };
+  }
+
+  @Post('beneficiaries/:id/photo')
+  @UseInterceptors(FileInterceptor('photo'))
+  async addBeneficiaryPhoto(
+    @CurrentUser() auth: AuthUser,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    if (!file) throw new BadRequestException('Fichier photo requis');
+    const ben = await this.prisma.beneficiary.findFirst({ where: { id, contract: { principalUserId: auth.id } } });
+    if (!ben) throw new NotFoundException('Bénéficiaire introuvable');
+    const saved = await this.storage.save(auth.id, file);
+    const fileObj = await this.prisma.fileObject.create({
+      data: { storagePath: saved.storagePath, mime: saved.mime, size: saved.size, sha256: saved.sha256, ownerId: auth.id },
+    });
+    await this.prisma.beneficiary.update({ where: { id }, data: { photoFileId: fileObj.id } });
+    return { ok: true, fileId: fileObj.id };
+  }
+
+  @Get('beneficiaries/:id/photo')
+  async getBeneficiaryPhoto(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
+    const ben = await this.prisma.beneficiary.findFirst({ where: { id, contract: { principalUserId: auth.id } }, select: { photoFileId: true } });
+    if (!ben?.photoFileId) return { fileId: null };
+    return { fileId: ben.photoFileId };
   }
 }
 

@@ -3,6 +3,7 @@ import { api } from '../../api';
 import { fcfa, fmtDate, CATEGORY_LABELS } from '../../format';
 import { ErrorBanner, Field, Spinner } from '../../components/ui';
 import QrScanner from '../../components/QrScanner';
+import { printDocument, escapeHtml } from '../../print';
 
 export default function VerifyCard() {
   const [token, setToken] = useState('');
@@ -188,6 +189,50 @@ function ThirdPartyFlow({ contractToken, beneficiaries, caps, onClose }: { contr
       .finally(() => setBusy(false));
   }
 
+  function printReceiptDoc() {
+    if (!receipt) return;
+    const establishment = providers.find(pr => pr.id === establishmentId)?.name ?? 'Établissement partenaire';
+    const rows = receipt.items.map((i: any) => `
+      <tr>
+        <td>${escapeHtml(CATEGORY_LABELS[i.label] ?? i.label)}</td>
+        <td class="num">${fcfa(i.requested)}</td>
+        <td class="num">− ${fcfa(i.covered)}</td>
+      </tr>`).join('');
+    printDocument(
+      `Reçu ${receipt.reference}`,
+      `
+      <div class="band">
+        <div>
+          <div class="brand">SantéPlus Bénin</div>
+          <div class="tag">Votre santé. Votre couverture. Simplement.</div>
+        </div>
+        <div style="text-align:right;font-size:11px">
+          <div><b>${escapeHtml(establishment)}</b></div>
+          <div>Reçu de prise en charge</div>
+        </div>
+      </div>
+      <h1>Tiers payant — ${escapeHtml(receipt.reference)}</h1>
+      <div class="meta">Émis le ${new Date(receipt.date).toLocaleString('fr-FR')}</div>
+      <div class="info"><b>Patient</b> ${escapeHtml(receipt.patient)}${receipt.beneficiary ? ` — ${escapeHtml(receipt.beneficiary)}` : ''}</div>
+      <div class="info"><b>Formule</b> ${escapeHtml(receipt.product)}</div>
+      <table>
+        <thead><tr><th>Prestation</th><th class="num">Montant</th><th class="num">Pris en charge</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="totals">
+        <div class="row"><span>Total des actes</span><span>${fcfa(receipt.requested)}</span></div>
+        <div class="row big"><span>Pris en charge par l’assurance</span><span>${fcfa(receipt.covered)}</span></div>
+        <div class="row amber"><span>À payer par le patient</span><span>${fcfa(receipt.patientDue)}</span></div>
+      </div>
+      <div class="legal">
+        Ce reçu atteste de la prise en charge de la part assurée par le partenaire assureur via la plateforme SantéPlus.
+        Le patient a réglé la somme indiquée « à payer par le patient » au moment de la prestation.
+        Conservez ce document. SantéPlus agit en qualité d’intermédiaire technologique — les garanties sont portées par l’assureur partenaire.
+      </div>
+      `,
+    );
+  }
+
   if (receipt) {
     return (
       <div className="border-t border-slate-200 bg-brand-50/50 p-5">
@@ -210,7 +255,7 @@ function ThirdPartyFlow({ contractToken, beneficiaries, caps, onClose }: { contr
           <div className="flex justify-between font-bold"><span>À payer par le patient maintenant</span><span>{fcfa(receipt.patientDue)}</span></div>
         </div>
         <div className="mt-3 flex gap-2">
-          <button className="btn-outline flex-1 btn-sm" onClick={() => window.print()}>🖨️ Imprimer le reçu</button>
+          <button className="btn-outline flex-1 btn-sm" onClick={printReceiptDoc}>🖨️ Imprimer le reçu</button>
           <button className="btn-primary flex-1 btn-sm" onClick={() => { setReceipt(null); setQuote(null); setItems([{ categoryId: '', amountRequested: '' }]); }}>Nouvelle prise en charge</button>
         </div>
       </div>

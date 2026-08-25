@@ -1,1 +1,1 @@
-fix: robust Docker entrypoint with better error handling  
+fix: rewrite main.ts with clean syntax and proper error handling  

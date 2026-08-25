@@ -6,13 +6,13 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { config } from './config';
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   // Handle uncaught exceptions and unhandled rejections
-  process.on('unhandledRejection', (reason) => {
+  process.on('unhandledRejection', (reason: unknown) => {
     console.error('UNHANDLED REJECTION:', reason);
   });
-  
-  process.on('uncaughtException', (error) => {
+
+  process.on('uncaughtException', (error: Error) => {
     console.error('UNCAUGHT EXCEPTION:', error);
     process.exit(1);
   }
@@ -46,7 +46,7 @@ async function bootstrap() {
         console.log(`Received ${signal}, shutting down gracefully...`);
         process.exit(0);
       });
-    });
+    }
 
     const app = await NestFactory.create(AppModule, {
       logger: ['error', 'warn', 'log', 'debug', 'verbose'],
@@ -70,7 +70,7 @@ async function bootstrap() {
     );
 
     await app.listen(config.port);
-    console.log(`🚀 API prête sur http://localhost:${config.port}/api`);
+    console.log(`🚀 API ready on http://localhost:${config.port}/api`);
     console.log(`Environment: ${config.isProd ? 'production' : 'development'}`);
     console.log(`Database: ${config.isProd ? 'PostgreSQL (production)' : 'SQLite (dev)'}`);
   } catch (error) {

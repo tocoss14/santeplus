@@ -42,17 +42,21 @@ export default function QrScanner({ onDetected, onClose }: Props) {
         const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
 
         const tick = () => {
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
-            if (code?.data) {
-              stop();
-              onDetected(code.data.trim());
-              return;
+          try {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR?.(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+              if (code?.data) {
+                stop();
+                onDetected(code.data.trim());
+                return;
+              }
             }
+          } catch (e) {
+            console.error('[QrScanner] frame error', e);
           }
           rafRef.current = requestAnimationFrame(tick);
         };

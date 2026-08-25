@@ -56,8 +56,15 @@ export default function VerifyCard() {
         <QrScanner
           onDetected={(text) => {
             setScanning(false);
-            const match = text.match(/"(?:t|token)"\s*:\s*"([^"]+)"/);
-            const value = match ? match[2] : text;
+            let value = text.trim();
+            try {
+              const parsed = JSON.parse(value);
+              const candidate = parsed?.t ?? parsed?.token;
+              if (typeof candidate === 'string' && candidate.length >= 8) value = candidate;
+            } catch {
+              const match = value.match(/"(?:t|token)"\s*:\s*"([^"]+)"/);
+              if (match) value = match[1];
+            }
             setToken(value);
             void verify(value);
           }}

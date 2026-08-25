@@ -361,6 +361,30 @@ export class ProviderPortalController {
 
     const items = dto.items.map((i: any) => ({ ...i, amountRequested: i.quantity * i.unitPrice }));
     const careDate = new Date();
+    for (const item of dto.items) {
+      let requiresPrescription = item.categoryId === 'PHARMACY';
+      if (item.actId) {
+        const act = await this.prisma.act.findUnique({ where: { id: item.actId } });
+        if (act?.requiresPrescription) requiresPrescription = true;
+      }
+      if (requiresPrescription) {
+        const ok = await this.prisma.prescription.findFirst({
+          where: {
+            patientUserId: contract.principalUser.id,
+            status: { in: ['ACTIVE', 'PARTIALLY_EXECUTED'] },
+            validFrom: { lte: careDate }, validUntil: { gte: careDate },
+            lines: { some: { categoryId: item.categoryId } },
+          },
+          include: { lines: { where: { categoryId: item.categoryId } } },
+        });
+        const hasQty = ok && ok.lines.some((l: any) => l.quantity - l.deliveredQty > 0);
+        if (!hasQty) throw new BadRequestException(
+          'Aucune prescription valide trouvée pour cette prestation. '
+          + 'Ce type de soin nécessite une ordonnance d’un prescripteur habilité. '
+          + (ok ? 'La prescription existante a été entièrement exécutée ou est expirée.' : ''),
+        );
+      }
+    }
     const estimation = await this.claims.buildEstimation(contract as any, careDate, items);
     const cfg = await this.prisma.systemConfig.findUnique({ where: { key: 'thirdPartyAuthThreshold' } });
     const thresholdRaw = cfg ? Number(JSON.parse(cfg.value)) : NaN;

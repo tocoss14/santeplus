@@ -13,7 +13,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
   COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],
   MEMBER: [],
-  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff'],
+  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe'],
 };
 
 function daysFromNow(n: number): Date {
@@ -36,6 +36,12 @@ async function main() {
     prisma.claimDocument.deleteMany(),
     prisma.claimItem.deleteMany(),
     prisma.claim.deleteMany(),
+    prisma.deliveryLine.deleteMany(),
+    prisma.delivery.deleteMany(),
+    prisma.prescriptionLine.deleteMany(),
+    prisma.prescription.deleteMany(),
+    prisma.consultation.deleteMany(),
+    prisma.medication.deleteMany(),
     prisma.payment.deleteMany(),
     prisma.contribution.deleteMany(),
     prisma.fileObject.deleteMany(),
@@ -244,24 +250,40 @@ async function main() {
   });
 
   const actsData = [
-    { code: 'CONS-001', name: 'Consultation mÃ©decine gÃ©nÃ©rale', category: 'CONSULTATION', price: 10000 },
-    { code: 'CONS-002', name: 'Consultation spÃ©cialiste', category: 'CONSULTATION', price: 25000 },
-    { code: 'HOSP-001', name: 'Hospitalisation â€” journÃ©e', category: 'HOSPITALIZATION', price: 45000 },
-    { code: 'HOSP-002', name: 'Bloc opÃ©ratoire (forfait)', category: 'HOSPITALIZATION', price: 350000 },
-    { code: 'PHAR-001', name: 'MÃ©dicaments (ordonnance)', category: 'PHARMACY', price: 25000 },
-    { code: 'LABO-001', name: 'Bilan sanguin complet', category: 'LABORATORY', price: 20000 },
-    { code: 'LABO-002', name: 'Test paludisme (TDR)', category: 'LABORATORY', price: 5000 },
-    { code: 'LABO-003', name: 'Ã‰chographie', category: 'LABORATORY', price: 15000 },
-    { code: 'SPEC-001', name: 'SÃ©ance de dialyse', category: 'SPECIALIZED', price: 90000 },
-    { code: 'SPEC-002', name: 'KinÃ©sithÃ©rapie (sÃ©ance)', category: 'SPECIALIZED', price: 12000 },
-    { code: 'MAT-001', name: 'Accouchement simple', category: 'MATERNITY', price: 120000 },
-    { code: 'MAT-002', name: 'CÃ©sarienne', category: 'MATERNITY', price: 450000 },
-    { code: 'DENT-001', name: 'Extraction dentaire', category: 'DENTAL', price: 15000 },
-    { code: 'OPT-001', name: 'Lunettes (paire)', category: 'OPTICAL', price: 60000 },
+    { code: 'CONS-001', name: 'Consultation medecine generale', category: 'CONSULTATION', price: 10000, requiresPrescription: false, requiresPriorAuth: false },
+    { code: 'CONS-002', name: 'Consultation specialiste', category: 'CONSULTATION', price: 25000, requiresPrescription: false, requiresPriorAuth: false },
+    { code: 'HOSP-001', name: 'Hospitalisation - journee', category: 'HOSPITALIZATION', price: 45000, requiresPrescription: false, requiresPriorAuth: false },
+    { code: 'HOSP-002', name: 'Bloc operatoire (forfait)', category: 'HOSPITALIZATION', price: 350000, requiresPrescription: true, requiresPriorAuth: true },
+    { code: 'PHAR-001', name: 'Medicaments (ordonnance)', category: 'PHARMACY', price: 25000, requiresPrescription: true, requiresPriorAuth: false },
+    { code: 'LABO-001', name: 'Bilan sanguin complet', category: 'LABORATORY', price: 20000, requiresPrescription: true, requiresPriorAuth: false },
+    { code: 'LABO-002', name: 'Test paludisme (TDR)', category: 'LABORATORY', price: 5000, requiresPrescription: false, requiresPriorAuth: false },
+    { code: 'LABO-003', name: 'Echographie', category: 'LABORATORY', price: 15000, requiresPrescription: true, requiresPriorAuth: false },
+    { code: 'SPEC-001', name: 'Seance de dialyse', category: 'SPECIALIZED', price: 90000, requiresPrescription: true, requiresPriorAuth: true },
+    { code: 'SPEC-002', name: 'Kinesitherapie (seance)', category: 'SPECIALIZED', price: 12000, requiresPrescription: true, requiresPriorAuth: false },
+    { code: 'MAT-001', name: 'Accouchement simple', category: 'MATERNITY', price: 120000, requiresPrescription: false, requiresPriorAuth: false },
+    { code: 'MAT-002', name: 'Cesarienne', category: 'MATERNITY', price: 450000, requiresPrescription: true, requiresPriorAuth: true },
+    { code: 'DENT-001', name: 'Extraction dentaire', category: 'DENTAL', price: 15000, requiresPrescription: false, requiresPriorAuth: false },
+    { code: 'OPT-001', name: 'Lunettes (paire)', category: 'OPTICAL', price: 60000, requiresPrescription: true, requiresPriorAuth: false },
   ];
   for (const [i, a] of actsData.entries()) {
     await prisma.act.create({
-      data: { code: a.code, name: a.name, categoryId: a.category, referencePrice: a.price, sortOrder: i + 1 },
+      data: { code: a.code, name: a.name, categoryId: a.category, referencePrice: a.price, sortOrder: i + 1, requiresPrescription: a.requiresPrescription, requiresPriorAuth: a.requiresPriorAuth },
+    });
+  }
+
+  const medicationsData = [
+    { code: 'MED-PARA', name: 'Paracetamol 500mg (boite 20)', dci: 'Paracetamol', dosage: '500 mg', form: 'Comprimes', price: 1500, rx: false },
+    { code: 'MED-AMOX', name: 'Amoxicilline 500mg (boite 12)', dci: 'Amoxicilline', dosage: '500 mg', form: 'Gelules', price: 3500, rx: true },
+    { code: 'MED-ARTE', name: 'Artemether-Lumefantrine', dci: 'Artemether/Lumefantrine', dosage: '20/120 mg', form: 'Comprimes', price: 2800, rx: true },
+    { code: 'MED-IBUP', name: 'Ibuprofene 400mg (boite 20)', dci: 'Ibuprofene', dosage: '400 mg', form: 'Comprimes', price: 1800, rx: false },
+    { code: 'MED-OMEP', name: 'Omeprazole 20mg (boite 14)', dci: 'Omeprazole', dosage: '20 mg', form: 'Gelules', price: 4200, rx: true },
+    { code: 'MED-METF', name: 'Metformine 850mg (boite 30)', dci: 'Metformine', dosage: '850 mg', form: 'Comprimes', price: 3900, rx: true },
+    { code: 'MED-AMLO', name: 'Amlodipine 5mg (boite 30)', dci: 'Amlodipine', dosage: '5 mg', form: 'Comprimes', price: 3200, rx: true },
+    { code: 'MED-SRO', name: 'SRO (sachets)', dci: 'Sels de rehydratation orale', dosage: '-', form: 'Poudre', price: 600, rx: false },
+  ];
+  for (const m of medicationsData) {
+    await prisma.medication.create({
+      data: { code: m.code, name: m.name, dci: m.dci, dosage: m.dosage, form: m.form, price: m.price, requiresPrescription: m.rx },
     });
   }
 

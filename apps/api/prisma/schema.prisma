@@ -40,6 +40,11 @@ model User {
   auditLogs            AuditLog[]
   payments             Payment[]
   claims               Claim[]          @relation("Claimant")
+  consultations        Consultation[]   @relation("ConsultationPatient")
+  prescriptions        Prescription[]   @relation("PrescriptionPatient")
+  prescriptionsWritten Prescription[]   @relation("PrescriptionPrescriber")
+  deliveries           Delivery[]       @relation("DeliveryUser")
+  deliveriesAsPatient  Delivery[]       @relation("DeliveryPatient")
   claimsDecided        Claim[]          @relation("ClaimDecider")
 
   @@index([role])
@@ -287,6 +292,11 @@ model Claim {
 
   items     ClaimItem[]
   documents ClaimDocument[]
+  consultation  Consultation? @relation("ConsultationClaim")
+  delivery      Delivery?     @relation("DeliveryClaim")
+  prescription  Prescription? @relation("ClaimPrescription", fields: [prescriptionId], references: [id])
+  prescriptionId String?
+  deliveryId     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -369,6 +379,9 @@ model Provider {
 
   staff  User[]
   claims Claim[]
+  consultations Consultation[]
+  prescriptions Prescription[] @relation("PrescriptionProvider")
+  deliveries Delivery[]
 
   @@index([city])
   @@index([type])
@@ -380,6 +393,8 @@ model Act {
   name           String
   categoryId     String
   referencePrice Int
+  requiresPrescription Boolean @default(false)
+  requiresPriorAuth    Boolean @default(false)
   active         Boolean @default(true)
   sortOrder      Int     @default(0)
   createdAt      DateTime @default(now())
@@ -387,6 +402,145 @@ model Act {
 
   @@index([categoryId])
   @@index([active])
+}
+
+model Medication {
+  id             String  @id @default(cuid())
+  code           String  @unique
+  name           String
+  dci            String?
+  dosage         String?
+  form           String?
+  price          Int
+  requiresPrescription Boolean @default(true)
+  active         Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  prescriptionLines PrescriptionLine[]
+  deliveryLines     DeliveryLine[]
+
+  @@index([active])
+}
+
+model Consultation {
+  id                String   @id @default(cuid())
+  reference         String   @unique
+  patientUserId     String
+  patientUser       User     @relation("ConsultationPatient", fields: [patientUserId], references: [id])
+  beneficiaryId     String?
+  providerId        String
+  provider          Provider @relation(fields: [providerId], references: [id])
+  practitionerUserId String?
+  practitionerName  String
+  specialty         String?
+  motif             String
+  diagnostic        String?
+  careDate          DateTime @default(now())
+  claimId           String? @unique
+  claim             Claim?   @relation("ConsultationClaim", fields: [claimId], references: [id])
+  createdAt         DateTime @default(now())
+
+  prescriptions     Prescription[]
+
+  @@index([patientUserId])
+  @@index([providerId])
+}
+
+model Prescription {
+  id                String   @id @default(cuid())
+  number            String   @unique
+  qrToken           String   @unique
+  status            String   @default("ACTIVE")
+  patientUserId     String
+  patientUser       User     @relation("PrescriptionPatient", fields: [patientUserId], references: [id])
+  beneficiaryId     String?
+  consultationId    String?
+  consultation      Consultation? @relation(fields: [consultationId], references: [id])
+  providerId        String
+  provider          Provider @relation("PrescriptionProvider", fields: [providerId], references: [id])
+  prescriberUserId  String
+  prescriberUser    User     @relation("PrescriptionPrescriber", fields: [prescriberUserId], references: [id])
+  prescriberName    String
+  specialty         String?
+  validFrom         DateTime @default(now())
+  validUntil        DateTime
+  renewalsAllowed   Int      @default(0)
+  renewalsUsed      Int      @default(0)
+  note              String?
+  claims            Claim[]  @relation("ClaimPrescription")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  lines             PrescriptionLine[]
+  deliveries        Delivery[]
+
+  @@index([patientUserId])
+  @@index([status])
+}
+
+model PrescriptionLine {
+  id             String  @id @default(cuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicationId   String?
+  medication     Medication? @relation(fields: [medicationId], references: [id])
+  actId          String?
+  code           String
+  name           String
+  categoryId     String
+  quantity       Int
+  unitPrice      Int
+  posology       String?
+  duration       String?
+  instructions   String?
+  deliveredQty   Int     @default(0)
+
+  deliveryLines  DeliveryLine[]
+
+  @@index([prescriptionId])
+}
+
+model Delivery {
+  id             String   @id @default(cuid())
+  reference      String   @unique
+  prescriptionId String?
+  prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
+  providerId     String
+  provider       Provider @relation(fields: [providerId], references: [id])
+  userId         String
+  user           User     @relation("DeliveryUser", fields: [userId], references: [id])
+  patientUserId  String
+  patientUser    User     @relation("DeliveryPatient", fields: [patientUserId], references: [id])
+  beneficiaryId  String?
+  totalAmount    Int
+  coveredAmount  Int
+  patientAmount  Int
+  claimId        String?  @unique
+  claim          Claim?   @relation("DeliveryClaim", fields: [claimId], references: [id])
+  createdAt      DateTime @default(now())
+
+  lines          DeliveryLine[]
+
+  @@index([prescriptionId])
+  @@index([providerId])
+}
+
+model DeliveryLine {
+  id             String  @id @default(cuid())
+  deliveryId     String
+  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  lineId         String?
+  line           PrescriptionLine? @relation(fields: [lineId], references: [id])
+  medicationId   String?
+  medication     Medication? @relation(fields: [medicationId], references: [id])
+  code           String
+  name           String
+  categoryId     String
+  quantity       Int
+  unitPrice      Int
+  amount         Int
+  substitutionNote String?
 }
 
 model Notification {

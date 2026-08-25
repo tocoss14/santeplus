@@ -17,7 +17,10 @@ import NewClaim from './pages/member/NewClaim';
 import ClaimDetail from './pages/member/ClaimDetail';
 import ProvidersDirectory from './pages/member/ProvidersDirectory';
 import Profile from './pages/shared/Profile';
-import Notifications from './pages/shared/Notifications';import CompanyDashboard from './pages/company/Dashboard';
+import Notifications from './pages/shared/Notifications';
+import MemberConsultations from './pages/member/MemberConsultations';
+import MemberPrescriptions from './pages/member/MemberPrescriptions';
+import CompanyDashboard from './pages/company/Dashboard';
 import Employees from './pages/company/Employees';
 import CollectiveContract from './pages/company/CollectiveContract';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -32,6 +35,9 @@ import AdminRoles from './pages/admin/AdminRoles';
 import AdminAudit from './pages/admin/AdminAudit';
 import VerifyCard from './pages/provider/VerifyCard';
 import ProviderDashboard from './pages/provider/ProviderDashboard';
+import ProviderConsultations from './pages/provider/ProviderConsultations';
+import ProviderPrescriptions from './pages/provider/ProviderPrescriptions';
+import ProviderDeliveries from './pages/provider/ProviderDeliveries';
 import NewThirdParty from './pages/provider/NewThirdParty';
 import TpList from './pages/provider/TpList';
 import TpDetail from './pages/provider/TpDetail';
@@ -62,6 +68,8 @@ export default function App() {
         <Route path="souscrire" element={<SubscribeWizard />} />
         <Route path="contrat" element={<MyContract />} />
         <Route path="carte" element={<DigitalCard />} />
+        <Route path="ordonnances" element={<MemberPrescriptions />} />
+        <Route path="consultations" element={<MemberConsultations />} />
         <Route path="beneficiaires" element={<Beneficiaries />} />
         <Route path="remboursements" element={<ClaimsList />} />
         <Route path="remboursements/nouveau" element={<NewClaim />} />
@@ -98,6 +106,9 @@ export default function App() {
         <Route index element={<ProviderDashboard />} />
         <Route path="verifier" element={<VerifyCard />} />
         <Route path="nouvelle" element={<NewThirdParty />} />
+        <Route path="consultations" element={<ProviderConsultations />} />
+        <Route path="ordonnances" element={<ProviderPrescriptions />} />
+        <Route path="delivrances" element={<ProviderDeliveries />} />
         <Route path="prises" element={<TpList />} />
         <Route path="prises/:id" element={<TpDetail />} />
         <Route path="paiements" element={<ProviderPayments />} />

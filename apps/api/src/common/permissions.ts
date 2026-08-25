@@ -1,4 +1,4 @@
-﻿export const ROLES = ['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT', 'COMPANY_ADMIN', 'MEMBER', 'PROVIDER'] as const;
+export const ROLES = ['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT', 'COMPANY_ADMIN', 'MEMBER', 'PROVIDER'] as const;
 export type Role = typeof ROLES[number];
 
 export const PERMISSION_LABELS: Record<string, string> = {
@@ -26,6 +26,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'company.contracts.manage': 'GÃ©rer le contrat collectif',
   'provider.verify': 'VÃ©rifier une carte assurÃ© (QR)',
   'provider.thirdparty': 'Tiers payant â€” prise en charge au cabinet',
+  'provider.prescribe': 'Prescrire (médecin / prescripteur habilité)',
   'provider.staff': "GÃ©rer le personnel de l'Ã©tablissement",
 };
 
@@ -39,5 +40,5 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
   SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
   COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],
   MEMBER: [],
-  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff'],
+  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe'],
 };

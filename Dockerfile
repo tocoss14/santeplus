@@ -1,5 +1,6 @@
 # ── Build API (standalone, sans workspaces) ────────────────────────────────
 FROM node:20-alpine AS build
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 COPY apps/api/package.json apps/api/package-lock.json* ./
@@ -14,6 +15,7 @@ RUN npm run build
 
 # ── Runtime ────────────────────────────────────────────────────────────────
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 ENV NODE_ENV=production

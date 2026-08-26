@@ -1,1 +1,1 @@
-cleanup: remove temporary files  
+fix: root package.json with start and postinstall for Railpack  

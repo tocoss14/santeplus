@@ -11,6 +11,7 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { decryptField, encryptField } from '../../common/crypto';
 import { StorageService } from '../files/files.service';
+import { FilesModule } from '../files/files.service';
 import { updateProfileSchema } from '../auth/dto';
 
 const createStaffSchema = z.object({
@@ -229,5 +230,8 @@ const ROLE_LABELS: Record<string, string> = {
   PROVIDER: 'Prestataire de santé',
 };
 
-@Module({ controllers: [UsersController] })
+@Module({
+  controllers: [UsersController],
+  imports: [FilesModule],
+})
 export class UsersModule {}

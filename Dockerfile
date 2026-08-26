@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY apps/api/package.json apps/api/package-lock.json* ./
-RUN npm install --no-audit --no-fund
+RUN npm install --ignore-scripts --no-audit --no-fund
 
 COPY apps/api/tsconfig.json apps/api/tsconfig.build.json ./
 COPY apps/api/prisma ./prisma

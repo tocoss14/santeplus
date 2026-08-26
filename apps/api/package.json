@@ -6,7 +6,7 @@
     "dev": "npm run build && node --watch dist/main.js",
     "build": "npx prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
-    "postinstall": "npx prisma generate",
+    "postinstall": "node -e \"try{require('child_process').execSync('npx prisma generate',{stdio:'inherit'})}catch{}\"",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",

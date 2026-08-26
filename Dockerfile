@@ -1,18 +1,16 @@
-# ── Build API ──────────────────────────────────────────────────────────────
-FROM node:20-alpine AS api-build
+# ── Build API (standalone, sans workspaces) ────────────────────────────────
+FROM node:20-alpine AS build
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-COPY apps/api/package.json ./apps/api/
-COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json apps/api/package-lock.json* ./
+RUN npm install --no-audit --no-fund
 
-RUN npm ci --no-audit --no-fund
+COPY apps/api/tsconfig.json apps/api/tsconfig.build.json ./
+COPY apps/api/prisma ./prisma
+COPY apps/api/src ./src
 
-COPY apps/api/tsconfig.json apps/api/tsconfig.build.json ./apps/api/
-COPY apps/api/prisma ./apps/api/prisma
-COPY apps/api/src ./apps/api/src
-
-RUN cd apps/api && npx prisma generate && npm run build && cd ../.. && npm prune --omit=dev --workspace=apps/api
+RUN npx prisma generate
+RUN npm run build
 
 # ── Runtime ────────────────────────────────────────────────────────────────
 FROM node:20-alpine
@@ -20,16 +18,15 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=api-build /app/node_modules ./node_modules
-COPY --from=api-build /app/apps/api/dist ./apps/api/dist
-COPY --from=api-build /app/apps/api/prisma ./apps/api/prisma
-COPY --from=api-build /app/apps/api/package.json ./apps/api/package.json
-COPY --from=api-build /app/package.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/package.json ./
 
-RUN mkdir -p /app/apps/api/uploads
+RUN mkdir -p /app/uploads
 
 EXPOSE 4000
 
-WORKDIR /app/apps/api
+WORKDIR /app
 
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy 2>/dev/null || ../../node_modules/.bin/prisma migrate deploy; node dist/main.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]

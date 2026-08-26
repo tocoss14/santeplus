@@ -1,1 +1,1 @@
-fix: rewrite main.ts with clean syntax and proper error handling  
+fix: rewrite main.ts with clean syntax  

@@ -4,13 +4,36 @@ export default {
   theme: {
     extend: {
       colors: {
+        ink: '#0F1E2E',
+        stone: '#57534E',
+        sand: '#FDF6E7',
+        mist: '#E7E5E4',
+        laterite: {
+          50: '#FEF2EE',
+          500: '#D94F2B',
+          600: '#C2512F',
+          700: '#A33D1F',
+        },
         brand: {
-          50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4', 400: '#2dd4bf',
-          500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 800: '#115e59', 900: '#134e4a',
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          200: '#A7F3D0',
+          300: '#6EE7B7',
+          400: '#34D399',
+          500: '#0D7C5C',
+          600: '#0A6650',
+          700: '#095240',
+          800: '#0F3D2E',
+          900: '#0F1E2E',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'Segoe UI', 'sans-serif'],
+        display: ['Fraunces', 'serif'],
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
+      borderRadius: {
+        '4xl': '2rem',
       },
     },
   },

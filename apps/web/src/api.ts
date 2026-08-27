@@ -1,6 +1,6 @@
 export const TOKEN_KEY = 'sp_access';
 
-const API_BASE = ((import.meta as any).env?.VITE_API_URL ?? '').replace(/\/$/, '');
+const API_BASE = ((import.meta as any).env?.VITE_API_URL ?? 'https://santeplus.runsite.app').replace(/\/$/, '');
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);

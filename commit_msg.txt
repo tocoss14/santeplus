@@ -1,1 +1,1 @@
-fix: postinstall tolerant for platform install  
+﻿fix: frontend default API URL for production

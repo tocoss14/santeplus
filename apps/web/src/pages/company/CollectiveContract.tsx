@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, getToken } from '../../api';
+import { api, API_BASE, getToken } from '../../api';
 import { fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
 
@@ -151,7 +151,7 @@ export default function CollectiveContract() {
         )}
         {contract.status === 'ACTIVE' && (
           <a
-            href={`/api/company/me/attestation?token=${getToken() ?? ''}`}
+            href={`${API_BASE}/api/company/me/attestation?token=${getToken() ?? ''}`}
             target="_blank"
             rel="noreferrer"
             className="btn-outline btn-sm ml-2 mt-4"

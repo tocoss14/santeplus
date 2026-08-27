@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, getToken } from '../../api';
+import { api, API_BASE, getToken } from '../../api';
 import { fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Spinner } from '../../components/ui';
 
@@ -72,7 +72,7 @@ function ContractSummary({ detail }: { detail: any }) {
         <div><p className="label">Porté par</p>{detail.product.insurerPartner?.name ?? '—'}</div>
       </div>
       <a
-        href={`/api/contracts/${detail.id}/certificate?token=${getToken() ?? ''}`}
+        href={`${API_BASE}/api/contracts/${detail.id}/certificate?token=${getToken() ?? ''}`}
         target="_blank"
         rel="noreferrer"
         className="btn-outline btn-sm mt-4"

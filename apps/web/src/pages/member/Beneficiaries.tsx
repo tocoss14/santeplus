@@ -55,7 +55,9 @@ export default function Beneficiaries() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Mes ayants droit</h1>
-        {contractId && <button className="btn-primary btn-sm" onClick={() => setAddOpen(true)}>＋ Ajouter</button>}
+      </div>
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        Les ayants droit sont déclarés lors de la souscription. Pour toute modification (ajout, retrait), veuillez contacter le support — un avenant sera établi.
       </div>
       <ErrorBanner message={error} />
 
@@ -77,9 +79,6 @@ export default function Beneficiaries() {
               </div>
               <div className="flex flex-col items-end gap-1.5">
                 <StatusBadge status={b.status} />
-                {b.status === 'COVERED' && (
-                  <button onClick={() => remove(b.id)} className="text-[11px] text-red-600 hover:underline">Retirer</button>
-                )}
               </div>
             </li>
           ))}

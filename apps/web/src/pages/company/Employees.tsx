@@ -3,7 +3,7 @@ import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
 import { EmptyState, ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
 
-const SAMPLE_CSV = 'Nom;Prénom;DateNaissance;Téléphone;Email;Fonction;Ayants droit\nDOSSA;Paul;12/03/1991;+22997445501;paul.dossa@exemple.bj;Chauffeur;Conjoint:DOSSA Alice,04/07/1993\nAGBO;Rita;25/09/1988;;rita.agbo@exemple.bj;Comptable;Enfant:AGBO Marc,10/10/2015';
+const SAMPLE_CSV = 'Nom;Prénom;DateNaissance;Téléphone;Email;Fonction;Ayants droit;Statut\nDOSSA;Paul;12/03/1991;+22997445501;paul.dossa@exemple.bj;Chauffeur;Conjoint:DOSSA Alice,04/07/1993;ACTIF\nAGBO;Rita;25/09/1988;;rita.agbo@exemple.bj;Comptable;Enfant:AGBO Marc,10/10/2015;RADIE';
 
 export default function Employees() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -14,9 +14,15 @@ export default function Employees() {
   const [report, setReport] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [radiateTarget, setRadiateTarget] = useState<any | null>(null);
+  const [showRadiated, setShowRadiated] = useState(true);
 
   const load = () => {
-    api.get<any[]>(`/company/me/employees${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (showRadiated) params.set('includeRadiated', 'true');
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    api.get<any[]>(`/company/me/employees${qs}`)
       .then(setItems)
       .catch(e => { setError(e?.message); setItems([]); });
   };
@@ -24,7 +30,7 @@ export default function Employees() {
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, showRadiated]);
 
   async function runImport() {
     setBusy(true);
@@ -47,6 +53,11 @@ export default function Employees() {
     load();
   }
 
+  async function radiateEmployee(id: string, effectiveAt?: string, reason?: string) {
+    await api.post(`/company/me/employees/${id}/radiate`, { effectiveAt, reason });
+    load();
+  }
+
   if (!items) return <Spinner />;
 
   return (
@@ -54,6 +65,10 @@ export default function Employees() {
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold mr-auto">Salariés ({items.length})</h1>
         <input className="input w-48" placeholder="Rechercher…" value={q} onChange={e => setQ(e.target.value)} />
+        <label className="flex items-center gap-1 text-xs">
+          <input type="checkbox" checked={showRadiated} onChange={e => setShowRadiated(e.target.checked)} />
+          Inclure radiés
+        </label>
         <button className="btn-outline btn-sm" onClick={() => { setCsvText(''); setReport(null); setImportOpen(true); }}>📥 Import CSV</button>
         <button className="btn-primary btn-sm" onClick={() => setAddOpen(true)}>＋ Ajouter</button>
       </div>
@@ -76,9 +91,15 @@ export default function Employees() {
                   <td className="td text-xs">{e.contractsAsPrincipal[0]?.number ?? '—'}</td>
                   <td className="td"><StatusBadge status={e.status === 'ACTIVE' && e.contractsAsPrincipal[0]?.status === 'ACTIVE' ? 'ACTIVE' : e.status === 'SUSPENDED' ? 'TERMINATED' : 'PENDING_PAYMENT'} /></td>
                   <td className="td text-right">
-                    {e.status === 'ACTIVE' && (
-                      <button onClick={() => exitEmployee(e.id, `${e.firstName} ${e.lastName}`)} className="text-xs text-red-600 hover:underline">Sortie</button>
-                    )}
+                    <div className="flex gap-2 justify-end">
+                      {e.status === 'ACTIVE' && (
+                        <>
+                          <button onClick={() => setRadiateTarget(e)} className="text-xs text-orange-600 hover:underline">Radier</button>
+                          <button onClick={() => exitEmployee(e.id, `${e.firstName} ${e.lastName}`)} className="text-xs text-red-600 hover:underline">Sortie</button>
+                        </>
+                      )}
+                      {e.status !== 'ACTIVE' && <span className="text-xs text-slate-400">Radié</span>}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -89,11 +110,14 @@ export default function Employees() {
 
       <AddModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => { setAddOpen(false); load(); }} />
 
+      <RadiateModal open={!!radiateTarget} onClose={() => setRadiateTarget(null)} employee={radiateTarget} onDone={async (effectiveAt, reason) => { if (radiateTarget) { await radiateEmployee(radiateTarget.id, effectiveAt, reason); setRadiateTarget(null); } }} />
+
       <Modal open={importOpen} onClose={() => setImportOpen(false)} title="Importer des salariés (CSV)" wide>
         <div className="space-y-3 text-sm">
           <p className="text-slate-500">
-            Colonnes acceptées : <code className="rounded bg-slate-100 px-1">Nom; Prénom; DateNaissance; Téléphone; Email; Fonction; Ayants droit</code>.
+            Colonnes acceptées : <code className="rounded bg-slate-100 px-1">Nom; Prénom; DateNaissance; Téléphone; Email; Fonction; Ayants droit; Statut</code>.
             Les ayants droit s’écrivent : <code className="rounded bg-slate-100 px-1">Conjoint:Nom Prénom,JJ/MM/AAAA; Enfant:Nom Prénom,JJ/MM/AAAA</code>.
+            Colonne <code className="rounded bg-slate-100 px-1">Statut</code> : si valeur <code className="rounded bg-slate-100 px-1">RADIE</code> / <code className="rounded bg-slate-100 px-1">RADIÉ</code> / <code className="rounded bg-slate-100 px-1">RADIE(E)</code>, le salarié est immédiatement radié après création.
             Le système détecte les doublons et erreurs avant l’importation.
           </p>
           <div className="flex gap-2">
@@ -141,6 +165,48 @@ export default function Employees() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+function RadiateModal({ open, onClose, employee, onDone }: { open: boolean; onClose: () => void; employee: any; onDone: (effectiveAt?: string, reason?: string) => void }) {
+  const [effectiveAt, setEffectiveAt] = useState('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (open) { setEffectiveAt(''); setReason(''); setError(null); } }, [open]);
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      let iso: string | undefined = undefined;
+      if (effectiveAt) {
+        const d = new Date(effectiveAt);
+        if (isNaN(d.getTime())) throw new Error('Date d’effet invalide');
+        iso = d.toISOString();
+      }
+      await onDone(iso, reason || undefined);
+    } catch (e: any) {
+      setError(e?.message ?? 'Erreur');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={`Radier ${employee ? `${employee.firstName} ${employee.lastName}` : ''}`}>
+      <div className="space-y-3">
+        <ErrorBanner message={error} />
+        <Field label="Date d’effet (optionnelle, défaut: maintenant)">
+          <input type="date" className="input" value={effectiveAt} onChange={e => setEffectiveAt(e.target.value)} />
+        </Field>
+        <Field label="Motif (optionnel)">
+          <input className="input" placeholder="Démission, fin de contrat…" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} />
+        </Field>
+        <p className="text-xs text-slate-500">La radiation mettra le contrat à <b>TERMINATED</b> et les ayants droit à <b>SUSPENDED</b> avec date de retrait. Toute délivrance ultérieure sera bloquée.</p>
+        <button className="btn-primary w-full bg-orange-600 hover:bg-orange-700" disabled={busy} onClick={submit}>
+          {busy ? 'Radiation…' : 'Confirmer la radiation'}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

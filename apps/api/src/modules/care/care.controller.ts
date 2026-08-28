@@ -113,6 +113,9 @@ export class CareController {
   ) {
     const { establishment } = await this.care.requireEstablishment(auth);
     const contract = await this.resolveContract(dto);
+    if (contract.status === 'TERMINATED' || contract.status === 'SUSPENDED') {
+      throw new BadRequestException('Contrat radié — délivrance impossible');
+    }
     const patientUserId = contract.principalUser.id;
     let beneficiaryId: string | null = null;
     if (dto.beneficiaryMemberNumber) {
@@ -246,6 +249,9 @@ export class CareController {
   ) {
     const { establishment } = await this.care.requireEstablishment(auth);
     const contract = await this.resolveContract(dto);
+    if (contract.status === 'TERMINATED' || contract.status === 'SUSPENDED') {
+      throw new BadRequestException('Contrat radié — délivrance impossible');
+    }
     const patientUserId = contract.principalUser.id;
     let beneficiaryId: string | null = null;
     if (dto.beneficiaryMemberNumber) {
@@ -465,11 +471,15 @@ export class CareController {
     const patient = await this.prisma.user.findUnique({ where: { id: pres.patientUserId } });
     if (!patient) throw new NotFoundException();
     const patientContract = await this.prisma.contract.findFirst({
-      where: { principalUserId: patient.id, status: { in: ['ACTIVE', 'SUSPENDED'] } },
+      where: { principalUserId: patient.id, status: { in: ['ACTIVE', 'SUSPENDED', 'TERMINATED'] } },
       include: { product: { include: { guarantees: { include: { guarantee: true } }, exclusions: true } } },
       orderBy: { createdAt: 'desc' },
     });
-    if (!patientContract || patientContract.status !== 'ACTIVE')
+    if (!patientContract) throw new BadRequestException('Contrat du patient inactif — délivrance impossible');
+    if (patientContract.status === 'TERMINATED' || patientContract.status === 'SUSPENDED') {
+      throw new BadRequestException('Contrat radié — délivrance impossible');
+    }
+    if (patientContract.status !== 'ACTIVE')
       throw new BadRequestException('Contrat du patient inactif — délivrance impossible');
 
     for (const req of dto.lines) {

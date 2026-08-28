@@ -30,6 +30,7 @@ const productBaseSchema = z
     renewalConditions: z.string().max(2000).optional(),
     status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).default('DRAFT'),
     sortOrder: z.number().int().default(0),
+    thirdPartyAuthThreshold: z.number().int().min(0).nullable().optional(),
     insurerPartnerId: z.string().optional().nullable(),
     beneficiaryRules: beneficiaryRulesSchema.default(beneficiaryRulesSchema.parse({})),
     guarantees: z
@@ -100,10 +101,14 @@ export class ProductsService {
 
   async create(dto: any) {
     await this.assertCodeFree(dto.code);
-    const { guarantees, exclusions, frequencyFactors, ...rest } = dto;
+    const { guarantees, exclusions, frequencyFactors, beneficiaryRules, ...rest } = dto;
     return this.prisma.$transaction(async tx => {
       const product = await tx.product.create({
-        data: { ...rest, frequencyFactors: JSON.stringify(frequencyFactors ?? { ANNUAL: 1, QUARTERLY: 1.03, MONTHLY: 1.06 }) },
+        data: {
+          ...rest,
+          ...(beneficiaryRules ? { beneficiaryRules: typeof beneficiaryRules === 'string' ? beneficiaryRules : JSON.stringify(beneficiaryRules) } : {}),
+          frequencyFactors: JSON.stringify(frequencyFactors ?? { ANNUAL: 1, QUARTERLY: 1.03, MONTHLY: 1.06 }),
+        },
       });
       if (guarantees?.length)
         await tx.productGuarantee.createMany({
@@ -117,12 +122,17 @@ export class ProductsService {
 
   async update(id: string, dto: any) {
     await this.getForAdmin(id);
-    const { guarantees, exclusions, frequencyFactors, code, ...rest } = dto;
+    const { guarantees, exclusions, frequencyFactors, beneficiaryRules, code, ...rest } = dto;
     return this.prisma.$transaction(async tx => {
       if (code && code !== (await tx.product.findUnique({ where: { id } }))!.code) await this.assertCodeFree(code);
       const product = await tx.product.update({
         where: { id },
-        data: { ...rest, ...(code ? { code } : {}), ...(frequencyFactors ? { frequencyFactors: JSON.stringify(frequencyFactors) } : {}) },
+        data: {
+          ...rest,
+          ...(code ? { code } : {}),
+          ...(beneficiaryRules ? { beneficiaryRules: typeof beneficiaryRules === 'string' ? beneficiaryRules : JSON.stringify(beneficiaryRules) } : {}),
+          ...(frequencyFactors ? { frequencyFactors: JSON.stringify(frequencyFactors) } : {}),
+        },
       });
       if (guarantees !== undefined) {
         await tx.productGuarantee.deleteMany({ where: { productId: id } });

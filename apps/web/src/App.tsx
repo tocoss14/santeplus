@@ -29,6 +29,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminContracts from './pages/admin/AdminContracts';
 import AdminProducts from './pages/admin/AdminProducts';
+import AdminActs from './pages/admin/AdminActs';
 import AdminClaims from './pages/admin/AdminClaims';
 import AdminPayments from './pages/admin/AdminPayments';
 import AdminProviders from './pages/admin/AdminProviders';
@@ -97,6 +98,7 @@ export default function App() {
         <Route path="users" element={<AdminUsers />} />
         <Route path="contracts" element={<AdminContracts />} />
         <Route path="products" element={<AdminProducts />} />
+        <Route path="acts" element={<AdminActs />} />
         <Route path="claims" element={<AdminClaims />} />
         <Route path="payments" element={<AdminPayments />} />
         <Route path="providers" element={<AdminProviders />} />

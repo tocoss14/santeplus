@@ -131,6 +131,7 @@ async function main() {
     description: "L'essentiel pour se soigner sereinement : hospitalisation, consultations, pharmacie et analyses.",
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
     basePremiumAnnual: 45000, pricePerAdditionalAdultAnnual: 30000, pricePerChildAnnual: 20000,
+    thirdPartyAuthThreshold: 120000,
     insurerPartnerId: partnerB.id,
     beneficiaryRules: { spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 6 },
     guarantees: [
@@ -147,6 +148,7 @@ async function main() {
     description: 'Garanties renforcÃ©es : maternitÃ©, soins spÃ©cialisÃ©s et plafonds plus Ã©levÃ©s.',
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
     basePremiumAnnual: 75000, pricePerAdditionalAdultAnnual: 45000, pricePerChildAnnual: 28000,
+    thirdPartyAuthThreshold: 200000,
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 25, otherAllowed: false, maxBeneficiaries: 8 },
     guarantees: [
@@ -164,6 +166,7 @@ async function main() {
     description: 'La protection la plus complÃ¨te : plafonds Ã©levÃ©s, optique et dentaire inclus.',
     minAge: 0, maxAge: 70, waitingPeriodDays: 0,
     basePremiumAnnual: 120000, pricePerAdditionalAdultAnnual: 70000, pricePerChildAnnual: 42000,
+    thirdPartyAuthThreshold: 250000,
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 26, otherAllowed: true, maxBeneficiaries: 10 },
     eligibilityConditions: "Aucun dÃ©lai de carence. Questionnaire de santÃ© simplifiÃ©.",
@@ -184,6 +187,7 @@ async function main() {
     description: 'Couverture collective pour vos salariÃ©s et leurs ayants droit.',
     minAge: 18, maxAge: 63, waitingPeriodDays: 15,
     basePremiumAnnual: 0, pricePerAdditionalAdultAnnual: 55000, pricePerChildAnnual: 35000,
+    thirdPartyAuthThreshold: 180000,
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 23, otherAllowed: false, maxBeneficiaries: 6 },
     guarantees: [
@@ -252,24 +256,24 @@ async function main() {
   });
 
   const actsData = [
-    { code: 'CONS-001', name: 'Consultation medecine generale', category: 'CONSULTATION', price: 10000, requiresPrescription: false, requiresPriorAuth: false },
-    { code: 'CONS-002', name: 'Consultation specialiste', category: 'CONSULTATION', price: 25000, requiresPrescription: false, requiresPriorAuth: false },
-    { code: 'HOSP-001', name: 'Hospitalisation - journee', category: 'HOSPITALIZATION', price: 45000, requiresPrescription: false, requiresPriorAuth: false },
-    { code: 'HOSP-002', name: 'Bloc operatoire (forfait)', category: 'HOSPITALIZATION', price: 350000, requiresPrescription: true, requiresPriorAuth: true },
-    { code: 'PHAR-001', name: 'Medicaments (ordonnance)', category: 'PHARMACY', price: 25000, requiresPrescription: true, requiresPriorAuth: false },
-    { code: 'LABO-001', name: 'Bilan sanguin complet', category: 'LABORATORY', price: 20000, requiresPrescription: true, requiresPriorAuth: false },
-    { code: 'LABO-002', name: 'Test paludisme (TDR)', category: 'LABORATORY', price: 5000, requiresPrescription: false, requiresPriorAuth: false },
-    { code: 'LABO-003', name: 'Echographie', category: 'LABORATORY', price: 15000, requiresPrescription: true, requiresPriorAuth: false },
-    { code: 'SPEC-001', name: 'Seance de dialyse', category: 'SPECIALIZED', price: 90000, requiresPrescription: true, requiresPriorAuth: true },
-    { code: 'SPEC-002', name: 'Kinesitherapie (seance)', category: 'SPECIALIZED', price: 12000, requiresPrescription: true, requiresPriorAuth: false },
-    { code: 'MAT-001', name: 'Accouchement simple', category: 'MATERNITY', price: 120000, requiresPrescription: false, requiresPriorAuth: false },
-    { code: 'MAT-002', name: 'Cesarienne', category: 'MATERNITY', price: 450000, requiresPrescription: true, requiresPriorAuth: true },
-    { code: 'DENT-001', name: 'Extraction dentaire', category: 'DENTAL', price: 15000, requiresPrescription: false, requiresPriorAuth: false },
-    { code: 'OPT-001', name: 'Lunettes (paire)', category: 'OPTICAL', price: 60000, requiresPrescription: true, requiresPriorAuth: false },
+    { code: 'CONS-001', name: 'Consultation medecine generale', category: 'CONSULTATION', price: 10000, requiresPrescription: false, requiresPriorAuth: false, authThreshold: null },
+    { code: 'CONS-002', name: 'Consultation specialiste', category: 'CONSULTATION', price: 25000, requiresPrescription: false, requiresPriorAuth: false, authThreshold: 50000 },
+    { code: 'HOSP-001', name: 'Hospitalisation - journee', category: 'HOSPITALIZATION', price: 45000, requiresPrescription: false, requiresPriorAuth: false, authThreshold: 100000 },
+    { code: 'HOSP-002', name: 'Bloc operatoire (forfait)', category: 'HOSPITALIZATION', price: 350000, requiresPrescription: true, requiresPriorAuth: true, authThreshold: 50000 },
+    { code: 'PHAR-001', name: 'Medicaments (ordonnance)', category: 'PHARMACY', price: 25000, requiresPrescription: true, requiresPriorAuth: false, authThreshold: null },
+    { code: 'LABO-001', name: 'Bilan sanguin complet', category: 'LABORATORY', price: 20000, requiresPrescription: true, requiresPriorAuth: false, authThreshold: 80000 },
+    { code: 'LABO-002', name: 'Test paludisme (TDR)', category: 'LABORATORY', price: 5000, requiresPrescription: false, requiresPriorAuth: false, authThreshold: null },
+    { code: 'LABO-003', name: 'Echographie', category: 'LABORATORY', price: 15000, requiresPrescription: true, requiresPriorAuth: false, authThreshold: null },
+    { code: 'SPEC-001', name: 'Seance de dialyse', category: 'SPECIALIZED', price: 90000, requiresPrescription: true, requiresPriorAuth: true, authThreshold: 50000 },
+    { code: 'SPEC-002', name: 'Kinesitherapie (seance)', category: 'SPECIALIZED', price: 12000, requiresPrescription: true, requiresPriorAuth: false, authThreshold: null },
+    { code: 'MAT-001', name: 'Accouchement simple', category: 'MATERNITY', price: 120000, requiresPrescription: false, requiresPriorAuth: false, authThreshold: 100000 },
+    { code: 'MAT-002', name: 'Cesarienne', category: 'MATERNITY', price: 450000, requiresPrescription: true, requiresPriorAuth: true, authThreshold: 50000 },
+    { code: 'DENT-001', name: 'Extraction dentaire', category: 'DENTAL', price: 15000, requiresPrescription: false, requiresPriorAuth: false, authThreshold: null },
+    { code: 'OPT-001', name: 'Lunettes (paire)', category: 'OPTICAL', price: 60000, requiresPrescription: true, requiresPriorAuth: false, authThreshold: 80000 },
   ];
   for (const [i, a] of actsData.entries()) {
     await prisma.act.create({
-      data: { code: a.code, name: a.name, categoryId: a.category, referencePrice: a.price, sortOrder: i + 1, requiresPrescription: a.requiresPrescription, requiresPriorAuth: a.requiresPriorAuth },
+      data: { code: a.code, name: a.name, categoryId: a.category, referencePrice: a.price, sortOrder: i + 1, requiresPrescription: a.requiresPrescription, requiresPriorAuth: a.requiresPriorAuth, authThreshold: (a as any).authThreshold },
     });
   }
 

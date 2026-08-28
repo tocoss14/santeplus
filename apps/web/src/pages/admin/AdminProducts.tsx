@@ -6,7 +6,7 @@ import { ErrorBanner, Field, Modal, Spinner, StatusBadge, Badge } from '../../co
 const EMPTY = {
   code: '', name: '', description: '', clientType: 'INDIVIDUAL', minAge: 0, maxAge: 65,
   basePremiumAnnual: 0, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
-  waitingPeriodDays: 30, status: 'DRAFT', sortOrder: 0,
+  waitingPeriodDays: 30, status: 'DRAFT', sortOrder: 0, thirdPartyAuthThreshold: '' as any,
   spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 6,
   guarantees: [] as any[], exclusionsText: '',
 };
@@ -52,6 +52,32 @@ export default function AdminProducts() {
                 <Badge>{p._count.guarantees} garanties</Badge>
                 <Badge>{p._count.exclusions} exclusions</Badge>
                 <Badge>{p._count.contracts} contrats</Badge>
+                <Badge>Seuil TP: {p.thirdPartyAuthThreshold != null ? fcfa(p.thirdPartyAuthThreshold) : 'défaut 150k'}</Badge>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Field label="Seuil autorisation tiers payant (FCFA)" className="flex-1 !mb-0">
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      className="input py-1 text-sm"
+                      placeholder="vide = 150 000"
+                      defaultValue={p.thirdPartyAuthThreshold ?? ''}
+                      id={`thr-${p.id}`}
+                    />
+                    <button
+                      className="btn-outline btn-sm whitespace-nowrap"
+                      onClick={async () => {
+                        const el = document.getElementById(`thr-${p.id}`) as HTMLInputElement;
+                        const v = el.value.trim() === '' ? null : Number(el.value);
+                        if (v !== null && (Number.isNaN(v) || v < 0)) { alert('Seuil invalide'); return; }
+                        await api.patch(`/admin/products/${p.id}`, { thirdPartyAuthThreshold: v });
+                        load();
+                      }}
+                    >
+                      OK
+                    </button>
+                  </div>
+                </Field>
               </div>
               <button
                 className="btn-outline btn-sm mt-3 w-full"
@@ -64,6 +90,7 @@ export default function AdminProducts() {
                       childMaxAge: JSON.parse(d.beneficiaryRules || '{}').childMaxAge ?? 21,
                       otherAllowed: JSON.parse(d.beneficiaryRules || '{}').otherAllowed ?? false,
                       maxBeneficiaries: JSON.parse(d.beneficiaryRules || '{}').maxBeneficiaries ?? 6,
+                      thirdPartyAuthThreshold: d.thirdPartyAuthThreshold ?? '',
                       exclusionsText: d.exclusions.map((x: any) => x.description).join('\n'),
                       guarantees: catalog.map(g => {
                         const existing = d.guarantees.find((pg: any) => pg.guaranteeId === g.id);
@@ -123,6 +150,7 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
         waitingPeriodDays: Number(form.waitingPeriodDays),
         status: form.status,
         sortOrder: Number(form.sortOrder ?? 0),
+        thirdPartyAuthThreshold: form.thirdPartyAuthThreshold === '' || form.thirdPartyAuthThreshold == null ? null : Number(form.thirdPartyAuthThreshold),
         insurerPartnerId: form.insurerPartnerId || undefined,
         beneficiaryRules: { spouse: form.spouse, childMaxAge: Number(form.childMaxAge), otherAllowed: form.otherAllowed, maxBeneficiaries: Number(form.maxBeneficiaries) },
         guarantees: form.guarantees.filter((g: any) => g.enabled).map((g: any) => ({
@@ -173,6 +201,7 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
           <Field label="Âge max"><input type="number" className="input" value={form.maxAge} onChange={set('maxAge')} /></Field>
         </div>
         <Field label="Délai de carence (jours)"><input type="number" className="input" value={form.waitingPeriodDays} onChange={set('waitingPeriodDays')} /></Field>
+        <Field label="Seuil autorisation TP (FCFA, vide=défaut 150k)"><input type="number" className="input" placeholder="150000" value={form.thirdPartyAuthThreshold ?? ''} onChange={set('thirdPartyAuthThreshold')} /></Field>
         <div className="grid grid-cols-3 gap-3 sm:col-span-2">
           <Field label="Cotisation de base/an"><input type="number" className="input" value={form.basePremiumAnnual} onChange={set('basePremiumAnnual')} /></Field>
           <Field label="Adulte supp./an"><input type="number" className="input" value={form.pricePerAdditionalAdultAnnual} onChange={set('pricePerAdditionalAdultAnnual')} /></Field>

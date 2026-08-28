@@ -120,6 +120,7 @@ model Product {
   renewalConditions     String?
   status      String   @default("DRAFT")
   sortOrder   Int      @default(0)
+  thirdPartyAuthThreshold Int?
   insurerPartnerId String?
   insurerPartner   InsurerPartner? @relation(fields: [insurerPartnerId], references: [id])
   createdAt   DateTime @default(now())
@@ -405,6 +406,7 @@ model Act {
   referencePrice Int
   requiresPrescription Boolean @default(false)
   requiresPriorAuth    Boolean @default(false)
+  authThreshold  Int?
   active         Boolean @default(true)
   sortOrder      Int     @default(0)
   createdAt      DateTime @default(now())

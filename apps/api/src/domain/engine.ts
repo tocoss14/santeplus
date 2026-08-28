@@ -8,6 +8,15 @@ export function needsPriorAuthorization(totalCovered: number, threshold: number 
   return typeof threshold === 'number' && threshold > 0 && totalCovered > threshold;
 }
 
+export function resolveThreshold(
+  product: number | null | undefined,
+  act: number | null | undefined,
+  globalFallback = 150000,
+): number {
+  const c = [product, act].filter((v): v is number => typeof v === 'number' && v > 0);
+  return c.length ? Math.min(...c) : globalFallback;
+}
+
 export interface BeneficiaryRules {
   spouse?: boolean;
   childMaxAge?: number;

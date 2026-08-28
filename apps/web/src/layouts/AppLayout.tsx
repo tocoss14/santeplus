@@ -37,6 +37,7 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/admin/contracts', label: 'Contrats', icon: '📄' },
       { to: '/admin/users', label: 'Assurés & utilisateurs', icon: '👤' },
       { to: '/admin/products', label: 'Produits', icon: '📦' },
+      { to: '/admin/acts', label: 'Actes & seuils', icon: '🧬' },
       { to: '/admin/payments', label: 'Paiements', icon: '💳' },
       { to: '/admin/providers', label: 'Prestataires', icon: '🏥' },
       { to: '/admin/partners', label: 'Partenaires', icon: '🤝' },

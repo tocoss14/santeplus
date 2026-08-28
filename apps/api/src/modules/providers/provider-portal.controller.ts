@@ -7,7 +7,7 @@ import { CurrentUser } from '../../common/decorators';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
-import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization } from '../../domain/engine';
+import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization, resolveThreshold } from '../../domain/engine';
 import { ClaimsModule, ClaimsService } from '../claims/claims.controller';
 import { FilesModule } from '../files/files.service';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
@@ -386,10 +386,28 @@ export class ProviderPortalController {
       }
     }
     const estimation = await this.claims.buildEstimation(contract as any, careDate, items);
-    const cfg = await this.prisma.systemConfig.findUnique({ where: { key: 'thirdPartyAuthThreshold' } });
-    const thresholdRaw = cfg ? Number(JSON.parse(cfg.value)) : NaN;
-    const threshold = Number.isFinite(thresholdRaw) && thresholdRaw >= 0 ? thresholdRaw : 150000;
-    const authRequired = needsPriorAuthorization(estimation.totals.approved, threshold);
+    // Per-item threshold resolution: most restrictive of product vs act applies per item
+    const productThreshold: number | null =
+      (await this.prisma.product.findUnique({ where: { id: (contract as any).productId ?? (contract as any).product?.id }, select: { thirdPartyAuthThreshold: true } }))?.thirdPartyAuthThreshold ?? null;
+    const thresholds: number[] = [];
+    for (const it of dto.items as any[]) {
+      let actThreshold: number | null = null;
+      if (it.actId) {
+        const act = await this.prisma.act.findUnique({ where: { id: it.actId }, select: { authThreshold: true } });
+        actThreshold = act?.authThreshold ?? null;
+      }
+      thresholds.push(resolveThreshold(productThreshold, actThreshold));
+    }
+    // If ANY item exceeds its own threshold (using per-item approved amount), whole claim needs auth.
+    // Fallback: if estimation has no per-item amounts, check total against most restrictive threshold.
+    let authRequired = false;
+    if (estimation.items.length === thresholds.length) {
+      authRequired = estimation.items.some((e, idx) => needsPriorAuthorization(e.amountApproved, thresholds[idx]));
+    }
+    if (!authRequired && thresholds.length) {
+      const mostRestrictive = Math.min(...thresholds);
+      authRequired = needsPriorAuthorization(estimation.totals.approved, mostRestrictive);
+    }
     const status = authRequired ? 'AUTH_REQUIRED' : 'PENDING_CONFIRMATION';
 
     const stored: any[] = [];

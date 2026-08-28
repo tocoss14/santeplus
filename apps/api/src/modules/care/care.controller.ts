@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
@@ -7,7 +7,7 @@ import { CurrentUser } from '../../common/decorators';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
-import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization } from '../../domain/engine';
+import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization, resolveThreshold } from '../../domain/engine';
 import { ClaimsModule, ClaimsService } from '../claims/claims.controller';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { ref, secureToken } from '../../common/utils';
@@ -34,6 +34,7 @@ const actCreateSchema = z.object({
   referencePrice: z.number().int().min(1),
   requiresPrescription: z.boolean().default(false),
   requiresPriorAuth: z.boolean().default(false),
+  authThreshold: z.number().int().min(0).nullable().optional(),
   active: z.boolean().default(true),
 });
 
@@ -83,6 +84,14 @@ export class CareController {
   @RequirePermissions('products.manage')
   createAct(@Body(new ZodPipe(actCreateSchema)) dto: any) {
     return this.prisma.act.create({ data: dto });
+  }
+
+  @Patch('admin/acts/:id')
+  @RequirePermissions('products.manage')
+  async updateAct(@Param('id') id: string, @Body(new ZodPipe(actCreateSchema.partial())) dto: any) {
+    const existing = await this.prisma.act.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Acte introuvable');
+    return this.prisma.act.update({ where: { id }, data: dto });
   }
 
   @Post('provider/consultations')
@@ -481,10 +490,26 @@ export class CareController {
     const totalRequested = deliveredLines.reduce((a: number, d: any) => a + d.amount, 0);
     const items = deliveredLines.map((d: any) => ({ categoryId: d.line.categoryId, amountRequested: d.amount }));
     const estimation = await this.claims.buildEstimation(patientContract as any, new Date(), items);
-    const cfgN = await this.prisma.systemConfig.findUnique({ where: { key: 'thirdPartyAuthThreshold' } });
-    const thrRaw = cfgN ? Number(JSON.parse(cfgN.value)) : NaN;
-    const thr = Number.isFinite(thrRaw) ? thrRaw : 150000;
-    const status = needsPriorAuthorization(estimation.totals.approved, thr) ? 'AUTH_REQUIRED' : 'CONFIRMED';
+    const productThreshold: number | null =
+      (await this.prisma.product.findUnique({ where: { id: (patientContract as any).productId }, select: { thirdPartyAuthThreshold: true } }))?.thirdPartyAuthThreshold ?? null;
+    const thresholds: number[] = [];
+    for (const dl of deliveredLines) {
+      let actThreshold: number | null = null;
+      if (dl.line.actId) {
+        const act = await this.prisma.act.findUnique({ where: { id: dl.line.actId }, select: { authThreshold: true } });
+        actThreshold = act?.authThreshold ?? null;
+      }
+      thresholds.push(resolveThreshold(productThreshold, actThreshold));
+    }
+    let needsAuth = false;
+    if (estimation.items.length === thresholds.length) {
+      needsAuth = estimation.items.some((e, idx) => needsPriorAuthorization(e.amountApproved, thresholds[idx]));
+    }
+    if (!needsAuth && thresholds.length) {
+      const mostRestrictive = Math.min(...thresholds);
+      needsAuth = needsPriorAuthorization(estimation.totals.approved, mostRestrictive);
+    }
+    const status = needsAuth ? 'AUTH_REQUIRED' : 'CONFIRMED';
 
     const result = await this.prisma.$transaction(async tx => {
       await tx.prescription.update({

@@ -13,7 +13,32 @@ export class CronService implements OnApplicationBootstrap {
 
   onApplicationBootstrap() {
     cron.schedule('0 8 * * *', () => void this.runDaily());
+    cron.schedule('0 9 * * *', () => void this.checkEmergencyOverrides());
     setTimeout(() => void this.runDaily(), 5000);
+  }
+
+  async checkEmergencyOverrides() {
+    try {
+      const cutoff = new Date(Date.now() - 48 * 3600000);
+      const overdue = await this.prisma.claim.findMany({
+        where: { status: 'AUTHORIZED_EMERGENCY', emergencyAt: { lt: cutoff }, decidedAt: null },
+      });
+      if (!overdue.length) return;
+      const managers = await this.prisma.user.findMany({
+        where: { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER'] }, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      const managerIds = managers.map((m: any) => m.id);
+      for (const claim of overdue) {
+        await this.dispatch.dispatchToMany(managerIds, {
+          topic: 'EMERGENCY_OVERRIDE',
+          title: `Rappel — dérogation urgence ${ (claim as any).reference ?? claim.id } en attente depuis 48h`,
+          body: `La dérogation d’urgence pour ${(claim as any).reference ?? claim.id} est en attente de régularisation depuis plus de 48h. Merci de traiter.`,
+        });
+      }
+    } catch (e) {
+      console.error('[cron] checkEmergencyOverrides error', e);
+    }
   }
 
   private async getConfig(key: string, fallback: any): Promise<any> {

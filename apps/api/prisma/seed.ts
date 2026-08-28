@@ -13,7 +13,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
   COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],
   MEMBER: [],
-  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe'],
+  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe', 'provider.emergencyOverride'],
 };
 
 function daysFromNow(n: number): Date {

@@ -293,6 +293,10 @@ model Claim {
   realizationNote String?
   estimation     String?
   flags          String    @default("[]")
+  emergencyOverride      Boolean   @default(false)
+  emergencyJustification String?
+  emergencyActorId       String?
+  emergencyAt            DateTime?
 
   items     ClaimItem[]
   documents ClaimDocument[]

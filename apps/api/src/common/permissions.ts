@@ -28,6 +28,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'provider.thirdparty': 'Tiers payant â€” prise en charge au cabinet',
   'provider.prescribe': 'Prescrire (médecin / prescripteur habilité)',
   'provider.staff': "GÃ©rer le personnel de l'Ã©tablissement",
+  'provider.emergencyOverride': 'Forcer une délivrance urgente sans autorisation préalable (avec justification)',
 };
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
@@ -40,5 +41,5 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
   SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
   COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],
   MEMBER: [],
-  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe'],
+  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe', 'provider.emergencyOverride'],
 };

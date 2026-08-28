@@ -464,6 +464,72 @@ export class ProviderPortalController {
     };
   }
 
+  @Post('thirdparty/:id/emergency-confirm')
+  @RequirePermissions('provider.emergencyOverride')
+  async emergencyConfirm(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body() body: { emergencyJustification: string }) {
+    if (!body?.emergencyJustification?.trim() || body.emergencyJustification.trim().length < 10) {
+      throw new BadRequestException('Justification d’urgence obligatoire (≥10 caractères)');
+    }
+    const justification = body.emergencyJustification.trim();
+    const { establishment } = await this.portal.requireEstablishment(auth);
+    const claim = await this.prisma.claim.findFirst({
+      where: { id, providerId: establishment.id, kind: 'THIRDPARTY', status: 'AUTH_REQUIRED' },
+    });
+    if (!claim) throw new NotFoundException('Prise en charge en AUTH_REQUIRED introuvable');
+    const now = new Date();
+    await this.prisma.claim.update({
+      where: { id },
+      data: {
+        status: 'AUTHORIZED_EMERGENCY',
+        emergencyOverride: true,
+        emergencyJustification: justification,
+        emergencyActorId: auth.id,
+        emergencyAt: now,
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'EMERGENCY_OVERRIDE',
+        entityType: 'claim',
+        entityId: id,
+        userId: auth.id,
+        meta: JSON.stringify({ justification }),
+      },
+    });
+    try {
+      let dossierId: string | null = null;
+      const byClaim = await (this.prisma as any).careRecord?.findFirst?.({ where: { claimId: id } });
+      if (byClaim?.id) dossierId = byClaim.id;
+      if (!dossierId && (claim as any).claimantUserId) {
+        const byPatient = await (this.prisma as any).careRecord?.findFirst?.({ where: { patientUserId: (claim as any).claimantUserId } });
+        if (byPatient?.id) dossierId = byPatient.id;
+      }
+      if (dossierId) {
+        await this.prisma.careRecordEvent.create({
+          data: {
+            careRecordId: dossierId,
+            type: 'EMERGENCY_OVERRIDE',
+            title: 'Dérogation urgence',
+            detail: justification,
+            actorUserId: auth.id,
+          },
+        });
+      }
+    } catch {}
+    try {
+      const managers = await this.prisma.user.findMany({
+        where: { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER'] }, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      await this.dispatch.dispatchToMany(managers.map((m: any) => m.id), {
+        topic: 'EMERGENCY_OVERRIDE',
+        title: `Urgence — ${(claim as any).reference ?? id}`,
+        body: `Prestataire ${establishment.name} a forcé l’autorisation — justification : ${justification.slice(0, 120)}`,
+      });
+    } catch {}
+    return { ok: true, status: 'AUTHORIZED_EMERGENCY', reference: (claim as any).reference ?? id };
+  }
+
   @Post('thirdparty/:id/confirm')
   @RequirePermissions('provider.thirdparty')
   async confirm(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
@@ -475,7 +541,7 @@ export class ProviderPortalController {
     if (!claim) throw new NotFoundException('Prise en charge introuvable');
     if (claim.status === 'CONFIRMED') return { ok: true, status: 'CONFIRMED', reference: claim.reference };
     if (claim.status === 'AUTH_REQUIRED') throw new BadRequestException('Autorisation préalable du gestionnaire requise avant confirmation');
-    if (!['PENDING_CONFIRMATION', 'AUTHORIZED'].includes(claim.status)) throw new BadRequestException(`Statut ${claim.status} non confirmable`);
+    if (!['PENDING_CONFIRMATION', 'AUTHORIZED', 'AUTHORIZED_EMERGENCY'].includes(claim.status)) throw new BadRequestException(`Statut ${claim.status} non confirmable`);
     if (Date.now() - new Date(claim.createdAt).getTime() > TP_TTL_MS) {
       await this.prisma.claim.update({ where: { id }, data: { status: 'CANCELLED' } });
       throw new BadRequestException('Session expirée (> 30 min). Recalculez la prise en charge.');

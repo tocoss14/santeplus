@@ -21,6 +21,7 @@ import { NotificationsHttpModule } from './modules/notifications/notifications.c
 import { StatsModule } from './modules/stats/stats.controller';
 import { AdminMiscModule } from './modules/admin-misc/admin-misc.controller';
 import { DocumentsModule } from './modules/documents/documents.controller';
+import { OfflineModule } from './modules/offline/offline.controller';
 import { CronService } from './jobs/cron.service';
 
 @Module({
@@ -43,6 +44,7 @@ import { CronService } from './jobs/cron.service';
     StatsModule,
     AdminMiscModule,
     DocumentsModule,
+    OfflineModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

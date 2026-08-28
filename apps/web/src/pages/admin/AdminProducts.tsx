@@ -55,7 +55,7 @@ export default function AdminProducts() {
                 <Badge>Seuil TP: {p.thirdPartyAuthThreshold != null ? fcfa(p.thirdPartyAuthThreshold) : 'défaut 150k'}</Badge>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <Field label="Seuil autorisation tiers payant (FCFA)" className="flex-1 !mb-0">
+                <div className="flex-1"><Field label="Seuil autorisation tiers payant (FCFA)">
                   <div className="flex gap-1">
                     <input
                       type="number"
@@ -77,7 +77,7 @@ export default function AdminProducts() {
                       OK
                     </button>
                   </div>
-                </Field>
+                </Field></div>
               </div>
               <button
                 className="btn-outline btn-sm mt-3 w-full"

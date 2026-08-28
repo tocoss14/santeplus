@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
-import { api } from '../../api';
-import { fcfa, fmtDate, fmtDateTime, statusLabel } from '../../format';
+import { useEffect, useState, useCallback } from 'react';
+import { api, getToken } from '../../api';
+import { fcfa, fmtDate, fmtDateTime } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
+import OfflineBanner from '../../components/OfflineBanner';
+import { computeHash, enqueueDelivery, syncQueue, getQueue } from '../../lib/offlineQueue';
+import { cacheGuarantees, getCachedGuarantees } from '../../lib/offlineCache';
 
 export default function ProviderDeliveries() {
   const [prescriptionInput, setPrescriptionInput] = useState('');
@@ -11,9 +14,40 @@ export default function ProviderDeliveries() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [queueCount, setQueueCount] = useState(0);
+  const [estimationPreview, setEstimationPreview] = useState<any | null>(null);
 
   const load = () => api.get('/provider/deliveries').then(setDeliveries).catch(() => setDeliveries([]));
-  useEffect(() => { load(); }, []);
+  const refreshQueue = useCallback(async () => {
+    try {
+      const q = await getQueue();
+      setQueueCount(q.length);
+    } catch { setQueueCount(0); }
+  }, []);
+
+  useEffect(() => { load(); refreshQueue(); }, [refreshQueue]);
+
+  // auto-sync on mount and on online event
+  useEffect(() => {
+    const trySync = async () => {
+      if (!navigator.onLine) return;
+      try {
+        const res = await syncQueue();
+        if (res.synced > 0) {
+          setMessage(`${res.synced} délivrance(s) synchronisée(s) avec succès`);
+          load();
+          refreshQueue();
+        }
+        if (res.conflicts.length > 0) {
+          setError(`${res.conflicts.length} conflit(s) détecté(s) : ${res.conflicts.map(c => c.reason).join(' ; ')} — Alerte gestionnaire envoyée. Aucune donnée perdue.`);
+        }
+      } catch { /* offline or server down — keep queued */ }
+    };
+    trySync();
+    const onOnline = () => trySync();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [refreshQueue]);
 
   async function scan() {
     setError(null); setMessage(null);
@@ -24,11 +58,32 @@ export default function ProviderDeliveries() {
       const res = await api.post('/provider/prescriptions/scan', payload);
       setPrescription(res);
       setLines(res.remainingLines.filter((r: any) => r.remaining > 0).map((r: any) => ({ lineId: r.lineId, quantity: r.remaining, unitPrice: r.unitPrice, substitutionNote: '' })));
+      // cache guarantees if online (best-effort)
+      try {
+        if (res.patientUser?.memberNumber) {
+          // fetch guarantees if available via /provider/verify or similar — cache what we have
+          // For now cache the remainingLines pricing as placeholder for offline estimation fallback
+          cacheGuarantees(res.patientUser.memberNumber, { remainingLines: res.remainingLines, cachedAt: new Date().toISOString() });
+        }
+      } catch { /* ignore */ }
       if (res.remainingLines.every((r: any) => r.remaining <= 0)) {
         setError('Ordonnance entièrement exécutée — plus rien à délivrer.');
       }
     } catch (e: any) {
-      setError(e?.message ?? 'Ordonnance introuvable');
+      // Offline fallback: try cached guarantees
+      if (!navigator.onLine || e?.message?.toLowerCase().includes('network') || e?.status === 0) {
+        const raw = prescriptionInput.trim();
+        // try to find cached guarantee by member number extraction attempt
+        const cached = raw.startsWith('ORD-') ? null : getCachedGuarantees(raw);
+        if (cached) {
+          setEstimationPreview(cached);
+          setError('Mode hors ligne — estimation basée sur le cache (24-48h). La délivrance sera mise en file d’attente et synchronisée au retour en ligne.');
+        } else {
+          setError(e?.message ?? 'Ordonnance introuvable — hors ligne, vérification impossible sans cache.');
+        }
+      } else {
+        setError(e?.message ?? 'Ordonnance introuvable');
+      }
       setPrescription(null);
     }
   }
@@ -41,14 +96,49 @@ export default function ProviderDeliveries() {
         lines: lines.map(l => ({ lineId: l.lineId, quantity: l.quantity, substitutionNote: l.substitutionNote || undefined })),
       };
       const payload = JSON.stringify(dto);
+      // If offline, enqueue directly
+      if (!navigator.onLine) {
+        const token = getToken() ?? 'offline';
+        const hash = await computeHash(dto, token);
+        await enqueueDelivery(dto, hash, token);
+        await refreshQueue();
+        setMessage(`Mode hors ligne — délivrance mise en file d’attente (${queueCount + 1} en attente). Elle sera synchronisée automatiquement au retour en ligne. Aucune donnée perdue.`);
+        setPrescription(null);
+        setLines([]);
+        setPrescriptionInput('');
+        return;
+      }
       const fd = new FormData();
       fd.append('payload', payload);
-      const res = await api.post<any>('/provider/deliveries', fd);
-      setMessage(`Délivrance ${res.reference ?? 'enregistrée'} — prise en charge ${fcfa(res.estimation?.totals?.approved ?? 0)}`);
-      setPrescription(null);
-      setLines([]);
-      setPrescriptionInput('');
-      load();
+      try {
+        const res = await api.post<any>('/provider/deliveries', fd);
+        setMessage(`Délivrance ${res.reference ?? 'enregistrée'} — prise en charge ${fcfa(res.estimation?.totals?.approved ?? 0)}`);
+        // refresh cache on success
+        try {
+          if (prescription?.patientUser?.memberNumber) {
+            cacheGuarantees(prescription.patientUser.memberNumber, res.estimation ?? { totals: res.estimation?.totals });
+          }
+        } catch { /* ignore */ }
+        setPrescription(null);
+        setLines([]);
+        setPrescriptionInput('');
+        load();
+      } catch (e: any) {
+        // network error → enqueue instead of POST
+        const isNetworkError = e?.status === 0 || e?.message?.toLowerCase().includes('network') || e?.message?.toLowerCase().includes('fetch') || !navigator.onLine;
+        if (isNetworkError) {
+          const token = getToken() ?? 'offline';
+          const hash = await computeHash(dto, token);
+          await enqueueDelivery(dto, hash, token);
+          await refreshQueue();
+          setMessage(`Connexion indisponible — délivrance mise en file d’attente (${queueCount + 1} en attente). Synchronisation automatique au retour en ligne.`);
+          setPrescription(null);
+          setLines([]);
+          setPrescriptionInput('');
+        } else {
+          throw e;
+        }
+      }
     } catch (e: any) {
       setError(e?.message ?? 'Délivrance impossible');
     } finally {
@@ -58,6 +148,12 @@ export default function ProviderDeliveries() {
 
   return (
     <div className="space-y-5">
+      <OfflineBanner />
+      {queueCount > 0 && (
+        <div className="rounded-lg bg-orange-50 border border-orange-200 px-4 py-2 text-sm text-orange-800">
+          {queueCount} délivrance{queueCount > 1 ? 's' : ''} en attente de synchronisation — aucune donnée ne sera perdue.
+        </div>
+      )}
       <h1 className="text-xl font-bold">Délivrer une ordonnance</h1>
       <div className="card-p space-y-3">
         <Field label="Scanner l'ordonnance (QR ou n° ORD-…)">
@@ -68,6 +164,11 @@ export default function ProviderDeliveries() {
         </Field>
         <ErrorBanner message={error} />
         {message && <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-700">{message}</div>}
+        {estimationPreview && !prescription && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-800">
+            Estimation en cache : {fcfa(estimationPreview?.totals?.approved ?? 0)} (hors ligne)
+          </div>
+        )}
 
         {prescription && (
           <div className="rounded-xl border border-slate-200 p-4 space-y-3">
@@ -120,8 +221,9 @@ export default function ProviderDeliveries() {
                   );
                 })}
                 <button className="btn-primary w-full mt-2" disabled={busy || lines.length === 0} onClick={deliver}>
-                  {busy ? 'Enregistrement…' : 'Confirmer la délivrance'}
+                  {busy ? 'Enregistrement…' : !navigator.onLine ? 'Mettre en file d’attente (hors ligne)' : 'Confirmer la délivrance'}
                 </button>
+                {!navigator.onLine && <p className="text-xs text-amber-600 text-center">Mode hors ligne — la délivrance sera synchronisée au retour de la connexion. Aucune donnée perdue.</p>}
               </>
             )}
           </div>

@@ -31,7 +31,7 @@ async function bootstrap(): Promise<void> {
       logger: ['error', 'warn', 'log'],
     });
 
-    app.use(helmet.default({ crossOriginResourcePolicy: false }));
+    // CORS AVANT helmet — sinon helmet bloque les preflight OPTIONS
     app.enableCors({
       origin: [
         ...config.webOrigin.split(',').map(s => s.trim()).filter(Boolean),
@@ -41,6 +41,7 @@ async function bootstrap(): Promise<void> {
       methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     });
+    app.use(helmet.default({ crossOriginResourcePolicy: false }));
     app.setGlobalPrefix('api');
     app.useGlobalFilters(new HttpExceptionFilter());
 

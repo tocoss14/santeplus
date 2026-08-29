@@ -94,6 +94,28 @@ export default function AdminDashboard() {
         </ul>
       </div>
 
+      {/*
+        Rétention/purge (Task 9) — désactivé par défaut, requiert validation juridique.
+        Configurer via PATCH /admin/config avec les clés SystemConfig:
+          retention.enabled (boolean), retention.careRecordDays, retention.invoiceDays, retention.auditDays (jours, >0).
+        Tant qu'aucune durée >0 ou enabled=true n'est définie, le job quotidien 03:00 ne fait rien.
+        Voir apps/api/src/domain/retention.ts et jobs/retention.job.ts.
+      */}
+      <div className="card-p">
+        <h2 className="mb-3 font-semibold">Rétention / purge</h2>
+        <p className="text-sm text-slate-600">
+          Mécanisme désactivé par défaut. Nécessite une durée légale validée (CIMA/Bénin) avant activation.
+          Configurer via <code className="rounded bg-slate-100 px-1">PATCH /admin/config</code> — clés&nbsp;:
+          <code className="rounded bg-slate-100 px-1 ml-1">retention.careRecordDays</code>,
+          <code className="rounded bg-slate-100 px-1">retention.invoiceDays</code>,
+          <code className="rounded bg-slate-100 px-1">retention.auditDays</code>
+          {' '}ou <code className="rounded bg-slate-100 px-1">retention.enabled</code>. Job quotidien à 03:00.
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          MVP&nbsp;: anonymise les <em>CareRecord</em> (beneficiaryId/providerId → null, status ANONYMIZED) et supprime les <em>AuditLog</em> expirés. Factures non purgées en MVP.
+        </p>
+      </div>
+
       <div className="card-p">
         <h2 className="mb-3 font-semibold">Anomalies</h2>
         {anomaliesError ? (

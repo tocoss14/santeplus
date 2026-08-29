@@ -5,6 +5,7 @@ import { daysBetween, startOfDay } from '../common/utils';
 import { NotificationDispatchService } from '../common/notifications/dispatch.service';
 import { RenewalAlertJob } from './renewal-alert.job';
 import { FraudDetectionJob } from './fraud-detection.job';
+import { RetentionJob } from './retention.job';
 
 @Injectable()
 export class CronService implements OnApplicationBootstrap {
@@ -13,6 +14,7 @@ export class CronService implements OnApplicationBootstrap {
     private dispatch: NotificationDispatchService,
     private renewalAlertJob?: RenewalAlertJob,
     private fraudDetectionJob?: FraudDetectionJob,
+    private retentionJob?: RetentionJob,
   ) {}
 
   onApplicationBootstrap() {
@@ -20,12 +22,16 @@ export class CronService implements OnApplicationBootstrap {
     cron.schedule('0 9 * * *', () => void this.checkEmergencyOverrides());
     cron.schedule('30 2 * * *', () => void this.checkRenewalAlerts().catch((e) => console.error('[cron] renewalAlert error', e)));
     cron.schedule('0 2 * * *', () => void this.checkFraud().catch((e) => console.error('[cron] fraud error', e)));
+    cron.schedule('0 3 * * *', () => void this.checkRetention().catch((e) => console.error('[cron] retention error', e)));
     // also delegate to dedicated job if injected
     if (this.renewalAlertJob) {
       // already scheduled above; also ensure job's own schedule is not double
     }
     if (this.fraudDetectionJob) {
       // already scheduled above
+    }
+    if (this.retentionJob) {
+      // already scheduled above (03:00)
     }
     setTimeout(() => void this.runDaily(), 5000);
   }
@@ -45,6 +51,14 @@ export class CronService implements OnApplicationBootstrap {
     }
     const job = new FraudDetectionJob(this.prisma as any, this.dispatch as any);
     return job.checkFraud(now);
+  }
+
+  async checkRetention(now = new Date()) {
+    if (this.retentionJob) {
+      return this.retentionJob.run(now);
+    }
+    const job = new RetentionJob(this.prisma as any);
+    return job.run(now);
   }
 
   async checkEmergencyOverrides() {

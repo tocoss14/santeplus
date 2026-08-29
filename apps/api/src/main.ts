@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { Request, Response, NextFunction } from 'express';
 import * as helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
@@ -45,14 +46,14 @@ async function bootstrap(): Promise<void> {
 
     // Rate limiting global : 100 requêtes par minute par IP
     // Skip OPTIONS (CORS preflight) pour éviter le blocage
-    app.use((req, res, next) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method === 'OPTIONS') return next();
       rateLimit({
         windowMs: 60_000,
         limit: 100,
         standardHeaders: true,
         legacyHeaders: false,
-        keyGenerator: (r) => r.ip ?? 'unknown',
+        keyGenerator: (r: Request) => r.ip ?? 'unknown',
       })(req, res, next);
     });
 

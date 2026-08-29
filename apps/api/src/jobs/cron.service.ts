@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma.module';
 import { daysBetween, startOfDay } from '../common/utils';
 import { NotificationDispatchService } from '../common/notifications/dispatch.service';
 import { RenewalAlertJob } from './renewal-alert.job';
+import { FraudDetectionJob } from './fraud-detection.job';
 
 @Injectable()
 export class CronService implements OnApplicationBootstrap {
@@ -11,15 +12,20 @@ export class CronService implements OnApplicationBootstrap {
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
     private renewalAlertJob?: RenewalAlertJob,
+    private fraudDetectionJob?: FraudDetectionJob,
   ) {}
 
   onApplicationBootstrap() {
     cron.schedule('0 8 * * *', () => void this.runDaily());
     cron.schedule('0 9 * * *', () => void this.checkEmergencyOverrides());
     cron.schedule('30 2 * * *', () => void this.checkRenewalAlerts().catch((e) => console.error('[cron] renewalAlert error', e)));
+    cron.schedule('0 2 * * *', () => void this.checkFraud().catch((e) => console.error('[cron] fraud error', e)));
     // also delegate to dedicated job if injected
     if (this.renewalAlertJob) {
       // already scheduled above; also ensure job's own schedule is not double
+    }
+    if (this.fraudDetectionJob) {
+      // already scheduled above
     }
     setTimeout(() => void this.runDaily(), 5000);
   }
@@ -31,6 +37,14 @@ export class CronService implements OnApplicationBootstrap {
     // Fallback: instantiate ad-hoc if not injected (e.g., in tests or standalone)
     const job = new RenewalAlertJob(this.prisma as any, this.dispatch as any);
     return job.checkRenewalAlerts(now);
+  }
+
+  async checkFraud(now = new Date()) {
+    if (this.fraudDetectionJob) {
+      return this.fraudDetectionJob.checkFraud(now);
+    }
+    const job = new FraudDetectionJob(this.prisma as any, this.dispatch as any);
+    return job.checkFraud(now);
   }
 
   async checkEmergencyOverrides() {

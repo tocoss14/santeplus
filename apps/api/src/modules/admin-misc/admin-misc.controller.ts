@@ -18,6 +18,57 @@ export class HealthController {
 export class AdminMiscController {
   constructor(private prisma: PrismaService) {}
 
+  @Get('anomalies/summary')
+  @RequirePermissions('audit.view')
+  async anomaliesSummary() {
+    const [total, recent] = await Promise.all([
+      (this.prisma as any).auditLog.count({ where: { action: 'FRAUD_ALERT' } }),
+      (this.prisma as any).auditLog.findMany({
+        where: { action: 'FRAUD_ALERT', createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+        select: { meta: true },
+      }),
+    ]);
+    let zCount = 0;
+    let cumulCount = 0;
+    for (const r of recent) {
+      try {
+        const m = JSON.parse(r.meta);
+        if (m?.type === 'CUMUL') cumulCount++;
+        else zCount++;
+      } catch { zCount++; }
+    }
+    return { total, last7Days: recent.length, zScoreAlertsLast7Days: zCount, cumulAlertsLast7Days: cumulCount };
+  }
+
+  @Get('anomalies')
+  @RequirePermissions('audit.view')
+  async anomalies() {
+    const alerts = await (this.prisma as any).auditLog.findMany({
+      where: { action: 'FRAUD_ALERT' },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+    let notifFallback: any[] = [];
+    try {
+      const notifs = await (this.prisma as any).notification.findMany({
+        where: { topic: 'FRAUD_ALERT' },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      });
+      notifFallback = notifs;
+    } catch {}
+    const parse = (row: any) => {
+      let meta: any = null;
+      try { meta = row.meta ? JSON.parse(row.meta) : null; } catch { meta = row.meta; }
+      return { ...row, meta };
+    };
+    return {
+      items: alerts.map(parse),
+      notifications: notifFallback.map(parse),
+      total: alerts.length,
+    };
+  }
+
   @Get('audit')
   @RequirePermissions('audit.view')
   async audit(@Query('page') page = '1', @Query('q') q?: string, @Query('userId') userId?: string) {

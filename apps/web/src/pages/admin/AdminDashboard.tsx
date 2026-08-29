@@ -6,9 +6,15 @@ import { Spinner, StatCard } from '../../components/ui';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
+  const [anomalies, setAnomalies] = useState<any[] | null>(null);
+  const [anomaliesError, setAnomaliesError] = useState(false);
 
   useEffect(() => {
     api.get('/stats/admin/dashboard').then(setStats).catch(() => setStats({ error: true }));
+  }, []);
+
+  useEffect(() => {
+    api.get('/admin/anomalies').then((res: any) => setAnomalies(res.items ?? res ?? [])).catch(() => setAnomaliesError(true));
   }, []);
 
   if (!stats) return <Spinner />;
@@ -86,6 +92,54 @@ export default function AdminDashboard() {
             );
           })}
         </ul>
+      </div>
+
+      <div className="card-p">
+        <h2 className="mb-3 font-semibold">Anomalies</h2>
+        {anomaliesError ? (
+          <p className="text-sm text-slate-400">Alertes indisponibles.</p>
+        ) : anomalies === null ? (
+          <p className="text-sm text-slate-400">Chargement…</p>
+        ) : anomalies.length === 0 ? (
+          <p className="text-sm text-slate-400">Aucune anomalie détectée sur les 30 derniers jours.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="py-2 font-medium">Date</th>
+                  <th className="py-2 font-medium">Prestataire / Contrat</th>
+                  <th className="py-2 font-medium">Type</th>
+                  <th className="py-2 font-medium">Z-score / Raison</th>
+                </tr>
+              </thead>
+              <tbody>
+                {anomalies.map((a: any) => {
+                  const meta = a.meta ?? {};
+                  const isCumul = meta.type === 'CUMUL';
+                  const providerLabel = meta.providerName ?? meta.providerId ?? a.entityId ?? '—';
+                  const contractLabel = isCumul ? (meta.contractId ?? a.entityId) : providerLabel;
+                  const date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('fr-FR') : '—';
+                  const reason = isCumul
+                    ? `Cumul suspect — ${meta.code ?? '?'} le ${meta.date ?? date} (${meta.count ?? '?'} bénéficiaires)`
+                    : `${meta.metric === 'both' ? 'Montant + volume' : meta.metric === 'count' ? 'Volume' : 'Montant'} — Z avg ${meta.zAvg != null ? Number(meta.zAvg).toFixed(2) : '—'}, Z count ${meta.zCount != null ? Number(meta.zCount).toFixed(2) : '—'}`;
+                  return (
+                    <tr key={a.id} className="border-t">
+                      <td className="py-2 text-slate-600">{date}</td>
+                      <td className="py-2 font-medium">{isCumul ? contractLabel : providerLabel}</td>
+                      <td className="py-2">
+                        <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${isCumul ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                          {isCumul ? 'CUMUL' : 'Z-SCORE'}
+                        </span>
+                      </td>
+                      <td className="py-2 text-slate-700">{reason}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -23,6 +23,8 @@ import { AdminMiscModule } from './modules/admin-misc/admin-misc.controller';
 import { DocumentsModule } from './modules/documents/documents.controller';
 import { OfflineModule } from './modules/offline/offline.controller';
 import { CronService } from './jobs/cron.service';
+import { RenewalAlertJob } from './jobs/renewal-alert.job';
+import { FraudDetectionJob } from './jobs/fraud-detection.job';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { CronService } from './jobs/cron.service';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    RenewalAlertJob,
+    FraudDetectionJob,
     CronService,
   ],
 })

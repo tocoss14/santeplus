@@ -447,7 +447,9 @@ model Consultation {
   practitionerName  String
   specialty         String?
   motif             String
+  motifEnc          String?
   diagnostic        String?
+  diagnosticEnc     String?
   careDate          DateTime @default(now())
   claimId           String? @unique
   claim             Claim?   @relation("ConsultationClaim", fields: [claimId], references: [id])
@@ -481,6 +483,7 @@ model Prescription {
   renewalsAllowed   Int      @default(0)
   renewalsUsed      Int      @default(0)
   note              String?
+  noteEnc           String?
   claims            Claim[]  @relation("ClaimPrescription")
   careRecord        CareRecord?
   createdAt         DateTime @default(now())

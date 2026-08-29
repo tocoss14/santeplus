@@ -1,7 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, createHash as hsh, randomBytes } from 'crypto';
 import { config } from '../config';
+import type { AuthUser } from './guards/jwt-auth.guard';
 
 const key = createHash('sha256').update(config.jwtSecret + ':field-enc').digest();
+
+export const MEDICAL_MASKED = '[Contenu médical restreint]';
 
 export function encryptField(plain: string): string {
   const iv = randomBytes(12);
@@ -23,6 +26,29 @@ export function decryptField(payload: string | null | undefined): string | null 
   } catch {
     return null;
   }
+}
+
+export function encryptMedical(plain: string): string {
+  return encryptField(plain);
+}
+
+export function canAccessMedical(requester: AuthUser, ownerId: string, providerId?: string | null): boolean {
+  if (!requester) return false;
+  if (requester.id === ownerId) return true;
+  if (requester.role === 'SUPER_ADMIN' || requester.role === 'INSURANCE_MANAGER') return true;
+  if (requester.providerId && providerId && requester.providerId === providerId) return true;
+  return false;
+}
+
+export function decryptMedical(
+  enc: string | null | undefined,
+  requester: AuthUser,
+  ownerId: string,
+  providerId?: string | null,
+): string | null {
+  if (!enc) return null;
+  if (!canAccessMedical(requester, ownerId, providerId)) return null;
+  return decryptField(enc);
 }
 
 export function sha256(buf: Buffer): string {

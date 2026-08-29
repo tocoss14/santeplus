@@ -13,8 +13,55 @@ import { NotificationDispatchService } from '../../common/notifications/dispatch
 import { ref, secureToken } from '../../common/utils';
 import { CareRecordController } from './care-record.controller';
 import { CareService } from './care.service';
+import { encryptMedical, decryptField, canAccessMedical, MEDICAL_MASKED } from '../../common/crypto';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
+
+function decryptConsultationForReader(c: any, requester: AuthUser): any {
+  const can = canAccessMedical(requester, c.patientUserId, c.providerId);
+  if (can) {
+    if (c.motifEnc) {
+      const dec = decryptField(c.motifEnc);
+      if (dec !== null) c.motif = dec;
+    }
+    if (c.diagnosticEnc !== undefined) {
+      if (c.diagnosticEnc) {
+        const dec = decryptField(c.diagnosticEnc);
+        if (dec !== null) c.diagnostic = dec;
+      } else if (c.diagnosticEnc === null) {
+        // keep diagnostic as is (may be null) if no enc; already plain
+      }
+    }
+  } else {
+    c.motif = MEDICAL_MASKED;
+    if (c.diagnostic != null || c.diagnosticEnc != null) {
+      c.diagnostic = MEDICAL_MASKED;
+    } else {
+      c.diagnostic = MEDICAL_MASKED;
+    }
+  }
+  // Do not expose enc columns to client
+  if ('motifEnc' in c) delete c.motifEnc;
+  if ('diagnosticEnc' in c) delete c.diagnosticEnc;
+  return c;
+}
+
+function decryptPrescriptionForReader(p: any, requester: AuthUser): any {
+  if (!p) return p;
+  const can = canAccessMedical(requester, p.patientUserId, p.providerId);
+  if (can) {
+    if (p.noteEnc) {
+      const dec = decryptField(p.noteEnc);
+      if (dec !== null) p.note = dec;
+    }
+  } else {
+    if (p.note != null || p.noteEnc != null) {
+      p.note = MEDICAL_MASKED;
+    }
+  }
+  if ('noteEnc' in p) delete p.noteEnc;
+  return p;
+}
 
 const medicationSchema = z.object({
   code: z.string().regex(/^[A-Z0-9_-]{2,30}$/),
@@ -135,7 +182,9 @@ export class CareController {
         practitionerName: dto.practitioner || `${practitionerUser?.firstName} ${practitionerUser?.lastName}`,
         specialty: dto.specialty,
         motif: dto.motif,
+        motifEnc: encryptMedical(dto.motif),
         diagnostic: dto.diagnostic,
+        diagnosticEnc: dto.diagnostic ? encryptMedical(dto.diagnostic) : null,
       },
     });
 
@@ -204,12 +253,12 @@ export class CareController {
         prescriptions: { select: { number: true, status: true } },
       },
     });
-    return items;
+    return items.map((c: any) => decryptConsultationForReader(c, auth));
   }
 
   @Get('consultations/mine')
-  mineConsultations(@CurrentUser() auth: AuthUser) {
-    return this.prisma.consultation.findMany({
+  async mineConsultations(@CurrentUser() auth: AuthUser) {
+    const items = await this.prisma.consultation.findMany({
       where: { patientUserId: auth.id },
       orderBy: { careDate: 'desc' },
       include: {
@@ -218,6 +267,7 @@ export class CareController {
       },
       take: 100,
     });
+    return items.map((c: any) => decryptConsultationForReader(c, auth));
   }
 
   @Post('provider/prescriptions')
@@ -285,6 +335,7 @@ export class CareController {
         validUntil: until,
         renewalsAllowed: dto.renewalsAllowed,
         note: dto.note,
+        noteEnc: dto.note ? encryptMedical(dto.note) : null,
         status: 'ACTIVE',
         lines: {
           create: dto.lines.map((l: any) => ({
@@ -327,7 +378,7 @@ export class CareController {
     const where: any = { providerId: establishment.id };
     if (status) where.status = status;
     if (q) where.OR = [{ number: { contains: q } }, { patientUser: { is: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }, { memberNumber: { contains: q } }] } } }];
-    return this.prisma.prescription.findMany({
+    const items = await this.prisma.prescription.findMany({
       where, orderBy: { createdAt: 'desc' }, take: 100,
       include: {
         patientUser: { select: { firstName: true, lastName: true, memberNumber: true } },
@@ -335,6 +386,7 @@ export class CareController {
         _count: { select: { deliveries: true } },
       },
     });
+    return items.map((p: any) => decryptPrescriptionForReader(p, auth));
   }
 
   @Get('provider/prescriptions/:id')
@@ -346,11 +398,15 @@ export class CareController {
         patientUser: { select: { firstName: true, lastName: true, memberNumber: true } },
         lines: true,
         deliveries: { include: { lines: true } },
-        consultation: { select: { reference: true, motif: true } },
+        consultation: { select: { reference: true, motif: true, motifEnc: true, diagnostic: true, diagnosticEnc: true } },
       },
     });
     if (!p) throw new NotFoundException();
-    const enriched = { ...p, isExpired: new Date(p.validUntil) < new Date() };
+    const decrypted = decryptPrescriptionForReader(p, auth);
+    if ((p as any).consultation) {
+      decryptConsultationForReader(decrypted.consultation, auth);
+    }
+    const enriched = { ...decrypted, isExpired: new Date(p.validUntil) < new Date() };
     return enriched;
   }
 
@@ -399,7 +455,8 @@ export class CareController {
     });
     if (!p) throw new NotFoundException('Ordonnance introuvable');
 
-    const remaining = p.lines.map((l: any) => ({
+    const decryptedP = decryptPrescriptionForReader({ ...p }, auth);
+    const remaining = (p as any).lines.map((l: any) => ({
       lineId: l.id, code: l.code, name: l.name, categoryId: l.categoryId,
       quantity: l.quantity, deliveredQty: l.deliveredQty, remaining: l.quantity - l.deliveredQty,
       unitPrice: l.unitPrice, posology: l.posology, duration: l.duration, instructions: l.instructions,
@@ -410,7 +467,7 @@ export class CareController {
       : remaining.some((r: any) => r.deliveredQty > 0) ? 'PARTIALLY_EXECUTED'
       : p.status;
 
-    return { ...p, remainingLines: remaining, isExpired, computedStatus: status };
+    return { ...decryptedP, remainingLines: remaining, isExpired, computedStatus: status };
   }
 
   @Post('provider/deliveries')
@@ -638,7 +695,7 @@ export class CareController {
 
   @Get('prescriptions/mine')
   async myPrescriptions(@CurrentUser() auth: AuthUser) {
-    return this.prisma.prescription.findMany({
+    const items = await this.prisma.prescription.findMany({
       where: { patientUserId: auth.id },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -648,6 +705,7 @@ export class CareController {
       },
       take: 100,
     });
+    return items.map((p: any) => decryptPrescriptionForReader(p, auth));
   }
 
   @Get('consultations/mine-old')

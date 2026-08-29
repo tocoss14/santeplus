@@ -361,6 +361,18 @@ export class ProviderPortalController {
 
     const items = dto.items.map((i: any) => ({ ...i, amountRequested: i.quantity * i.unitPrice }));
     const careDate = new Date();
+    // -----------------------------------------------------------------------
+    // Task 10 — Suppression du circuit tiers payant "legacy" générique
+    // Pour les actes où requiresPrescription == true (PHARMACY par categoryId
+    // ou tout Act avec requiresPrescription=true), le tiers payant direct
+    // sans ordonnance est INTERDIT. Seule la voie prescription-obligatoire
+    // est autorisée. Le garde ci-dessous est la seule voie — aucun fallback
+    // "legacy" ne doit créer une prise en charge PHARMACY (ou acte à
+    // prescription obligatoire) sans ordonnance valide. Tout ancien bloc
+    // `else { // legacy direct TP }` a été supprimé.
+    // Pour les actes où requiresPrescription == false (ex: CONSULTATION),
+    // le circuit direct reste autorisé — pas de vérification d'ordonnance.
+    // -----------------------------------------------------------------------
     for (const item of dto.items) {
       let requiresPrescription = item.categoryId === 'PHARMACY';
       if (item.actId) {
@@ -384,6 +396,9 @@ export class ProviderPortalController {
           + (ok ? 'La prescription existante a été entièrement exécutée ou est expirée.' : ''),
         );
       }
+      // Pas de else — pour les actes sans prescription (CONSULTATION etc.),
+      // le tiers payant direct reste autorisé (legacy conservé uniquement
+      // pour requiresPrescription == false).
     }
     const estimation = await this.claims.buildEstimation(contract as any, careDate, items);
     // Per-item threshold resolution: most restrictive of product vs act applies per item

@@ -4,6 +4,13 @@ import { api } from '../../api';
 import { fcfa, CATEGORY_LABELS } from '../../format';
 import { ErrorBanner, Field, Spinner } from '../../components/ui';
 
+// Task 10 — Tiers payant PHARMACY : le circuit direct "legacy" sans ordonnance
+// a été supprimé côté API (provider-portal.controller.ts). Pour PHARMACY ou
+// tout acte avec requiresPrescription==true, l'API exige une prescription
+// valide (400 sinon). Le circuit direct reste autorisé uniquement pour les
+// actes sans prescription (ex: CONSULTATION). Côté UI, la délivrance PHARMACY
+// passe exclusivement par ProviderDeliveries (scan ordonnance d'abord).
+
 interface Act { id: string; code: string; name: string; categoryId: string; referencePrice: number }
 interface Line { actId?: string; code: string; label: string; categoryId: string; quantity: number; unitPrice: number; practitioner: string }
 interface VerifyResult { contract: any; beneficiaries: any[]; caps: any[]; warnings: string[] }

@@ -6,6 +6,13 @@ import OfflineBanner from '../../components/OfflineBanner';
 import { computeHash, enqueueDelivery, syncQueue, getQueue } from '../../lib/offlineQueue';
 import { cacheGuarantees, getCachedGuarantees } from '../../lib/offlineCache';
 
+// Task 10 — Circuit PHARMACY prescription-obligatoire : cette page est la
+// seule voie d'accès pour les actes à prescription obligatoire. L'utilisateur
+// doit d'abord "scanner l'ordonnance" (QR / n° ORD-…) — aucun bouton
+// "tiers payant direct PHARMACY sans ordonnance" n'existe. Le circuit legacy
+// générique a été supprimé côté API ; CONSULTATION (requiresPrescription==false)
+// reste en direct via NewThirdParty.
+
 export default function ProviderDeliveries() {
   const [prescriptionInput, setPrescriptionInput] = useState('');
   const [prescription, setPrescription] = useState<any | null>(null);

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../../api';
-import { fcfa, fmtDate, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
+import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
 import { Badge, ErrorBanner, Field, Spinner } from '../../components/ui';
 
 interface BenefDraft {
@@ -13,7 +12,108 @@ interface BenefDraft {
   relation: string;
 }
 
-const STEPS = ['Formule', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
+interface SelectedGuarantee {
+  categoryId: string;
+  rate: number;
+  annualLimit: number;
+}
+
+interface GuaranteeOption {
+  categoryId: string;
+  categoryName: string;
+  basePrice: number;
+  minRate: number;
+  maxRate: number;
+  minLimit: number;
+  maxLimit: number;
+  limitStep: number;
+  mandatory: boolean;
+  customizable: boolean;
+}
+
+const STEPS = ['Formule', 'Mes garanties', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
+
+function GuaranteeSlider({ option, value, onChange }: { option: GuaranteeOption; value: SelectedGuarantee; onChange: (v: SelectedGuarantee) => void }) {
+  const rateSteps = Math.min(10, option.maxRate - option.minRate);
+  const limitSteps = Math.floor((option.maxLimit - option.minLimit) / option.limitStep);
+
+  return (
+    <div className="card-p space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold">{CATEGORY_LABELS[option.categoryId] ?? option.categoryName}</p>
+          <p className="text-xs text-slate-400">Coût de base : {fcfa(option.basePrice)}/an</p>
+        </div>
+        {option.mandatory && !option.customizable && (
+          <Badge tone="bg-slate-100 text-slate-500">Inclus</Badge>
+        )}
+        {option.customizable && (
+          <Badge tone="bg-brand-100 text-brand-700">Personnalisable</Badge>
+        )}
+      </div>
+
+      {option.customizable ? (
+        <>
+          {/* Taux de couverture */}
+          <div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">Taux de couverture</span>
+              <span className="font-bold text-brand-700">{value.rate}%</span>
+            </div>
+            <input
+              type="range"
+              min={option.minRate}
+              max={option.maxRate}
+              step={5}
+              value={value.rate}
+              onChange={e => onChange({ ...value, rate: Number(e.target.value) })}
+              className="w-full accent-brand-600"
+            />
+            <div className="flex justify-between text-xs text-slate-400">
+              <span>{option.minRate}% (économique)</span>
+              <span>{option.maxRate}% (premium)</span>
+            </div>
+          </div>
+
+          {/* Plafond annuel */}
+          <div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">Plafond annuel</span>
+              <span className="font-bold text-brand-700">{fcfa(value.annualLimit)}</span>
+            </div>
+            <input
+              type="range"
+              min={option.minLimit}
+              max={option.maxLimit}
+              step={option.limitStep}
+              value={value.annualLimit}
+              onChange={e => onChange({ ...value, annualLimit: Number(e.target.value) })}
+              className="w-full accent-brand-600"
+            />
+            <div className="flex justify-between text-xs text-slate-400">
+              <span>{fcfa(option.minLimit)}</span>
+              <span>{fcfa(option.maxLimit)}</span>
+            </div>
+          </div>
+
+          {/* Estimation du coût */}
+          <div className="rounded-lg bg-slate-50 p-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Coût estimé</span>
+              <span className="font-semibold">
+                {fcfa(Math.round(option.basePrice * (value.rate / 100) * (value.annualLimit / (option.minLimit || 100000))))}
+              </span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-sm text-slate-500">
+          Taux : {option.minRate}% · Plafond : {fcfa(option.maxLimit)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SubscribeWizard() {
   const location = useLocation();
@@ -22,8 +122,10 @@ export default function SubscribeWizard() {
   const [products, setProducts] = useState<any[] | null>(null);
   const [productId, setProductId] = useState<string>((location.state as any)?.productId ?? '');
   const [frequency, setFrequency] = useState('ANNUAL');
+  const [selectedGuarantees, setSelectedGuarantees] = useState<SelectedGuarantee[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BenefDraft[]>([]);
   const [quote, setQuote] = useState<any>(null);
+  const [flexibleDetails, setFlexibleDetails] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [method, setMethod] = useState('');
@@ -41,15 +143,49 @@ export default function SubscribeWizard() {
 
   const product = useMemo(() => products?.find(p => p.id === productId), [products, productId]);
 
-  async function computeQuote(bens: BenefDraft[]) {
+  // Options de garanties pour le produit sélectionné
+  const guaranteeOptions: GuaranteeOption[] = useMemo(() => {
+    if (!product?.guarantees) return [];
+    return product.guarantees.map((pg: any) => ({
+      categoryId: pg.guarantee.category,
+      categoryName: pg.guarantee.name,
+      basePrice: pg.guarantee.basePrice ?? 0,
+      minRate: pg.minRate ?? 50,
+      maxRate: pg.maxRate ?? 95,
+      minLimit: pg.minLimit ?? 0,
+      maxLimit: pg.maxLimit ?? 10000000,
+      limitStep: pg.limitStep ?? 50000,
+      mandatory: pg.mandatory ?? true,
+      customizable: pg.customizable ?? false,
+    }));
+  }, [product]);
+
+  // Initialiser les garanties sélectionnées quand le produit change
+  useEffect(() => {
+    if (guaranteeOptions.length > 0 && selectedGuarantees.length === 0) {
+      setSelectedGuarantees(guaranteeOptions.map(o => ({
+        categoryId: o.categoryId,
+        rate: Math.round((o.minRate + o.maxRate) / 2 / 5) * 5, // milieu de la plage, arrondi à 5
+        annualLimit: o.maxLimit, // plafond max par défaut
+      })));
+    }
+  }, [guaranteeOptions]);
+
+  function updateGuarantee(categoryId: string, patch: Partial<SelectedGuarantee>) {
+    setSelectedGuarantees(gs => gs.map(g => g.categoryId === categoryId ? { ...g, ...patch } : g));
+  }
+
+  async function computeQuote(bens: BenefDraft[], guars?: SelectedGuarantee[]) {
     setError(null);
     try {
       const res = await api.post('/subscription/quote', {
         productId,
         frequency,
         beneficiaries: bens.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
+        selectedGuarantees: guars,
       });
       setQuote(res.quote);
+      setFlexibleDetails(res.flexibleDetails);
       return true;
     } catch (e: any) {
       setError(e?.message ?? 'Simulation impossible');
@@ -67,12 +203,18 @@ export default function SubscribeWizard() {
     setError(null);
   };
 
-  const goStep3 = async () => {
+  const goStep3 = () => {
+    // Passer aux bénéficiaires
+    setStep(2);
+    setError(null);
+  };
+
+  const goStep4 = async () => {
     setBusy(true);
-    const ok = await computeQuote(beneficiaries);
+    const ok = await computeQuote(beneficiaries, selectedGuarantees);
     setBusy(false);
     if (ok) {
-      setStep(2);
+      setStep(3);
       setError(null);
     }
   };
@@ -81,10 +223,15 @@ export default function SubscribeWizard() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post('/subscription/subscribe', { productId, frequency, beneficiaries });
+      const res = await api.post('/subscription/subscribe', {
+        productId,
+        frequency,
+        beneficiaries,
+        selectedGuarantees,
+      });
       setSubscription(res);
       setQuote(res.quote);
-      setStep(3);
+      setStep(4);
     } catch (e: any) {
       setError(e?.message ?? 'Souscription impossible');
     } finally {
@@ -108,7 +255,7 @@ export default function SubscribeWizard() {
       const conf = await api.post('/payments/mock/confirm', { paymentId: init.payment.id, outcome: 'SUCCESS' });
       if ((conf as any).status === 'SUCCEEDED') {
         setPaymentResult(init.payment);
-        setStep(4);
+        setStep(5);
       } else {
         setError('Le paiement a échoué. Réessayez.');
       }
@@ -141,12 +288,13 @@ export default function SubscribeWizard() {
 
       <ErrorBanner message={error} />
 
+      {/* Étape 1 : Formule */}
       {step === 0 && (
         <div className="space-y-3">
           {products.map(p => (
             <button
               key={p.id}
-              onClick={() => { setProductId(p.id); setFrequency('ANNUAL'); }}
+              onClick={() => { setProductId(p.id); setFrequency('ANNUAL'); setSelectedGuarantees([]); }}
               className={`card-p w-full text-left transition ${productId === p.id ? 'ring-2 ring-brand-600 bg-brand-50/40' : 'hover:border-brand-300'}`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -172,7 +320,49 @@ export default function SubscribeWizard() {
         </div>
       )}
 
+      {/* Étape 2 : Sélection des garanties */}
       {step === 1 && (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-brand-50 p-4 text-sm text-brand-800">
+            <p className="font-semibold">🎯 Personnalisez vos garanties</p>
+            <p className="mt-1">
+              Ajustez le <strong>taux de couverture</strong> et le <strong>plafond annuel</strong> pour chaque garantie.
+              Plus le taux/plafond est élevé, plus la prime est élevée — mais mieux vous êtes couvert.
+            </p>
+          </div>
+
+          {guaranteeOptions.map(o => {
+            const sel = selectedGuarantees.find(g => g.categoryId === o.categoryId);
+            if (!sel) return null;
+            return (
+              <GuaranteeSlider
+                key={o.categoryId}
+                option={o}
+                value={sel}
+                onChange={v => updateGuarantee(o.categoryId, v)}
+              />
+            );
+          })}
+
+          {/* Aperçu rapide du coût */}
+          {flexibleDetails && (
+            <div className="card-p bg-slate-50">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Prime estimée</span>
+                <span className="font-bold text-brand-700">{fcfa(flexibleDetails.totalAnnual)}/an</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button className="btn-outline flex-1" onClick={() => setStep(0)}>Retour</button>
+            <button className="btn-primary flex-[2]" onClick={goStep3}>Continuer</button>
+          </div>
+        </div>
+      )}
+
+      {/* Étape 3 : Bénéficiaires */}
+      {step === 2 && (
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
             Ajoutez vos ayants droit ({product?.beneficiaryRules?.maxBeneficiaries ?? 6} maximum).
@@ -215,13 +405,14 @@ export default function SubscribeWizard() {
             </button>
           )}
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(0)}>Retour</button>
-            <button className="btn-primary flex-[2]" disabled={busy} onClick={goStep3}>{busy ? 'Calcul…' : 'Voir mon devis'}</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
+            <button className="btn-primary flex-[2]" disabled={busy} onClick={goStep4}>{busy ? 'Calcul…' : 'Voir mon devis'}</button>
           </div>
         </div>
       )}
 
-      {step === 2 && quote && (
+      {/* Étape 4 : Devis */}
+      {step === 3 && quote && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Récapitulatif</h3>
@@ -243,19 +434,36 @@ export default function SubscribeWizard() {
               </div>
             </div>
           </div>
+
+          {/* Détails des garanties sélectionnées */}
+          {flexibleDetails?.guaranteeCosts?.length > 0 && (
+            <div className="card-p">
+              <h4 className="text-sm font-semibold text-slate-700">Vos garanties</h4>
+              <div className="mt-2 space-y-2">
+                {flexibleDetails.guaranteeCosts.map((gc: any) => (
+                  <div key={gc.categoryId} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{gc.label}</span>
+                    <span className="font-medium">{fcfa(gc.cost)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="card-p text-xs text-slate-500 space-y-1.5">
-            <p>• Garanties et plafonds : voir la fiche formule.</p>
-            <p>• Délai de carence éventuel : {product?.waitingPeriodDays > 0 ? `${product.waitingPeriodDays} jours` : 'aucun'} à compter de l’activation.</p>
+            <p>• Co-paiement de 15% s'applique sur chaque prestation (part restant à votre charge).</p>
+            <p>• Délai de carence éventuel : {product?.waitingPeriodDays > 0 ? `${product.waitingPeriodDays} jours` : 'aucun'} à compter de l'activation.</p>
             <p>• Contrat porté par {product?.insurerPartner?.name}. SantéPlus agit comme plateforme technologique.</p>
           </div>
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(2)}>Retour</button>
             <button className="btn-primary flex-[2]" disabled={busy} onClick={subscribe}>{busy ? 'Création…' : 'Valider ma souscription'}</button>
           </div>
         </div>
       )}
 
-      {step === 3 && subscription && (
+      {/* Étape 5 : Paiement */}
+      {step === 4 && subscription && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Contrat {subscription.number} créé</h3>
@@ -280,15 +488,16 @@ export default function SubscribeWizard() {
         </div>
       )}
 
-      {step === 4 && (
+      {/* Étape 6 : Terminé */}
+      {step === 5 && (
         <div className="card-p text-center">
           <div className="text-5xl">🎉</div>
           <h2 className="mt-3 text-xl font-bold text-emerald-700">Paiement confirmé — contrat actif !</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Votre couverture est effective. Votre carte d’assuré numérique avec QR code est prête.
+            Votre couverture est effective. Votre carte d'assuré numérique avec QR code est prête.
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <Link to="/app/carte" className="btn-primary">Ma carte d’assuré</Link>
+            <Link to="/app/carte" className="btn-primary">Ma carte d'assuré</Link>
             <Link to="/app" state={{ refresh: true }} className="btn-outline" onClick={() => navigate('/app')}>Tableau de bord</Link>
           </div>
         </div>

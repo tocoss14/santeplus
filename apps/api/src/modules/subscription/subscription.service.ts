@@ -83,6 +83,7 @@ export class SubscriptionService {
     productId: string,
     frequency: Frequency,
     beneficiaries: BeneficiaryDraft[],
+    selectedGuarantees?: SelectedGuarantee[],
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.birthDate) throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de souscrire');
@@ -122,8 +123,6 @@ export class SubscriptionService {
       { birthDate: user.birthDate, relation: 'PRINCIPAL' },
       ...beneficiaries.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
     ];
-    // Si des garanties personnalisées sont fournies, les utiliser
-    const selectedGuarantees: SelectedGuarantee[] | undefined = (dto as any).selectedGuarantees;
     const { errors, quote } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees);
     if (errors.length || !quote) throw new BadRequestException({ message: errors[0] ?? 'Devis invalide', errors });
 

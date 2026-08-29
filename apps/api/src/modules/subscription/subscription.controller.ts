@@ -13,16 +13,24 @@ const beneficiaryDraftSchema = z.object({
   relation: z.enum(['SPOUSE', 'CHILD', 'OTHER']),
 });
 
+const selectedGuaranteeSchema = z.object({
+  categoryId: z.string().min(2),
+  rate: z.number().int().min(0).max(100),
+  annualLimit: z.number().int().min(0),
+});
+
 const quoteSchema = z.object({
   productId: z.string().min(5),
   frequency: z.enum(['ANNUAL', 'QUARTERLY', 'MONTHLY']),
   beneficiaries: z.array(z.object({ birthDate: z.coerce.date(), relation: z.enum(['SPOUSE', 'CHILD', 'OTHER']) })).default([]),
+  selectedGuarantees: z.array(selectedGuaranteeSchema).optional(),
 });
 
 const subscribeIndividualSchema = z.object({
   productId: z.string().min(5),
   frequency: z.enum(['ANNUAL', 'QUARTERLY', 'MONTHLY']),
   beneficiaries: z.array(beneficiaryDraftSchema).default([]),
+  selectedGuarantees: z.array(selectedGuaranteeSchema).optional(),
 });
 
 const subscribeCompanySchema = z.object({
@@ -37,12 +45,12 @@ export class SubscriptionController {
 
   @Post('quote')
   quote(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(quoteSchema)) dto: any) {
-    return this.subscription.quoteForUser(auth.id, dto.productId, dto.frequency, dto.beneficiaries);
+    return this.subscription.quoteForUser(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees);
   }
 
   @Post('subscribe')
   subscribe(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(subscribeIndividualSchema)) dto: any) {
-    return this.subscription.subscribeIndividual(auth.id, dto.productId, dto.frequency, dto.beneficiaries);
+    return this.subscription.subscribeIndividual(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees);
   }
 
   @Post('subscribe-company')

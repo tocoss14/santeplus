@@ -31,4 +31,4 @@ EXPOSE 4000
 
 WORKDIR /app
 
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate resolve --rolled-back 20260826120000_emergency_override 2>/dev/null; ./node_modules/.bin/prisma migrate deploy && node dist/main.js"]

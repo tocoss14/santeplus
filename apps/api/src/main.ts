@@ -32,8 +32,13 @@ async function bootstrap(): Promise<void> {
 
     app.use(helmet.default({ crossOriginResourcePolicy: false }));
     app.enableCors({
-      origin: [...config.webOrigin.split(','), ...config.appUrl.split(',')],
+      origin: [
+        ...config.webOrigin.split(',').map(s => s.trim()).filter(Boolean),
+        ...config.appUrl.split(',').map(s => s.trim()).filter(Boolean),
+      ],
       credentials: true,
+      methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     });
     app.setGlobalPrefix('api');
     app.useGlobalFilters(new HttpExceptionFilter());

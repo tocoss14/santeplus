@@ -64,7 +64,7 @@ export default function AdminTechnicalResult() {
   useEffect(() => {
     setLoading(true);
     api.get('/stats/admin/technical-result')
-      .then(r => setData(r.data))
+      .then(r => setData(r))
       .catch(e => setError(e.response?.data?.message ?? 'Erreur de chargement'))
       .finally(() => setLoading(false));
   }, []);

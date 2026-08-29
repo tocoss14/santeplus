@@ -44,13 +44,17 @@ async function bootstrap(): Promise<void> {
     app.useGlobalFilters(new HttpExceptionFilter());
 
     // Rate limiting global : 100 requêtes par minute par IP
-    app.use(rateLimit({
-      windowMs: 60_000,
-      limit: 100,
-      standardHeaders: true,
-      legacyHeaders: false,
-      keyGenerator: (req) => req.ip ?? 'unknown',
-    }));
+    // Skip OPTIONS (CORS preflight) pour éviter le blocage
+    app.use((req, res, next) => {
+      if (req.method === 'OPTIONS') return next();
+      rateLimit({
+        windowMs: 60_000,
+        limit: 100,
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: (r) => r.ip ?? 'unknown',
+      })(req, res, next);
+    });
 
     // Rate limiting spécifique sur les endpoints critiques
     app.use(

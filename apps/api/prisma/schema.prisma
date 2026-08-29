@@ -413,6 +413,14 @@ model Provider {
   status          String  @default("ACTIVE")
   notes           String?
   active          Boolean @default(true)
+  // Champs inscription publique
+  registrationStatus String @default("")  // PENDING_REGISTRATION, DOCUMENTS_REVIEWED, APPROVED, REJECTED
+  registrationNote   String?
+  contactFirstName  String?
+  contactLastName   String?
+  contactEmail      String?
+  contactPhone      String?
+  registrationDocs  String  @default("[]")  // JSON array of uploaded doc refs
   createdAt       DateTime @default(now())
 
   staff  User[]

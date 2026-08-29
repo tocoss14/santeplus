@@ -39,6 +39,7 @@ import AdminPartners from './pages/admin/AdminPartners';
 import AdminRoles from './pages/admin/AdminRoles';
 import AdminAudit from './pages/admin/AdminAudit';
 import AdminTechnicalResult from './pages/admin/AdminTechnicalResult';
+import RegisterProvider from './pages/RegisterProvider';
 import VerifyCard from './pages/provider/VerifyCard';
 import ProviderDashboard from './pages/provider/ProviderDashboard';
 import ProviderConsultations from './pages/provider/ProviderConsultations';
@@ -115,6 +116,8 @@ export default function App() {
         <Route path="profil" element={<Profile />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
+
+      <Route path="/inscription-prestataire" element={<RegisterProvider />} />
 
       <Route path="/prestataire" element={<Require roles={['PROVIDER', 'SUPER_ADMIN']}><AppLayout variant="provider" /></Require>}>
         <Route index element={<ProviderDashboard />} />

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { PROVIDER_TYPES } from '../../format';
 import { Badge, ErrorBanner, Field, Modal, Spinner } from '../../components/ui';
+import BulkProviderImport from '../../components/BulkProviderImport';
 
 const EMPTY = {
   name: '', type: 'PHARMACY', city: '', address: '', phone: '', specialties: '',
@@ -11,11 +12,15 @@ const EMPTY = {
 
 export default function AdminProviders() {
   const [items, setItems] = useState<any[] | null>(null);
+  const [pending, setPending] = useState<any[]>([]);
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<any | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [tab, setTab] = useState<'all' | 'pending'>('all');
 
   const load = () => {
     api.get(`/admin/providers${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(setItems).catch(() => setItems([]));
+    api.get('/admin/providers/registrations').then(setPending).catch(() => setPending([]));
   };
 
   useEffect(() => {
@@ -23,41 +28,114 @@ export default function AdminProviders() {
     return () => clearTimeout(t);
   }, [q]);
 
+  const approveRegistration = async (id: string) => {
+    await api.post(`/admin/providers/${id}/approve-registration`, {});
+    load();
+  };
+
+  const rejectRegistration = async (id: string) => {
+    const reason = prompt('Raison du rejet :');
+    if (!reason) return;
+    await api.post(`/admin/providers/${id}/reject-registration`, { reason });
+    load();
+  };
+
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold mr-auto">Réseau de soins ({items?.length ?? '…'})</h1>
         <input className="input w-52" placeholder="Rechercher…" value={q} onChange={e => setQ(e.target.value)} />
+        <button className="btn-outline btn-sm" onClick={() => setShowImport(true)}>📥 Import Excel</button>
         <button className="btn-primary btn-sm" onClick={() => setEditing({ ...EMPTY })}>＋ Prestataire</button>
       </div>
 
-      {!items ? (
-        <Spinner />
-      ) : (
-        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {items.map(p => (
-            <li key={p.id} className={`card-p ${!p.active ? 'opacity-50' : ''}`}>
-              <div className="flex justify-between gap-2">
-                <p className="font-semibold">{p.name}</p>
-                <Badge tone={p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'}>{p.active ? 'Actif' : 'Inactif'}</Badge>
+      {/* Onglets */}
+      <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+        <button
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'all' ? 'bg-white shadow text-brand-700' : 'text-slate-600 hover:text-slate-800'}`}
+          onClick={() => setTab('all')}
+        >
+          Tous ({items?.length ?? 0})
+        </button>
+        <button
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'pending' ? 'bg-white shadow text-brand-700' : 'text-slate-600 hover:text-slate-800'}`}
+          onClick={() => setTab('pending')}
+        >
+          En attente ({pending.length})
+        </button>
+      </div>
+
+      {/* Inscriptions en attente */}
+      {tab === 'pending' && (
+        <div className="space-y-3">
+          {pending.length === 0 ? (
+            <div className="card-p text-center text-slate-400 py-8">Aucune inscription en attente</div>
+          ) : (
+            pending.map(p => (
+              <div key={p.id} className="card-p border-l-4 border-yellow-400">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="font-semibold">{p.name}</p>
+                    <p className="text-xs text-slate-500">{PROVIDER_TYPES[p.type]} · {p.city}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Contact : {p.contactFirstName} {p.contactLastName} — {p.contactPhone}
+                    </p>
+                    <p className="text-xs text-slate-400">Email : {p.contactEmail}</p>
+                    {p.specialties && <p className="text-xs text-slate-400">Spécialités : {p.specialties}</p>}
+                    <p className="text-xs text-slate-400 mt-1">
+                      Inscrit le {new Date(p.createdAt).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="btn-primary btn-sm" onClick={() => approveRegistration(p.id)}>
+                      ✅ Approuver
+                    </button>
+                    <button className="btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectRegistration(p.id)}>
+                      ❌ Rejeter
+                    </button>
+                  </div>
+                </div>
               </div>
-              <p className="mt-0.5 text-xs text-slate-400">{PROVIDER_TYPES[p.type]} · {p.city}</p>
-              <p className="text-xs text-slate-500 truncate">{p.address}</p>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                {p.thirdPartyPayer && <Badge tone="bg-brand-100 text-brand-800">Tiers payant</Badge>}
-                <Badge>Conv. {p.conventionLevel}</Badge>
-              </div>
-              <button
-                className="btn-outline btn-sm mt-3 w-full"
-                onClick={() => setEditing({ ...EMPTY, ...p, thirdPartyPayer: p.thirdPartyPayer, active: p.active })}
-              >
-                ✏️ Modifier
-              </button>
-            </li>
-          ))}
-        </ul>
+            ))
+          )}
+        </div>
       )}
 
+      {/* Liste des prestataires */}
+      {tab === 'all' && (
+        <>
+          {!items ? (
+            <Spinner />
+          ) : (
+            <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {items.map(p => (
+                <li key={p.id} className={`card-p ${!p.active ? 'opacity-50' : ''}`}>
+                  <div className="flex justify-between gap-2">
+                    <p className="font-semibold">{p.name}</p>
+                    <Badge tone={p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'}>{p.active ? 'Actif' : 'Inactif'}</Badge>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-400">{PROVIDER_TYPES[p.type]} · {p.city}</p>
+                  <p className="text-xs text-slate-500 truncate">{p.address}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                    {p.thirdPartyPayer && <Badge tone="bg-brand-100 text-brand-800">Tiers payant</Badge>}
+                    <Badge>Conv. {p.conventionLevel}</Badge>
+                    {p.registrationStatus === 'PENDING_REGISTRATION' && <Badge tone="bg-yellow-100 text-yellow-700">En attente</Badge>}
+                  </div>
+                  <button
+                    className="btn-outline btn-sm mt-3 w-full"
+                    onClick={() => setEditing({ ...EMPTY, ...p, thirdPartyPayer: p.thirdPartyPayer, active: p.active })}
+                  >
+                    ✏️ Modifier
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      {/* Modal édition */}
       {editing && (
         <Modal open onClose={() => setEditing(null)} title={editing.id ? `Modifier ${editing.name}` : 'Nouveau prestataire'}>
           <ErrorBanner message={null} />
@@ -106,6 +184,16 @@ export default function AdminProviders() {
           >
             Enregistrer
           </button>
+        </Modal>
+      )}
+
+      {/* Modal import Excel */}
+      {showImport && (
+        <Modal open onClose={() => setShowImport(false)} title="📥 Import bulk prestataires">
+          <BulkProviderImport
+            onClose={() => setShowImport(false)}
+            onDone={() => { load(); }}
+          />
         </Modal>
       )}
     </div>

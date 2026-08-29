@@ -15,6 +15,7 @@ import { ClaimsModule } from './modules/claims/claims.controller';
 import { FilesModule } from './modules/files/files.service';
 import { ProvidersModule } from './modules/providers/providers.controller';
 import { ProviderPortalModule } from './modules/providers/provider-portal.controller';
+import { ProviderRegistrationModule } from './modules/providers/provider-registration.controller';
 import { CareModule } from './modules/care/care.controller';
 import { CompanyModule } from './modules/company/company.controller';
 import { NotificationsHttpModule } from './modules/notifications/notifications.controller';
@@ -41,6 +42,7 @@ import { RetentionJob } from './jobs/retention.job';
     FilesModule,
     ProvidersModule,
     ProviderPortalModule,
+    ProviderRegistrationModule,
     CareModule,
     CompanyModule,
     NotificationsHttpModule,

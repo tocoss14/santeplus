@@ -264,6 +264,7 @@ export default function Landing() {
             <p className="mt-2 font-display text-5xl font-bold tracking-tight">{providerCount || 12}<span className="text-laterite-600">+</span></p>
             <p className="mt-1 text-sm font-medium text-stone">référencés dans la démo, partout sur le territoire</p>
             <Link to="/login" className="btn-outline mt-5 w-full rounded-full">Explorer le réseau</Link>
+            <Link to="/inscription-prestataire" className="mt-3 block text-center text-xs font-bold text-brand-700 hover:underline">🏥 Vous êtes prestataire ? Inscrivez-vous</Link>
           </div>
         </div>
       </section>
@@ -286,7 +287,10 @@ export default function Landing() {
         <div className="card-wax mt-10 overflow-hidden rounded-[24px] bg-ink p-8 text-center text-white">
           <h3 className="font-display text-2xl font-bold">Prêt à protéger votre famille ?</h3>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-white/60">Souscription 100% en ligne, effective dès paiement. Votre carte arrive instantanément.</p>
-          <Link to="/offres" className="btn-primary mt-6 bg-white px-8 !text-ink hover:!bg-sand">Souscrire maintenant</Link>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link to="/offres" className="btn-primary bg-white px-8 !text-ink hover:!bg-sand">Souscrire maintenant</Link>
+            <Link to="/inscription-prestataire" className="rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-bold text-white hover:bg-white hover:text-ink transition">🏥 Prestataire ? Rejoindre le réseau</Link>
+          </div>
           <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-white/30">Paiement sécurisé · Données chiffrées</p>
         </div>
       </section>

@@ -45,6 +45,9 @@ export default function Login() {
         <p className="mt-4 text-center text-sm text-slate-500">
           Pas encore de compte ? <Link to="/register" className="font-semibold text-brand-700 hover:underline">Créer un compte</Link>
         </p>
+        <p className="mt-2 text-center text-xs text-slate-400">
+          🏥 Prestataire ? <Link to="/inscription-prestataire" className="font-semibold text-brand-600 hover:underline">S'inscrire en tant que prestataire</Link>
+        </p>
       </form>
       <div className="mt-6 card-p bg-slate-50 border-dashed text-xs text-slate-500">
         <p className="font-semibold text-slate-600">Comptes de démonstration (Demo1234!) :</p>

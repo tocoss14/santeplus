@@ -33,6 +33,10 @@ export interface ProductPricing {
   maxAge: number;
   waitingPeriodDays?: number;
   beneficiaryRules?: BeneficiaryRules;
+  /** Charges par tranche d'âge (ex: [{minAge:0,maxAge:30,factor:1.0},{minAge:31,maxAge:50,factor:1.3},{minAge:51,maxAge:65,factor:1.8}]) */
+  ageLoadings?: { minAge: number; maxAge: number; factor: number }[];
+  /** Plafond agrégé annuel par contrat (FCFA) */
+  globalAnnualCap?: number;
 }
 
 export interface QuotePerson {
@@ -89,15 +93,28 @@ export function computeQuote(
 
   let adults = 0;
   let children = 0;
+  let maxAdultAge = 0;
   for (const p of persons) {
+    const a = ageAt(p.birthDate, now);
     if (p.relation === 'CHILD') children++;
-    else adults++;
+    else {
+      adults++;
+      if (a > maxAdultAge) maxAdultAge = a;
+    }
   }
   const adultExtras = Math.max(0, adults - 1);
   const base = pricing.basePremiumAnnual;
   const extraAdultsCost = adultExtras * pricing.pricePerAdditionalAdultAnnual;
   const childrenCost = children * pricing.pricePerChildAnnual;
-  const subtotal = base + extraAdultsCost + childrenCost;
+  let subtotal = base + extraAdultsCost + childrenCost;
+
+  // Chargement par âge : appliquer le facteur de l'âge le plus élevé du foyer
+  if (pricing.ageLoadings && pricing.ageLoadings.length > 0) {
+    const loading = pricing.ageLoadings.find(l => maxAdultAge >= l.minAge && maxAdultAge <= l.maxAge);
+    if (loading && loading.factor !== 1) {
+      subtotal = Math.round(subtotal * loading.factor);
+    }
+  }
 
   const factor = pricing.frequencyFactors?.[frequency] ?? 1;
   const totalAnnual = round(subtotal * factor);
@@ -108,8 +125,13 @@ export function computeQuote(
   lines.push({ label: 'Cotisation de base (assuré principal)', amount: base });
   if (adultExtras > 0)
     lines.push({ label: `Ayants droit adultes supplémentaires (${adultExtras})`, amount: extraAdultsCost });
-  if (children > 0) lines.push({ label: `Enfants (${children})`, amount: childrenCost });
-  if (factor !== 1) lines.push({ label: `Fractionnement ${frequency.toLowerCase()} (×${factor})`, amount: totalAnnual - subtotal });
+  if (children > 0) lines.push({ label: `Enfants (${children})`, amount: childrenCost });    if (factor !== 1) lines.push({ label: `Fractionnement ${frequency.toLowerCase()} (×${factor})`, amount: totalAnnual - subtotal });
+    if (pricing.ageLoadings && pricing.ageLoadings.length > 0) {
+      const loading = pricing.ageLoadings.find(l => maxAdultAge >= l.minAge && maxAdultAge <= l.maxAge);
+      if (loading && loading.factor !== 1) {
+        lines.push({ label: `Surcharge âge (${maxAdultAge} ans, ×${loading.factor})`, amount: Math.round(base * (loading.factor - 1)) });
+      }
+    }
 
   return {
     errors,
@@ -164,6 +186,10 @@ export interface CoverageRule {
   rate: number;
   deductibleType: 'NONE' | 'FIXED' | 'PERCENT';
   deductibleValue: number;
+  /** Co-paiement obligatoire (% que l'assuré paie de sa poche APRÈS déduction franchise+taux) */
+  copayRate?: number;
+  /** Plafond maximum par acte (barème médical) — null = pas de contrôle */
+  maxUnitPrice?: number | null;
 }
 
 export interface ClaimCtx {
@@ -174,6 +200,10 @@ export interface ClaimCtx {
   excludedCategories: string[];
   rules: CoverageRule[];
   usedPerCategory: Record<string, number>;
+  /** Plafond agrégé annuel sur toutes les catégories confondues (0 = pas de plafond) */
+  globalAnnualCap?: number;
+  /** Dépense totale déjà consommée sur l'année (toutes catégories) */
+  usedGlobal?: number;
 }
 
 export interface ClaimItemInput {
@@ -189,8 +219,11 @@ export interface EstimationItem {
   amountEligible: number;
   rateApplied: number;
   deductibleApplied: number;
+  copayApplied: number;
   amountApproved: number;
-  reason?: 'EXCLUDED' | 'CAP_REACHED' | 'CONTRACT_INACTIVE' | 'OUT_OF_PERIOD' | 'WAITING_PERIOD';
+  /** Montant restant à la charge de l'assuré (franchise + copay + dépassement) */
+  outOfPocket: number;
+  reason?: 'EXCLUDED' | 'CAP_REACHED' | 'CONTRACT_INACTIVE' | 'OUT_OF_PERIOD' | 'WAITING_PERIOD' | 'GLOBAL_CAP_REACHED' | 'FEE_SCHEDULE_EXCEEDED';
 }
 
 export interface EstimationResult {
@@ -238,7 +271,9 @@ export function estimateClaim(
         amountEligible: 0,
         rateApplied: 0,
         deductibleApplied: 0,
+        copayApplied: 0,
         amountApproved: 0,
+        outOfPocket: item.amountRequested,
         reason: blockedReason(flags),
       };
     }
@@ -248,7 +283,9 @@ export function estimateClaim(
         amountEligible: 0,
         rateApplied: 0,
         deductibleApplied: 0,
+        copayApplied: 0,
         amountApproved: 0,
+        outOfPocket: item.amountRequested,
         reason: 'EXCLUDED',
       };
     }
@@ -259,7 +296,9 @@ export function estimateClaim(
         amountEligible: 0,
         rateApplied: 0,
         deductibleApplied: 0,
+        copayApplied: 0,
         amountApproved: 0,
+        outOfPocket: item.amountRequested,
         reason: 'EXCLUDED',
       };
     }
@@ -271,28 +310,78 @@ export function estimateClaim(
         amountEligible: 0,
         rateApplied: rule.rate,
         deductibleApplied: 0,
+        copayApplied: 0,
         amountApproved: 0,
+        outOfPocket: item.amountRequested,
         reason: 'CAP_REACHED',
       };
     }
-    const eligible = Math.min(item.amountRequested, remaining);
+    // Plafond agrégé annuel (stop-loss global)
+    if (ctx.globalAnnualCap && ctx.globalAnnualCap > 0) {
+      const usedGlobal = ctx.usedGlobal ?? 0;
+      const globalRemaining = Math.max(0, ctx.globalAnnualCap - usedGlobal);
+      if (globalRemaining <= 0) {
+        return {
+          ...item,
+          amountEligible: 0,
+          rateApplied: 0,
+          deductibleApplied: 0,
+          copayApplied: 0,
+          amountApproved: 0,
+          outOfPocket: item.amountRequested,
+          reason: 'GLOBAL_CAP_REACHED',
+        };
+      }
+    }
+
+    // Contrôle barème médical : plafonner le montant à la valeur de référence
+    let effectiveAmount = item.amountRequested;
+    if (rule.maxUnitPrice != null && rule.maxUnitPrice > 0 && item.amountRequested > rule.maxUnitPrice) {
+      effectiveAmount = rule.maxUnitPrice;
+    }
+
+    const eligible = Math.min(effectiveAmount, remaining);
     let deductible = 0;
     if (rule.deductibleType === 'FIXED') deductible = Math.min(rule.deductibleValue, eligible);
     else if (rule.deductibleType === 'PERCENT')
       deductible = Math.min(Math.round((eligible * rule.deductibleValue) / 100), eligible);
-    const approved = Math.max(0, Math.round(((eligible - deductible) * rule.rate) / 100));
+
+    // Calcul du taux de couverture
+    const afterDeductible = Math.max(0, eligible - deductible);
+    const coveredByRate = Math.max(0, Math.round((afterDeductible * rule.rate) / 100));
+
+    // Co-paiement obligatoire : l'assuré paie un % du montant couvert
+    let copay = 0;
+    if (rule.copayRate && rule.copayRate > 0) {
+      copay = Math.round((coveredByRate * rule.copayRate) / 100);
+    }
+    const approved = Math.max(0, coveredByRate - copay);
+
+    // Plafond agrégé : limiter si on dépasse le global cap
+    let finalApproved = approved;
+    if (ctx.globalAnnualCap && ctx.globalAnnualCap > 0) {
+      const usedGlobal = ctx.usedGlobal ?? 0;
+      const globalRemaining = Math.max(0, ctx.globalAnnualCap - usedGlobal);
+      finalApproved = Math.min(approved, globalRemaining);
+    }
+
+    const outOfPocket = item.amountRequested - finalApproved;
     return {
       ...item,
       amountEligible: eligible,
       rateApplied: rule.rate,
       deductibleApplied: deductible,
-      amountApproved: approved,
+      copayApplied: copay,
+      amountApproved: finalApproved,
+      outOfPocket,
+      ...(item.amountRequested > effectiveAmount && rule.maxUnitPrice ? { reason: 'FEE_SCHEDULE_EXCEEDED' as const } : {}),
     };
   });
 
   const requested = sum(estimationItems.map(i => i.amountRequested));
   const eligible = sum(estimationItems.map(i => i.amountEligible));
   const approved = sum(estimationItems.map(i => i.amountApproved));
+  const totalOutOfPocket = sum(estimationItems.map(i => i.outOfPocket ?? (i.amountRequested - i.amountApproved)));
 
   return {
     ok: flags.length === 0,
@@ -302,7 +391,7 @@ export function estimateClaim(
       requested,
       eligible,
       approved,
-      outOfPocket: requested - approved,
+      outOfPocket: totalOutOfPocket,
     },
   };
 }

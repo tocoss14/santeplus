@@ -38,7 +38,9 @@ export class AuthService {
         memberNumber: memberNumber(),
       },
     });
-    return this.issueTokens(user.id, user.role);
+    const tokens = this.issueTokens(user.id, user.role);
+    await this.storeRefreshToken(tokens.refreshToken, user.id);
+    return tokens;
   }
 
   async login(dto: typeof loginSchema._input) {
@@ -60,10 +62,12 @@ export class AuthService {
     if (user.status === 'SUSPENDED') throw new UnauthorizedException('Compte suspendu. Contactez le support.');
     this.attempts.delete(dto.email);
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    return this.issueTokens(user.id, user.role);
+    const tokens = this.issueTokens(user.id, user.role);
+    await this.storeRefreshToken(tokens.refreshToken, user.id);
+    return tokens;
   }
 
-  refresh(refreshToken: string) {
+  async refresh(refreshToken: string) {
     let payload: any;
     try {
       payload = this.jwt.verify(refreshToken);
@@ -71,7 +75,37 @@ export class AuthService {
       throw new UnauthorizedException('Session expirée, reconnectez-vous');
     }
     if (payload.type !== 'refresh') throw new UnauthorizedException('Token invalide');
-    return this.issueTokens(payload.sub, payload.role);
+
+    // Vérifier que le token n'a pas été révoqué
+    const stored = await this.prisma.refreshToken.findUnique({ where: { token: refreshToken } });
+    if (!stored || stored.revokedAt) {
+      throw new UnauthorizedException('Token révoqué — reconnexion requise');
+    }
+    if (stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Token expiré — reconnexion requise');
+    }
+
+    // Rotation : révoquer l'ancien token et en créer un nouveau
+    await this.prisma.refreshToken.update({
+      where: { token: refreshToken },
+      data: { revokedAt: new Date() },
+    });
+
+    const tokens = this.issueTokens(payload.sub, payload.role);
+
+    // Enregistrer le nouveau refresh token
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    await this.prisma.refreshToken.create({
+      data: {
+        token: tokens.refreshToken,
+        userId: payload.sub,
+        expiresAt,
+        replacedBy: tokens.refreshToken,
+      },
+    });
+
+    return tokens;
   }
 
   async changePassword(userId: string, dto: typeof changePasswordSchema._input) {
@@ -89,11 +123,28 @@ export class AuthService {
     return bcrypt.hash(plain, 10);
   }
 
+  async logout(userId: string, refreshToken?: string) {
+    // Révoquer tous les refresh tokens de l'utilisateur (logout global)
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { ok: true };
+  }
+
   private issueTokens(id: string, role: string) {
     return {
       accessToken: this.jwt.sign({ sub: id, role, type: 'access' }),
       refreshToken: this.jwt.sign({ sub: id, role, type: 'refresh' }),
       tokenType: 'Bearer',
     };
+  }
+
+  private async storeRefreshToken(token: string, userId: string) {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    await this.prisma.refreshToken.create({
+      data: { token, userId, expiresAt },
+    });
   }
 }

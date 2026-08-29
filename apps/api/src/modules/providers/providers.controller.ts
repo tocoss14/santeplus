@@ -43,6 +43,7 @@ const providerSchema = z.object({
   thirdPartyPayer: z.boolean().default(false),
   notes: z.string().max(500).optional(),
   active: z.boolean().default(true),
+  status: z.enum(['ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED']).optional(),
 });
 
 @Injectable()
@@ -85,11 +86,20 @@ export class ProvidersService {
   }
 
   create(dto: any) {
-    return this.prisma.provider.create({ data: dto });
+    // Par défaut, un nouveau prestataire est en attente de validation
+    return this.prisma.provider.create({ data: { ...dto, status: 'PENDING_APPROVAL' } });
   }
 
   update(id: string, dto: any) {
     return this.prisma.provider.update({ where: { id }, data: dto });
+  }
+
+  async approve(id: string) {
+    return this.prisma.provider.update({ where: { id }, data: { status: 'ACTIVE', partnerStatus: 'ACTIVE' } });
+  }
+
+  async suspend(id: string) {
+    return this.prisma.provider.update({ where: { id }, data: { status: 'SUSPENDED', partnerStatus: 'SUSPENDED' } });
   }
 }
 
@@ -139,6 +149,23 @@ export class ProvidersController {
   @RequirePermissions('providers.manage')
   update(@Param('id') id: string, @Body(new ZodPipe(providerSchema.partial())) dto: any) {
     return this.providers.update(id, dto);
+  }
+
+  @Post('admin/providers/:id/approve')
+  @RequirePermissions('providers.manage')
+  async approve(@Param('id') id: string) {
+    const provider = await this.prisma.provider.findUnique({ where: { id } });
+    if (!provider) throw new NotFoundException('Prestataire introuvable');
+    if (provider.status === 'ACTIVE') return { ok: true, message: 'Déjà actif' };
+    return this.providers.approve(id);
+  }
+
+  @Post('admin/providers/:id/suspend')
+  @RequirePermissions('providers.manage')
+  async suspend(@Param('id') id: string) {
+    const provider = await this.prisma.provider.findUnique({ where: { id } });
+    if (!provider) throw new NotFoundException('Prestataire introuvable');
+    return this.providers.suspend(id);
   }
 }
 

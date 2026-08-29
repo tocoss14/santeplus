@@ -58,6 +58,7 @@ function createMockPrisma() {
         claims.set(c.id, c);
         return c;
       }),
+      count: vi.fn(async () => 0),
     },
     auditLog: {
       create: vi.fn(async ({ data }: any) => { auditLogs.push(data); return data; }),
@@ -81,11 +82,12 @@ function createMockPrisma() {
         return users;
       }),
       findUnique: vi.fn(async ({ where }: any) => {
-        if (where.id === 'prov-user-1') return { id: 'prov-user-1', providerId: 'prov-1', providerStaff: { id: 'prov-1', name: 'Clinique Test' } };
+        if (where.id === 'prov-user-1') return { id: 'prov-user-1', providerId: 'prov-1', providerStaff: { id: 'prov-1', name: 'Clinique Test', status: 'ACTIVE' }, isEstablishmentAdmin: true };
         return null;
       }),
     },
     notification: { create: vi.fn(async () => ({})) },
+    systemConfig: { findUnique: vi.fn(async () => null) },
     $transaction: vi.fn(async (fn: any) => fn({
       claim: { create: async (a: any) => ({ id: 'x' }) },
       fileObject: { create: async () => ({ id: 'f' }) },

@@ -271,7 +271,7 @@ export class CareController {
   }
 
   @Post('provider/prescriptions')
-  @RequirePermissions('provider.thirdparty')
+  @RequirePermissions('provider.prescribe')
   async createPrescription(
     @CurrentUser() auth: AuthUser,
     @Body(new ZodPipe(z.object({

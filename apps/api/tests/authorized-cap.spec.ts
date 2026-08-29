@@ -53,6 +53,7 @@ function createMockPrismaForProvider() {
   return {
     _claims: claims,
     provider: establishment,
+    systemConfig: { findUnique: vi.fn(async () => null) },
     claim: {
       findFirst: vi.fn(async ({ where }: any) => {
         if (where.id) {
@@ -73,6 +74,7 @@ function createMockPrismaForProvider() {
         return c;
       }),
       findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
     },
     auditLog: { create: vi.fn(async () => ({})) },
     careRecord: { findFirst: vi.fn(async () => ({ id: 'cr-1' })) },
@@ -80,7 +82,7 @@ function createMockPrismaForProvider() {
     user: {
       findMany: vi.fn(async () => [{ id: 'mgr-1' }]),
       findUnique: vi.fn(async ({ where }: any) => {
-        if (where.id === 'prov-user-1') return { id: 'prov-user-1', providerId: 'prov-1', providerStaff: establishment };
+        if (where.id === 'prov-user-1') return { id: 'prov-user-1', providerId: 'prov-1', providerStaff: establishment, isEstablishmentAdmin: true };
         return null;
       }),
     },

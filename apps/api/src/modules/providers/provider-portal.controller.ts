@@ -53,7 +53,23 @@ export class ProviderPortalService {
   async requireEstablishment(auth: AuthUser) {
     const user = await this.prisma.user.findUnique({ where: { id: auth.id }, include: { providerStaff: true } });
     if (!user?.providerId || !user.providerStaff) throw new ForbiddenException('Aucun établissement rattaché à ce compte');
+    if (user.providerStaff.status === 'PENDING_APPROVAL') {
+      throw new ForbiddenException('Établissement en attente de validation par l\'administrateur. Les opérations tiers payant sont temporairement indisponibles.');
+    }
+    if (user.providerStaff.status === 'SUSPENDED') {
+      throw new ForbiddenException('Établissement suspendu. Contactez l\'administrateur.');
+    }
     return { user, establishment: user.providerStaff };
+  }
+
+  async requireEstablishmentAdmin(auth: AuthUser) {
+    const { user, establishment } = await this.requireEstablishment(auth);
+    // SUPER_ADMIN et INSURANCE_MANAGER ont les droits admin sur tous les établissements
+    const isGlobalAdmin = ['SUPER_ADMIN', 'INSURANCE_MANAGER'].includes(auth.role);
+    if (!isGlobalAdmin && !user.isEstablishmentAdmin) {
+      throw new ForbiddenException('Droits d\'administration d\'établissement requis pour cette opération');
+    }
+    return { user, establishment };
   }
 
   async resolveContract(input: { cardToken?: string; memberNumber?: string; contractNumber?: string }) {
@@ -101,6 +117,15 @@ export class ProviderPortalService {
       _count: { select: { claims: true } },
     };
   }
+
+  async getSystemConfig(key: string, fallback: string): Promise<string> {
+    try {
+      const row = await this.prisma.systemConfig.findUnique({ where: { key } });
+      return row?.value ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
 }
 
 @Controller('provider')
@@ -138,6 +163,7 @@ export class ProviderPortalController {
   }
 
   @Patch('me/establishment')
+  @RequirePermissions('provider.staff')
   async updateEstablishment(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(z.object({
     address: z.string().max(200).optional(),
     phone: z.string().max(30).optional(),
@@ -146,7 +172,7 @@ export class ProviderPortalController {
     specialties: z.string().max(300).optional(),
     services: z.string().max(500).optional(),
   }))) dto: any) {
-    const { establishment } = await this.portal.requireEstablishment(auth);
+    const { establishment } = await this.portal.requireEstablishmentAdmin(auth);
     await this.prisma.provider.update({ where: { id: establishment.id }, data: dto });
     return { ok: true };
   }
@@ -359,6 +385,33 @@ export class ProviderPortalController {
       beneficiaryId = ben.id;
     }
 
+    // Contrôle barème médical : vérifier les prix unitaires
+    const feeWarnings: string[] = [];
+    for (const i of dto.items) {
+      if (i.actId) {
+        const act = await this.prisma.act.findUnique({ where: { id: i.actId }, select: { referencePrice: true, name: true } });
+        if (act && act.referencePrice > 0) {
+          const maxAllowed = Math.round(act.referencePrice * 1.2);
+          if (i.unitPrice > maxAllowed) {
+            feeWarnings.push(`${act.name}: ${i.unitPrice} FCFA dépasse le barème (${act.referencePrice} FCFA, max ${maxAllowed} FCFA)`);
+          }
+        }
+      }
+    }
+    if (feeWarnings.length > 0) {
+      // Logger l'alerte mais ne pas bloquer (le engine ajustera le montant)
+      try {
+        await this.prisma.auditLog.create({
+          data: {
+            action: 'FEE_SCHEDULE_ALERT',
+            entityType: 'provider',
+            entityId: establishment.id,
+            userId: auth.id,
+            meta: JSON.stringify({ warnings: feeWarnings, items: dto.items.map((i: any) => ({ actId: i.actId, unitPrice: i.unitPrice })) }),
+          },
+        });
+      } catch {}
+    }
     const items = dto.items.map((i: any) => ({ ...i, amountRequested: i.quantity * i.unitPrice }));
     const careDate = new Date();
     // -----------------------------------------------------------------------
@@ -505,11 +558,40 @@ export class ProviderPortalController {
     }
     const justification = body.emergencyJustification.trim();
     const { establishment } = await this.portal.requireEstablishment(auth);
+
+    // Limite de dérogations d'urgence par prestataire (dernières 24h)
+    const emergencyLimitRow = await this.prisma.systemConfig.findUnique({ where: { key: 'emergencyOverrideDailyLimit' } });
+    const emergencyLimit = Number(emergencyLimitRow?.value ?? '10');
+    const last24h = new Date(Date.now() - 24 * 3600 * 1000);
+    const recentEmergencies = await this.prisma.claim.count({
+      where: {
+        providerId: establishment.id,
+        emergencyOverride: true,
+        emergencyAt: { gte: last24h },
+      },
+    });
+    if (recentEmergencies >= emergencyLimit) {
+      throw new BadRequestException(
+        `Limite de dérogations d'urgence atteinte (${emergencyLimit} par 24h). Contactez un gestionnaire.`,
+      );
+    }
+
     const claim: any = await this.prisma.claim.findFirst({
       where: { id, providerId: establishment.id, kind: 'THIRDPARTY', status: 'AUTH_REQUIRED' },
       include: { items: true } as any,
     });
     if (!claim) throw new NotFoundException('Prise en charge en AUTH_REQUIRED introuvable');
+
+    // Plafond absolu des dérogations d'urgence
+    const emergencyCapRow = await this.prisma.systemConfig.findUnique({ where: { key: 'emergencyOverrideMaxAmount' } });
+    const emergencyCap = Number(emergencyCapRow?.value ?? '500000');
+    const sumApprovedEmergPrelim = (claim.items ?? []).reduce((a: number, it: any) => a + (it.amountApproved ?? 0), 0);
+    const prelimAmount = sumApprovedEmergPrelim > 0 ? sumApprovedEmergPrelim : (typeof claim.totalApproved === 'number' ? claim.totalApproved : (claim.totalRequested ?? 0));
+    if (prelimAmount > emergencyCap) {
+      throw new BadRequestException(
+        `Montant ${prelimAmount} FCFA dépasse le plafond de dérogation (${emergencyCap} FCFA). Autorisation gestionnaire obligatoire.`,
+      );
+    }
     const now = new Date();
     // authorizedAmount is hard cap: sum of item amountApproved or totalApproved/totalRequested
     const sumApprovedEmerg = (claim.items ?? []).reduce((a: number, it: any) => a + (it.amountApproved ?? 0), 0);
@@ -718,6 +800,7 @@ export class ProviderPortalController {
   }
 
   @Post('staff')
+  @RequirePermissions('provider.staff')
   async addStaff(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(z.object({
     firstName: z.string().min(2).max(60),
     lastName: z.string().min(2).max(60),
@@ -725,9 +808,12 @@ export class ProviderPortalController {
     password: z.string().min(8),
     title: z.string().max(60).optional(),
   }))) dto: any) {
-    const { establishment } = await this.portal.requireEstablishment(auth);
+    const { establishment } = await this.portal.requireEstablishmentAdmin(auth);
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new BadRequestException('Email déjà utilisé');
+    // Le premier membre du personnel est automatiquement administrateur de l'établissement
+    const staffCount = await this.prisma.user.count({ where: { providerId: establishment.id } });
+    const isFirstStaff = staffCount === 0;
     const bcrypt = await import('bcryptjs');
     const user = await this.prisma.user.create({
       data: {
@@ -737,17 +823,19 @@ export class ProviderPortalController {
         firstName: dto.firstName,
         lastName: dto.lastName,
         providerId: establishment.id,
+        isEstablishmentAdmin: isFirstStaff,
       },
     });
-    return { id: user.id, email: user.email };
+    return { id: user.id, email: user.email, isEstablishmentAdmin: isFirstStaff };
   }
 
   @Patch('staff/:id')
+  @RequirePermissions('provider.staff')
   async toggleStaff(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({
     status: z.enum(['ACTIVE', 'SUSPENDED']).optional(),
     newPassword: z.string().min(8).optional(),
   }))) dto: any) {
-    const { establishment } = await this.portal.requireEstablishment(auth);
+    const { establishment } = await this.portal.requireEstablishmentAdmin(auth);
     const target = await this.prisma.user.findFirst({ where: { id, providerId: establishment.id } });
     if (!target) throw new NotFoundException('Membre introuvable');
     const bcrypt = await import('bcryptjs');

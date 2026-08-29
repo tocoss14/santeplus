@@ -5,6 +5,7 @@ const env = (k: string, d: string = '') => process.env[k] ?? d;
 export const config = {
   port: Number(env('PORT', '4000')),
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),
+  fieldEncryptionKey: env('FIELD_ENCRYPTION_KEY', ''),
   webOrigin: env('WEB_ORIGIN', 'http://localhost:5173'),
   appUrl: env('APP_URL', env('WEB_ORIGIN', 'http://localhost:5173')),
   mockPayments: env('MOCK_PAYMENTS', 'true') === 'true',

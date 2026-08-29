@@ -30,6 +30,8 @@ export class ClaimsService {
       rate: pg.rate,
       deductibleType: pg.deductibleType,
       deductibleValue: pg.deductibleValue,
+      copayRate: pg.copayRate ?? 15,
+      maxUnitPrice: pg.maxUnitPrice ?? null,
     }));
     const excludedCategories = contract.product.exclusions.filter((e: any) => e.categoryId).map((e: any) => e.categoryId);
     const yearStart = contract.startDate ? new Date(contract.startDate) : null;
@@ -48,6 +50,21 @@ export class ClaimsService {
     for (const pi of priorItems) usedPerCategory[pi.categoryLabel] = (usedPerCategory[pi.categoryLabel] ?? 0) + (pi.amountEligible ?? 0);
 
     const duplicateSuspect = await this.detectDuplicate(contract.claimantUserId ?? contract.principalUserId, contract.id, careDate, items);
+    // Calculer la dépense globale totale (toutes catégories)
+    const allPriorItems = await this.prisma.claimItem.findMany({
+      where: {
+        claim: {
+          contractId: contract.id,
+          status: { in: CAPS_CONSUMING },
+          ...(yearStart ? { careDate: { gte: yearStart } } : {}),
+        },
+        amountEligible: { not: null },
+      },
+      select: { amountEligible: true, amountApproved: true },
+    });
+    const usedGlobal = allPriorItems.reduce((a, i) => a + (i.amountApproved ?? 0), 0);
+    const globalAnnualCap = contract.product.globalAnnualCap ?? 5000000;
+
     return estimateClaim(
       {
         contractStatus: contract.status,
@@ -57,6 +74,8 @@ export class ClaimsService {
         excludedCategories,
         rules,
         usedPerCategory,
+        globalAnnualCap: globalAnnualCap > 0 ? globalAnnualCap : undefined,
+        usedGlobal,
       },
       careDate,
       items,
@@ -84,6 +103,15 @@ export class ClaimsService {
       select: { id: true },
     });
     await this.dispatch.dispatchToMany(managers.map(m => m.id), { topic, title, body });
+  }
+
+  async getSystemConfig(key: string, fallback: string): Promise<string> {
+    try {
+      const row = await this.prisma.systemConfig.findUnique({ where: { key } });
+      return row?.value ?? fallback;
+    } catch {
+      return fallback;
+    }
   }
 }
 
@@ -352,13 +380,59 @@ export class ClaimsController {
       if (approved < item.amountRequested) reduced = true;
       totalApproved += approved;
     }
+
+    // Double validation pour les montants importants
+    const dualThreshold = Number(await this.getSystemConfig('dualApprovalThreshold', '1000000'));
+    if (totalApproved >= dualThreshold) {
+      const flags: string[] = JSON.parse(claim.flags || '[]');
+      const firstApproval = flags.find((f: string) => f.startsWith('FIRST_APPROVED:'));
+      if (!firstApproval) {
+        // Premier passage : marquer comme première approbation et exiger un second gestionnaire
+        flags.push(`FIRST_APPROVED:${auth.id}:${new Date().toISOString()}`);
+        await this.prisma.claim.update({
+          where: { id },
+          data: {
+            status: 'UNDER_REVIEW',
+            totalApproved,
+            flags: JSON.stringify(flags),
+            decisionNote: `[1ère validation] ${dto.note ?? ''}`,
+            decidedById: auth.id,
+            decidedAt: new Date(),
+          },
+        });
+        for (const item of full!.items) {
+          const o = overridesMap.get(item.id);
+          const approved = o ? o.amountApproved : (item.amountApproved ?? 0);
+          if (o) {
+            await this.prisma.claimItem.update({ where: { id: item.id }, data: { amountApproved: approved } });
+          }
+        }
+        // Notifier les autres gestionnaires
+        const otherManagers = await this.prisma.user.findMany({
+          where: { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER'] }, status: 'ACTIVE', id: { not: auth.id } },
+          select: { id: true },
+        });
+        await this.dispatch.dispatchToMany(otherManagers.map(m => m.id), {
+          topic: 'DUAL_APPROVAL_REQUIRED',
+          title: `Double validation requise — ${claim.reference}`,
+          body: `Montant ${totalApproved} FCFA (≥ ${dualThreshold} FCFA) — première validation par ${auth.email}. Approbation finale requise.`,
+        });
+        return { ok: true, totalApproved, requiresSecondApproval: true, message: `Première validation enregistrée. Une seconde validation d'un autre gestionnaire est requise pour les montants ≥ ${dualThreshold} FCFA.` };
+      }
+      // Second passage : vérifier que c'est un gestionnaire différent
+      const firstApproverId = firstApproval.split(':')[1];
+      if (firstApproverId === auth.id) {
+        throw new BadRequestException('Un deuxième gestionnaire différent doit valider ce remboursement (double validation requise)');
+      }
+    }
+
     await this.prisma.claim.update({
       where: { id },
       data: { status: reduced ? 'PARTIALLY_APPROVED' : 'APPROVED', totalApproved, decisionNote: dto.note, decidedById: auth.id, decidedAt: new Date() },
     });
     await this.notifyClaimant(claim.claimantUserId, claim.reference,
-      reduced ? 'Demande partiellement approuvÃ©e' : 'Demande approuvÃ©e',
-      `Montant approuvÃ© : ${totalApproved} FCFA. ${dto.note ?? ''}`);
+      reduced ? 'Demande partiellement approuvée' : 'Demande approuvée',
+      `Montant approuvé : ${totalApproved} FCFA. ${dto.note ?? ''}`);
     return { ok: true, totalApproved };
   }
 
@@ -461,6 +535,15 @@ export class ClaimsController {
 
   private sanitize(claim: any) {
     return claim;
+  }
+
+  private async getSystemConfig(key: string, fallback: string): Promise<string> {
+    try {
+      const row = await this.prisma.systemConfig.findUnique({ where: { key } });
+      return row?.value ?? fallback;
+    } catch {
+      return fallback;
+    }
   }
 }
 

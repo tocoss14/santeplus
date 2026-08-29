@@ -25,6 +25,8 @@ export class SubscriptionService {
       maxAge: product.maxAge,
       waitingPeriodDays: product.waitingPeriodDays,
       beneficiaryRules: JSON.parse(product.beneficiaryRules || '{}'),
+      ageLoadings: JSON.parse(product.ageLoadings || '[]'),
+      globalAnnualCap: product.globalAnnualCap ?? 5000000,
     };
   }
 

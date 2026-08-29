@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Module, NotFoundException, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -21,6 +21,9 @@ const createStaffSchema = z.object({
   lastName: z.string().min(2),
   role: z.enum(['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT', 'PROVIDER']),
 });
+
+// Rôles qu'un INSURANCE_MANAGER peut créer/promouvoir (jamais SUPER_ADMIN)
+const MANAGER_ALLOWED_ROLES = ['INSURANCE_MANAGER', 'SUPPORT_AGENT', 'PROVIDER'] as const;
 
 const adminUpdateUserSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED']).optional(),
@@ -130,9 +133,13 @@ export class UsersController {
 
   @Post('admin/users')
   @RequirePermissions('members.manage')
-  async createStaff(@Body(new ZodPipe(createStaffSchema)) dto: any) {
+  async createStaff(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(createStaffSchema)) dto: any) {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new BadRequestException('Email déjà utilisé');
+    // Sécurité : seul un SUPER_ADMIN peut créer un autre SUPER_ADMIN
+    if (dto.role === 'SUPER_ADMIN' && auth.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Seul un super administrateur peut créer un super administrateur');
+    }
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
@@ -147,9 +154,17 @@ export class UsersController {
 
   @Patch('admin/users/:id')
   @RequirePermissions('members.manage')
-  async adminUpdate(@Param('id') id: string, @Body(new ZodPipe(adminUpdateUserSchema)) dto: any) {
+  async adminUpdate(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(adminUpdateUserSchema)) dto: any) {
     const target = await this.prisma.user.findUnique({ where: { id } });
     if (!target) throw new BadRequestException('Utilisateur introuvable');
+    // Sécurité : seul un SUPER_ADMIN peut promouvoir en SUPER_ADMIN
+    if (dto.role === 'SUPER_ADMIN' && auth.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Seul un super administrateur peut attribuer le rôle de super administrateur');
+    }
+    // Sécurité : un non-SUPER_ADMIN ne peut pas modifier un SUPER_ADMIN
+    if (target.role === 'SUPER_ADMIN' && auth.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Seul un super administrateur peut modifier un super administrateur');
+    }
     const data: any = {};
     if (dto.status) data.status = dto.status;
     if (dto.role) data.role = dto.role;

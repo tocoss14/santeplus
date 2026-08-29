@@ -47,6 +47,40 @@ describe('computeQuote', () => {
     expect(quote!.periods).toBe(12);
   });
 
+  it('applique la surcharge par âge', () => {
+    const pricingWithAgeLoadings = {
+      ...pricing,
+      ageLoadings: [
+        { minAge: 0, maxAge: 30, factor: 1.0 },
+        { minAge: 31, maxAge: 50, factor: 1.3 },
+        { minAge: 51, maxAge: 65, factor: 1.8 },
+      ],
+    };
+    const { quote: quote30 } = computeQuote(pricingWithAgeLoadings, [{ birthDate: new Date('1996-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL');
+    const { quote: quote55 } = computeQuote(pricingWithAgeLoadings, [{ birthDate: new Date('1971-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL');
+    // 30 ans → factor 1.0, pas de surcharge
+    expect(quote30!.subtotalAnnual).toBe(45000);
+    // 55 ans → factor 1.8, surcharge de 80%
+    expect(quote55!.subtotalAnnual).toBe(Math.round(45000 * 1.8));
+    expect(quote55!.lines.some(l => l.label.includes('Surcharge'))).toBe(true);
+  });
+
+  it('utilise le facteur du foyer le plus âgé', () => {
+    const pricingWithAgeLoadings = {
+      ...pricing,
+      ageLoadings: [
+        { minAge: 0, maxAge: 30, factor: 1.0 },
+        { minAge: 31, maxAge: 50, factor: 1.5 },
+      ],
+    };
+    // Principal 25 ans, conjoint 45 ans → facteur 1.5 s'applique
+    const { quote } = computeQuote(pricingWithAgeLoadings, [
+      { birthDate: new Date('2001-01-01'), relation: 'PRINCIPAL' },
+      { birthDate: new Date('1981-01-01'), relation: 'SPOUSE' },
+    ], 'ANNUAL');
+    expect(quote!.subtotalAnnual).toBe(Math.round((45000 + 30000) * 1.5));
+  });
+
   it("rejette l'âge maximum dépassé", () => {
     const { errors } = computeQuote(pricing, [{ birthDate: new Date('1950-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL');
     expect(errors.length).toBeGreaterThan(0);
@@ -93,7 +127,7 @@ describe('estimateClaim', () => {
     usedPerCategory: {},
   };
 
-  it('calcule taux et franchise', () => {
+  it('calcule taux et franchise (sans copay si non défini)', () => {
     const r = estimateClaim(
       ctx,
       new Date('2026-06-10'),
@@ -105,8 +139,68 @@ describe('estimateClaim', () => {
     expect(r.items[0].amountApproved).toBe(400000);
     expect(r.items[1].deductibleApplied).toBe(5000);
     expect(r.items[1].amountApproved).toBe(Math.round((50000 - 5000) * 0.7));
+    expect(r.items[1].copayApplied).toBe(0);
     expect(r.totals.approved).toBe(r.items[0].amountApproved + r.items[1].amountApproved);
     expect(r.ok).toBe(true);
+  });
+
+  it('applique le copay obligatoire', () => {
+    const ctxWithCopay: ClaimCtx = {
+      ...ctx,
+      rules: [
+        { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80, deductibleType: 'NONE', deductibleValue: 0, copayRate: 20 },
+        { categoryId: 'PHARMACY', annualLimit: 250000, rate: 70, deductibleType: 'FIXED', deductibleValue: 5000, copayRate: 15 },
+      ],
+    };
+    const r = estimateClaim(ctxWithCopay, new Date('2026-06-10'), [
+      { categoryId: 'HOSPITALIZATION', amountRequested: 500000 },
+    ]);
+    // 500000 éligible, pas de franchise, taux 80% → 400000 couvert, copay 20% → 80000
+    expect(r.items[0].copayApplied).toBe(80000);
+    expect(r.items[0].amountApproved).toBe(320000);
+    expect(r.items[0].outOfPocket).toBe(180000); // 500000 - 320000
+  });
+
+  it('applique le barème médical (maxUnitPrice)', () => {
+    const ctxWithFee: ClaimCtx = {
+      ...ctx,
+      rules: [
+        { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80, deductibleType: 'NONE', deductibleValue: 0, maxUnitPrice: 100000 },
+      ],
+    };
+    const r = estimateClaim(ctxWithFee, new Date('2026-06-10'), [
+      { categoryId: 'HOSPITALIZATION', amountRequested: 500000 },
+    ]);
+    // Le montant est plafonné à 100000 (maxUnitPrice)
+    expect(r.items[0].amountEligible).toBe(100000);
+    expect(r.items[0].amountApproved).toBe(80000);
+    expect(r.items[0].reason).toBe('FEE_SCHEDULE_EXCEEDED');
+  });
+
+  it('plafond global annuel (stop-loss)', () => {
+    const ctxWithGlobalCap: ClaimCtx = {
+      ...ctx,
+      globalAnnualCap: 2000000,
+      usedGlobal: 1900000,
+    };
+    const r = estimateClaim(ctxWithGlobalCap, new Date('2026-06-10'), [
+      { categoryId: 'HOSPITALIZATION', amountRequested: 500000 },
+    ]);
+    // Reste 100000 sur le cap global, donc approved plafonné à 100000
+    expect(r.items[0].amountApproved).toBe(100000);
+  });
+
+  it('plafond global épuisé bloque tout', () => {
+    const ctxFullCap: ClaimCtx = {
+      ...ctx,
+      globalAnnualCap: 2000000,
+      usedGlobal: 2000000,
+    };
+    const r = estimateClaim(ctxFullCap, new Date('2026-06-10'), [
+      { categoryId: 'HOSPITALIZATION', amountRequested: 100000 },
+    ]);
+    expect(r.items[0].reason).toBe('GLOBAL_CAP_REACHED');
+    expect(r.items[0].amountApproved).toBe(0);
   });
 
   it('plafond restant limite le montant éligible', () => {
@@ -117,12 +211,14 @@ describe('estimateClaim', () => {
     );
     expect(r.items[0].amountEligible).toBe(200000);
     expect(r.items[0].amountApproved).toBe(160000);
+    expect(r.items[0].outOfPocket).toBe(340000);
   });
 
   it('exclusion catégorielle', () => {
     const r = estimateClaim(ctx, new Date('2026-06-10'), [{ categoryId: 'OPTICAL', amountRequested: 80000 }]);
     expect(r.items[0].reason).toBe('EXCLUDED');
     expect(r.items[0].amountApproved).toBe(0);
+    expect(r.items[0].outOfPocket).toBe(80000);
   });
 
   it('délai de carence bloquant', () => {

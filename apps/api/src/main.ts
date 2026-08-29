@@ -7,6 +7,16 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { config } from './config';
 
 async function bootstrap(): Promise<void> {
+  // Validation critique avant démarrage
+  if (config.isProd && config.jwtSecret.length < 32) {
+    console.error('FATAL: JWT_SECRET doit faire au moins 32 caractères en production');
+    process.exit(1);
+  }
+  if (config.isProd && !config.fieldEncryptionKey) {
+    console.error('FATAL: FIELD_ENCRYPTION_KEY requis en production (32 octets hex)');
+    process.exit(1);
+  }
+
   process.on('unhandledRejection', (reason: unknown) => {
     console.error('UNHANDLED REJECTION:', reason);
   });
@@ -29,6 +39,16 @@ async function bootstrap(): Promise<void> {
     app.setGlobalPrefix('api');
     app.useGlobalFilters(new HttpExceptionFilter());
 
+    // Rate limiting global : 100 requêtes par minute par IP
+    app.use(rateLimit({
+      windowMs: 60_000,
+      limit: 100,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => req.ip ?? 'unknown',
+    }));
+
+    // Rate limiting spécifique sur les endpoints critiques
     app.use(
       '/api/auth/login',
       rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }),
@@ -36,6 +56,22 @@ async function bootstrap(): Promise<void> {
     app.use(
       '/api/auth/register',
       rateLimit({ windowMs: 60 * 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
+    );
+    app.use(
+      '/api/auth/refresh',
+      rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
+    );
+    app.use(
+      '/api/payments',
+      rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }),
+    );
+    app.use(
+      '/api/claims',
+      rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
+    );
+    app.use(
+      '/api/provider/thirdparty',
+      rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }),
     );
 
     const signals = ['SIGTERM', 'SIGINT'];

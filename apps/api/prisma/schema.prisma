@@ -28,6 +28,7 @@ model User {
   company          Company?      @relation(fields: [companyId], references: [id])
   providerId       String?
   providerStaff    Provider?     @relation(fields: [providerId], references: [id])
+  isEstablishmentAdmin Boolean @default(false)
   language         String        @default("fr")
   lastLoginAt      DateTime?
   createdAt        DateTime      @default(now())
@@ -47,6 +48,7 @@ model User {
   deliveries           Delivery[]       @relation("DeliveryUser")
   deliveriesAsPatient  Delivery[]       @relation("DeliveryPatient")
   claimsDecided        Claim[]          @relation("ClaimDecider")
+  refreshTokens        RefreshToken[]
   careRecords          CareRecord[]     @relation("CareRecordPatient")
 
   @@index([role])
@@ -114,10 +116,12 @@ model Product {
   basePremiumAnnual           Int
   pricePerAdditionalAdultAnnual Int @default(0)
   pricePerChildAnnual           Int @default(0)
-  frequencyFactors     String @default("{\"ANNUAL\":1,\"QUARTERLY\":1.03,\"MONTHLY\":1.06}")
-  waitingPeriodDays    Int    @default(0)
+  frequencyFactors     String @default("{\"ANNUAL\":1,\"QUARTERLY\":1.03,\"MONTHLY\":1.08}")
+  waitingPeriodDays    Int    @default(30)
   eligibilityConditions String?
   renewalConditions     String?
+  ageLoadings     String @default("[]")
+  globalAnnualCap Int    @default(5000000)
   status      String   @default("DRAFT")
   sortOrder   Int      @default(0)
   thirdPartyAuthThreshold Int?
@@ -141,6 +145,8 @@ model ProductGuarantee {
   rate            Int
   deductibleType  String  @default("NONE")
   deductibleValue Int     @default(0)
+  copayRate       Int     @default(15)
+  maxUnitPrice    Int?
 
   product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   guarantee Guarantee @relation(fields: [guaranteeId], references: [id])
@@ -384,6 +390,7 @@ model Provider {
   partnerStatus   String  @default("ACTIVE")
   conventionLevel String  @default("BASIC")
   thirdPartyPayer Boolean @default(false)
+  status          String  @default("ACTIVE")
   notes           String?
   active          Boolean @default(true)
   createdAt       DateTime @default(now())
@@ -605,6 +612,21 @@ model RolePermission {
 model SystemConfig {
   key   String @id
   value String
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  revokedAt DateTime?
+  replacedBy String?
+  createdAt DateTime   @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
 }
 
 model CareRecord {

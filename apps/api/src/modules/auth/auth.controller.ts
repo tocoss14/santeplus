@@ -35,6 +35,11 @@ export class AuthController {
     return this.auth.refresh(dto.refreshToken);
   }
 
+  @Post('logout')
+  async logout(@CurrentUser() user: AuthUser) {
+    return this.auth.logout(user.id);
+  }
+
   @Post('password')
   changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) dto: any) {
     return this.auth.changePassword(user.id, dto);

@@ -2,7 +2,21 @@ import { createCipheriv, createDecipheriv, createHash, createHash as hsh, random
 import { config } from '../config';
 import type { AuthUser } from './guards/jwt-auth.guard';
 
-const key = createHash('sha256').update(config.jwtSecret + ':field-enc').digest();
+// Clé de chiffrement INDÉPENDANTE du JWT_SECRET pour éviter la perte de données
+// lors d'une rotation du JWT. 32 octets hex = 256 bits.
+// En développement, utilise une clé de dérivation du JWT_SECRET si FIELD_ENCRYPTION_KEY n'est pas défini.
+let encryptionKeyHex = config.fieldEncryptionKey;
+if (!encryptionKeyHex || encryptionKeyHex.length < 64) {
+  if (config.isProd) {
+    throw new Error(
+      'FIELD_ENCRYPTION_KEY requis en production (32 octets hex = 64 caractères). ' +
+      'Générez avec: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
+  }
+  // Fallback en dev : dériver du JWT_SECRET (données non persistantes)
+  encryptionKeyHex = createHash('sha256').update(config.jwtSecret + ':field-enc-dev').digest('hex');
+}
+const key = Buffer.from(encryptionKeyHex, 'hex');
 
 export const MEDICAL_MASKED = '[Contenu médical restreint]';
 

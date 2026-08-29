@@ -238,9 +238,9 @@ export class StatsService {
           level: 'CRITICAL',
           message: `Produit ${p.product.name} : Loss Ratio à ${p.lossRatio}% — les dépenses dépassent les revenus estimés.`,
         })),
-        ...(emergencyOverrides.count > 0 && emergencyOverrides.percentageOfTotal > 10 ? [{
+        ...((emergencyOverrides._count ?? 0) > 0 && totalClaims > 0 && ((emergencyOverrides._sum.totalApproved ?? 0) / totalClaims) * 100 > 10 ? [{
           level: 'WARNING',
-          message: `Dérogations urgence représentent ${emergencyOverrides.percentageOfTotal}% des remboursements — risque de contournement.`,
+          message: `Dérogations urgence représentent ${Math.round(((emergencyOverrides._sum.totalApproved ?? 0) / totalClaims) * 1000) / 10}% des remboursements — risque de contournement.`,
         }] : []),
       ],
     };

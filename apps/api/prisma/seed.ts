@@ -71,6 +71,7 @@ async function main() {
       { key: 'suspendAfterOverdueDays', value: '45' },
       { key: 'expiryReminders', value: '[30,15,7]' },
       { key: 'thirdPartyAuthThreshold', value: '150000' },
+      { key: 'renewalAlertThreshold', value: '4' },
       { key: 'appName', value: '"SantÃ©Plus BÃ©nin"' },
       { key: 'platformRole', value: '"Plateforme technologique â€” le risque est portÃ© par un assureur/mutuelle partenaire agrÃ©Ã©."' },
     ],

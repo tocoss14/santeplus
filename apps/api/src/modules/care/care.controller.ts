@@ -415,19 +415,31 @@ export class CareController {
     const { establishment } = await this.care.requireEstablishment(auth);
     const p = await this.prisma.prescription.findFirst({ where: { id, providerId: establishment.id } });
     if (!p) throw new NotFoundException();
-    if (p.renewalsUsed >= p.renewalsAllowed)
-      throw new BadRequestException(`Aucun renouvellement restant (${p.renewalsAllowed} autorisés)`);
-    await this.prisma.prescription.update({
-      where: { id },
-      data: {
-        renewalsUsed: p.renewalsUsed + 1,
-        validUntil: new Date(Date.now() + 30 * 86400000),
-        status: 'ACTIVE',
-      },
+    // Hard cap: renewalsAllowed is absolute ceiling, not informative
+    const used = typeof p.renewalsUsed === 'number' ? p.renewalsUsed : 0;
+    const allowed = typeof p.renewalsAllowed === 'number' ? p.renewalsAllowed : 0;
+    if (used >= allowed)
+      throw new BadRequestException(`Aucun renouvellement restant (${allowed} autorisés)`);
+    await this.prisma.$transaction(async (tx: any) => {
+      // Re-check inside transaction to avoid race
+      const fresh = await tx.prescription.findUnique({ where: { id } });
+      if (!fresh) throw new NotFoundException();
+      const freshUsed = typeof fresh.renewalsUsed === 'number' ? fresh.renewalsUsed : 0;
+      const freshAllowed = typeof fresh.renewalsAllowed === 'number' ? fresh.renewalsAllowed : 0;
+      if (freshUsed >= freshAllowed) throw new BadRequestException(`Aucun renouvellement restant (${freshAllowed} autorisés)`);
+      await tx.prescription.update({
+        where: { id },
+        data: {
+          renewalsUsed: freshUsed + 1,
+          validUntil: new Date(Date.now() + 30 * 86400000),
+          status: 'ACTIVE',
+        },
+      });
+      const lines = await tx.prescriptionLine.findMany({ where: { prescriptionId: id } });
+      for (const line of lines) {
+        await tx.prescriptionLine.update({ where: { id: line.id }, data: { deliveredQty: 0 } });
+      }
     });
-    for (const line of await this.prisma.prescriptionLine.findMany({ where: { prescriptionId: id } })) {
-      await this.prisma.prescriptionLine.update({ where: { id: line.id }, data: { deliveredQty: 0 } });
-    }
     return { ok: true };
   }
 

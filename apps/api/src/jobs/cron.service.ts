@@ -3,18 +3,34 @@ import * as cron from 'node-cron';
 import { PrismaService } from '../common/prisma.module';
 import { daysBetween, startOfDay } from '../common/utils';
 import { NotificationDispatchService } from '../common/notifications/dispatch.service';
+import { RenewalAlertJob } from './renewal-alert.job';
 
 @Injectable()
 export class CronService implements OnApplicationBootstrap {
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
+    private renewalAlertJob?: RenewalAlertJob,
   ) {}
 
   onApplicationBootstrap() {
     cron.schedule('0 8 * * *', () => void this.runDaily());
     cron.schedule('0 9 * * *', () => void this.checkEmergencyOverrides());
+    cron.schedule('30 2 * * *', () => void this.checkRenewalAlerts().catch((e) => console.error('[cron] renewalAlert error', e)));
+    // also delegate to dedicated job if injected
+    if (this.renewalAlertJob) {
+      // already scheduled above; also ensure job's own schedule is not double
+    }
     setTimeout(() => void this.runDaily(), 5000);
+  }
+
+  async checkRenewalAlerts(now = new Date()) {
+    if (this.renewalAlertJob) {
+      return this.renewalAlertJob.checkRenewalAlerts(now);
+    }
+    // Fallback: instantiate ad-hoc if not injected (e.g., in tests or standalone)
+    const job = new RenewalAlertJob(this.prisma as any, this.dispatch as any);
+    return job.checkRenewalAlerts(now);
   }
 
   async checkEmergencyOverrides() {

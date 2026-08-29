@@ -578,6 +578,19 @@ export class CareController {
     }
     const status = needsAuth ? 'AUTH_REQUIRED' : 'CONFIRMED';
 
+    // Hard cap: if a prior authorized claim exists for this prescription/contract, delivery must not exceed authorizedAmount
+    const existingCap = await (this.prisma.claim.findFirst as any)?.({
+      where: {
+        prescriptionId: pres.id,
+        authorizedAmount: { not: null },
+        status: { in: ['AUTHORIZED', 'AUTHORIZED_EMERGENCY', 'CONFIRMED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existingCap?.authorizedAmount != null && totalRequested > existingCap.authorizedAmount) {
+      throw new BadRequestException(`Facture de ${totalRequested} FCFA dépasse le montant autorisé de ${existingCap.authorizedAmount} FCFA`);
+    }
+
     const result = await this.prisma.$transaction(async tx => {
       await tx.prescription.update({
         where: { id: pres.id },
@@ -712,6 +725,12 @@ export class CareController {
   _mineConsultationsOld(@CurrentUser() auth: AuthUser) {
     void auth;
     return [];
+  }
+
+  assertAuthorizedCap(claim: any, invoiceTotal: number) {
+    if (claim?.authorizedAmount != null && invoiceTotal > claim.authorizedAmount) {
+      throw new BadRequestException(`Facture de ${invoiceTotal} FCFA dépasse le montant autorisé de ${claim.authorizedAmount} FCFA`);
+    }
   }
 
   private async resolveContract(dto: any) {

@@ -298,6 +298,7 @@ model Claim {
   emergencyJustification String?
   emergencyActorId       String?
   emergencyAt            DateTime?
+  authorizedAmount       Int?
 
   items     ClaimItem[]
   documents ClaimDocument[]

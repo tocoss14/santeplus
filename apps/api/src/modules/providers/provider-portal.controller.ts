@@ -490,11 +490,15 @@ export class ProviderPortalController {
     }
     const justification = body.emergencyJustification.trim();
     const { establishment } = await this.portal.requireEstablishment(auth);
-    const claim = await this.prisma.claim.findFirst({
+    const claim: any = await this.prisma.claim.findFirst({
       where: { id, providerId: establishment.id, kind: 'THIRDPARTY', status: 'AUTH_REQUIRED' },
+      include: { items: true } as any,
     });
     if (!claim) throw new NotFoundException('Prise en charge en AUTH_REQUIRED introuvable');
     const now = new Date();
+    // authorizedAmount is hard cap: sum of item amountApproved or totalApproved/totalRequested
+    const sumApprovedEmerg = (claim.items ?? []).reduce((a: number, it: any) => a + (it.amountApproved ?? 0), 0);
+    const authorizedAmountEmerg = sumApprovedEmerg > 0 ? sumApprovedEmerg : (typeof claim.totalApproved === 'number' ? claim.totalApproved : (claim.totalRequested ?? 0));
     await this.prisma.claim.update({
       where: { id },
       data: {
@@ -503,7 +507,8 @@ export class ProviderPortalController {
         emergencyJustification: justification,
         emergencyActorId: auth.id,
         emergencyAt: now,
-      },
+        authorizedAmount: authorizedAmountEmerg,
+      } as any,
     });
     await this.prisma.auditLog.create({
       data: {
@@ -654,17 +659,36 @@ export class ProviderPortalController {
 
   @Post('thirdparty/:id/invoice')
   @RequirePermissions('provider.thirdparty')
-  async invoice(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
+  async invoice(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body() body?: { total?: number; amount?: number }) {
     const { establishment } = await this.portal.requireEstablishment(auth);
-    const claim = await this.prisma.claim.findFirst({
+    const claim: any = await this.prisma.claim.findFirst({
       where: { id, providerId: establishment.id, kind: 'THIRDPARTY', status: 'CONFIRMED' },
       include: { items: true },
     });
     if (!claim) throw new NotFoundException('Prise en charge confirmée introuvable');
     if (claim.invoiceNumber) return { ok: true, invoiceNumber: claim.invoiceNumber, invoicedAt: claim.invoicedAt };
+    // Hard cap enforcement: if authorizedAmount is set, invoice total must not exceed it
+    if (claim.authorizedAmount != null) {
+      const sumApproved = (claim.items ?? []).reduce((a: number, it: any) => a + (it.amountApproved ?? 0), 0);
+      const claimTotal = typeof body?.total === 'number' ? body.total
+        : typeof body?.amount === 'number' ? body.amount
+        : (typeof claim.totalApproved === 'number' && claim.totalApproved > 0 ? claim.totalApproved
+        : typeof claim.totalRequested === 'number' ? claim.totalRequested
+        : sumApproved);
+      const totalForCheck = typeof claimTotal === 'number' ? claimTotal : sumApproved;
+      if (totalForCheck > claim.authorizedAmount) {
+        throw new BadRequestException(`Facture de ${totalForCheck} FCFA dépasse le montant autorisé de ${claim.authorizedAmount} FCFA`);
+      }
+    }
     const invoiceNumber = ref('FACT');
     await this.prisma.claim.update({ where: { id }, data: { invoiceNumber, invoicedAt: new Date() } });
     return { ok: true, invoiceNumber, invoicedAt: new Date() };
+  }
+
+  assertAuthorizedCap(claim: any, invoiceTotal: number) {
+    if (claim?.authorizedAmount != null && invoiceTotal > claim.authorizedAmount) {
+      throw new BadRequestException(`Facture de ${invoiceTotal} FCFA dépasse le montant autorisé de ${claim.authorizedAmount} FCFA`);
+    }
   }
 
   @Get('staff')

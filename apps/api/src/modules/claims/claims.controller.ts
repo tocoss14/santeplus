@@ -292,13 +292,17 @@ export class ClaimsController {
   @Post('admin/claims/:id/authorize')
   @RequirePermissions('claims.decide')
   async authorizeThirdParty(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ note: z.string().max(500).optional() }))) dto: any) {
-    const claim = await this.prisma.claim.findUnique({ where: { id } });
+    const claim = await this.prisma.claim.findUnique({ where: { id }, include: { items: true } as any });
     if (!claim) throw new NotFoundException('Demande introuvable');
-    if (claim.kind !== 'THIRDPARTY') throw new BadRequestException('Réservé aux prises en charge tiers payant');
-    if (claim.status !== 'AUTH_REQUIRED') throw new BadRequestException(`Statut ${claim.status} : autorisation non applicable`);
+    if ((claim as any).kind !== 'THIRDPARTY') throw new BadRequestException('Réservé aux prises en charge tiers payant');
+    if ((claim as any).status !== 'AUTH_REQUIRED') throw new BadRequestException(`Statut ${(claim as any).status} : autorisation non applicable`);
+    const items: any[] = (claim as any).items ?? [];
+    const sumApproved = items.reduce((a: number, it: any) => a + (it.amountApproved ?? 0), 0);
+    const totalApprovedFromClaim = (claim as any).totalApproved;
+    const authorizedAmount = sumApproved > 0 ? sumApproved : (typeof totalApprovedFromClaim === 'number' ? totalApprovedFromClaim : (claim as any).totalRequested ?? 0);
     await this.prisma.claim.update({
       where: { id },
-      data: { status: 'AUTHORIZED', decisionNote: dto.note ?? null, decidedById: auth.id, decidedAt: new Date() },
+      data: { status: 'AUTHORIZED', decisionNote: dto.note ?? null, decidedById: auth.id, decidedAt: new Date(), authorizedAmount } as any,
     });
     if (claim.providerUserId) {
       await this.dispatch.dispatchToUser(claim.providerUserId, {

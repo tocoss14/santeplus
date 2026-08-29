@@ -13,8 +13,7 @@ async function bootstrap(): Promise<void> {
     process.exit(1);
   }
   if (config.isProd && !config.fieldEncryptionKey) {
-    console.error('FATAL: FIELD_ENCRYPTION_KEY requis en production (32 octets hex)');
-    process.exit(1);
+    console.warn('WARNING: FIELD_ENCRYPTION_KEY non défini — clé dérivée utilisée (données non persistantes entre rotations JWT)');
   }
 
   process.on('unhandledRejection', (reason: unknown) => {

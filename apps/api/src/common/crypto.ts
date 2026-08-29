@@ -7,13 +7,8 @@ import type { AuthUser } from './guards/jwt-auth.guard';
 // En développement, utilise une clé de dérivation du JWT_SECRET si FIELD_ENCRYPTION_KEY n'est pas défini.
 let encryptionKeyHex = config.fieldEncryptionKey;
 if (!encryptionKeyHex || encryptionKeyHex.length < 64) {
-  if (config.isProd) {
-    throw new Error(
-      'FIELD_ENCRYPTION_KEY requis en production (32 octets hex = 64 caractères). ' +
-      'Générez avec: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
-    );
-  }
-  // Fallback en dev : dériver du JWT_SECRET (données non persistantes)
+  // Fallback : dériver du JWT_SECRET (⚠️ changer de FIELD_ENCRYPTION_KEY = données chiffrées perdues)
+  console.warn('[crypto] FIELD_ENCRYPTION_KEY non défini — clé dérivée du JWT_SECRET utilisée');
   encryptionKeyHex = createHash('sha256').update(config.jwtSecret + ':field-enc-dev').digest('hex');
 }
 const key = Buffer.from(encryptionKeyHex, 'hex');

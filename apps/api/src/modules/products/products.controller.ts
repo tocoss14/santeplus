@@ -38,9 +38,19 @@ const productBaseSchema = z
         z.object({
           guaranteeId: z.string(),
           annualLimit: z.number().int().nullable(),
-          rate: z.number().int().min(0).max(100),
+          rate: z.number().int().min(0).max(100).nullable().optional(),
+          minRate: z.number().int().min(0).max(100).default(50),
+          maxRate: z.number().int().min(0).max(100).default(95),
+          minLimit: z.number().int().min(0).default(0),
+          maxLimit: z.number().int().min(0).default(10000000),
+          limitStep: z.number().int().min(1000).default(50000),
+          pricePerLimitStep: z.number().int().min(0).default(0),
           deductibleType: z.enum(['NONE', 'FIXED', 'PERCENT']).default('NONE'),
           deductibleValue: z.number().int().min(0).default(0),
+          copayRate: z.number().int().min(0).max(50).default(15),
+          maxUnitPrice: z.number().int().nullable().optional(),
+          mandatory: z.boolean().default(true),
+          customizable: z.boolean().default(false),
         }),
       )
       .optional(),
@@ -57,6 +67,7 @@ const guaranteeCatalogSchema = z.object({
   category: z.string().min(2).max(60),
   active: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
+  basePrice: z.number().int().min(0).default(0),
 });
 
 const partnerSchema = z.object({

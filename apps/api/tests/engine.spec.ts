@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSchedule, computeQuote, estimateClaim, splitEven, ageAt } from '../src/domain/engine';
+import { buildSchedule, computeQuote, computeFlexibleQuote, estimateClaim, splitEven, ageAt } from '../src/domain/engine';
 import type { ClaimCtx } from '../src/domain/engine';
 
 const pricing = {
@@ -249,5 +249,68 @@ describe('estimateClaim', () => {
   it('catégorie absente du contrat refusée', () => {
     const r = estimateClaim(ctx, new Date('2026-06-10'), [{ categoryId: 'DENTAL', amountRequested: 30000 }]);
     expect(r.items[0].reason).toBe('EXCLUDED');
+  });
+});
+
+describe('computeFlexibleQuote', () => {
+  const flexPricing = {
+    basePremiumAnnual: 45000,
+    pricePerAdditionalAdultAnnual: 30000,
+    pricePerChildAnnual: 20000,
+    frequencyFactors: { ANNUAL: 1, QUARTERLY: 1.03, MONTHLY: 1.08 },
+    minAge: 0,
+    maxAge: 65,
+    guaranteeOptions: [
+      { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 25000, minRate: 60, maxRate: 95, minLimit: 1000000, maxLimit: 10000000, limitStep: 500000, mandatory: true, customizable: true, deductibleType: 'NONE' as const, deductibleValue: 0, copayRate: 15 },
+      { categoryId: 'PHARMACY', categoryName: 'Pharmacie', basePrice: 12000, minRate: 50, maxRate: 85, minLimit: 100000, maxLimit: 500000, limitStep: 25000, mandatory: true, customizable: true, deductibleType: 'NONE' as const, deductibleValue: 0, copayRate: 15 },
+    ],
+  };
+
+  it('calcule la prime avec garanties personnalisées', () => {
+    const selected = [
+      { categoryId: 'HOSPITALIZATION', rate: 80, annualLimit: 3000000 },
+      { categoryId: 'PHARMACY', rate: 70, annualLimit: 250000 },
+    ];
+    const { errors, quote, flexibleDetails } = computeFlexibleQuote(flexPricing, [{ birthDate: new Date('1990-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL', selected);
+    expect(errors).toHaveLength(0);
+    expect(quote).toBeDefined();
+    expect(flexibleDetails).toBeDefined();
+    expect(flexibleDetails!.basePremium).toBe(45000);
+    expect(flexibleDetails!.guaranteeCosts).toHaveLength(2);
+    expect(flexibleDetails!.guaranteeCosts[0].categoryId).toBe('HOSPITALIZATION');
+    expect(flexibleDetails!.guaranteeCosts[0].cost).toBeGreaterThan(0);
+    expect(quote!.totalAnnual).toBeGreaterThan(45000);
+  });
+
+  it('applique la borne min/max sur le taux choisi', () => {
+    const selected = [
+      { categoryId: 'HOSPITALIZATION', rate: 30, annualLimit: 3000000 }, // 30% < minRate 60%
+    ];
+    const { flexibleDetails } = computeFlexibleQuote(flexPricing, [{ birthDate: new Date('1990-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL', selected);
+    // Le taux doit être borné à 60% (minRate)
+    expect(flexibleDetails!.guaranteeCosts[0].rate).toBe(60);
+  });
+
+  it('applique la borne min/max sur le plafond choisi', () => {
+    const selected = [
+      { categoryId: 'PHARMACY', rate: 70, annualLimit: 99999999 }, // > maxLimit 500000
+    ];
+    const { flexibleDetails } = computeFlexibleQuote(flexPricing, [{ birthDate: new Date('1990-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL', selected);
+    expect(flexibleDetails!.guaranteeCosts[0].limit).toBe(500000);
+  });
+
+  it('retourne les détails complets du devis flexible', () => {
+    const selected = [
+      { categoryId: 'HOSPITALIZATION', rate: 85, annualLimit: 5000000 },
+    ];
+    const { flexibleDetails } = computeFlexibleQuote(flexPricing, [{ birthDate: new Date('1990-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL', selected);
+    expect(flexibleDetails!.lines.length).toBeGreaterThan(1);
+    expect(flexibleDetails!.subtotal).toBe(flexibleDetails!.basePremium + flexibleDetails!.guaranteeCosts[0].cost);
+  });
+
+  it('fonctionne sans garanties sélectionnées (fallback classique)', () => {
+    const { errors, quote } = computeFlexibleQuote(flexPricing, [{ birthDate: new Date('1990-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL');
+    expect(errors).toHaveLength(0);
+    expect(quote!.totalAnnual).toBe(45000);
   });
 });

@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.module';
-import { computeQuote, buildSchedule, Frequency, QuotePerson } from '../../domain/engine';
+import { computeQuote, computeFlexibleQuote, buildSchedule, Frequency, QuotePerson, SelectedGuarantee } from '../../domain/engine';
 import { ref, memberNumber, secureToken, startOfDay } from '../../common/utils';
 
 export interface BeneficiaryDraft {
@@ -27,24 +27,40 @@ export class SubscriptionService {
       beneficiaryRules: JSON.parse(product.beneficiaryRules || '{}'),
       ageLoadings: JSON.parse(product.ageLoadings || '[]'),
       globalAnnualCap: product.globalAnnualCap ?? 5000000,
+      guaranteeOptions: (product.guarantees ?? []).map((pg: any) => ({
+        categoryId: pg.guarantee.category,
+        categoryName: pg.guarantee.name,
+        basePrice: pg.guarantee.basePrice ?? 0,
+        minRate: pg.minRate ?? 50,
+        maxRate: pg.maxRate ?? 95,
+        minLimit: pg.minLimit ?? 0,
+        maxLimit: pg.maxLimit ?? 10000000,
+        limitStep: pg.limitStep ?? 50000,
+        mandatory: pg.mandatory ?? true,
+        customizable: pg.customizable ?? false,
+        deductibleType: pg.deductibleType ?? 'NONE',
+        deductibleValue: pg.deductibleValue ?? 0,
+        copayRate: pg.copayRate ?? 15,
+      })),
     };
   }
 
-  async quote(productId: string, principalBirthDate: Date, beneficiaries: BeneficiaryDraft[], frequency: Frequency) {
+  async quote(productId: string, principalBirthDate: Date, beneficiaries: BeneficiaryDraft[], frequency: Frequency, selectedGuarantees?: SelectedGuarantee[]) {
     const product = await this.getActiveProduct(productId);
     const persons: QuotePerson[] = [
       { birthDate: principalBirthDate, relation: 'PRINCIPAL' },
       ...beneficiaries.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
     ];
-    const { errors, quote } = computeQuote(this.parseProduct(product), persons, frequency);
+    const pricing = this.parseProduct(product);
+    const { errors, quote, flexibleDetails } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees);
     if (errors.length) throw new BadRequestException({ message: errors[0], errors });
-    return { product: { id: product.id, name: product.name, code: product.code }, quote };
+    return { product: { id: product.id, name: product.name, code: product.code }, quote, flexibleDetails };
   }
 
-  async quoteForUser(userId: string, productId: string, frequency: Frequency, beneficiaries: { birthDate: Date; relation: string }[]) {
+  async quoteForUser(userId: string, productId: string, frequency: Frequency, beneficiaries: { birthDate: Date; relation: string }[], selectedGuarantees?: SelectedGuarantee[]) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.birthDate) throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de simuler');
-    return this.quote(productId, user.birthDate, beneficiaries as BeneficiaryDraft[], frequency);
+    return this.quote(productId, user.birthDate, beneficiaries as BeneficiaryDraft[], frequency, selectedGuarantees);
   }
 
   async validateBeneficiaryRules(productId: string, existingCount: number, draft: BeneficiaryDraft) {
@@ -101,11 +117,14 @@ export class SubscriptionService {
       }
       if (!b.firstName || !b.lastName) throw new BadRequestException('Nom et prénom requis pour chaque ayant droit');
     }
-    const { errors, quote } = computeQuote(
-      this.parseProduct(product),
-      [{ birthDate: user.birthDate, relation: 'PRINCIPAL' }, ...beneficiaries.map(b => ({ birthDate: b.birthDate, relation: b.relation }))],
-      frequency,
-    );
+    const pricing = this.parseProduct(product);
+    const persons: QuotePerson[] = [
+      { birthDate: user.birthDate, relation: 'PRINCIPAL' },
+      ...beneficiaries.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
+    ];
+    // Si des garanties personnalisées sont fournies, les utiliser
+    const selectedGuarantees: SelectedGuarantee[] | undefined = (dto as any).selectedGuarantees;
+    const { errors, quote } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees);
     if (errors.length || !quote) throw new BadRequestException({ message: errors[0] ?? 'Devis invalide', errors });
 
     const today = startOfDay(new Date());
@@ -215,7 +234,12 @@ export class SubscriptionService {
   }
 
   private async getActiveProduct(id: string) {
-    const product = await this.prisma.product.findUnique({ where: { id } });
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        guarantees: { include: { guarantee: true } },
+      },
+    });
     if (!product) throw new NotFoundException('Produit introuvable');
     if (product.status !== 'ACTIVE') throw new BadRequestException('Produit non disponible');
     return product;

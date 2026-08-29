@@ -37,6 +37,46 @@ export interface ProductPricing {
   ageLoadings?: { minAge: number; maxAge: number; factor: number }[];
   /** Plafond agrégé annuel par contrat (FCFA) */
   globalAnnualCap?: number;
+  /** Garanties flexibles disponibles pour ce produit */
+  guaranteeOptions?: GuaranteeOption[];
+}
+
+/** Définition d'une garantie flexible dans un produit */
+export interface GuaranteeOption {
+  categoryId: string;
+  categoryName?: string;
+  basePrice: number;
+  minRate: number;
+  maxRate: number;
+  minLimit: number;
+  maxLimit: number;
+  limitStep: number;
+  mandatory: boolean;
+  customizable: boolean;
+  deductibleType: 'NONE' | 'FIXED' | 'PERCENT';
+  deductibleValue: number;
+  copayRate: number;
+}
+
+/** Choix de l'assuré pour une garantie */
+export interface SelectedGuarantee {
+  categoryId: string;
+  rate: number;
+  annualLimit: number;
+}
+
+/** Résultat du calcul de prime flexible */
+export interface FlexibleQuoteResult {
+  basePremium: number;
+  beneficiaryCost: number;
+  guaranteeCosts: { categoryId: string; label: string; cost: number; rate: number; limit: number }[];
+  ageLoading: number;
+  ageLoadingFactor: number;
+  subtotal: number;
+  frequency: Frequency;
+  frequencyFactor: number;
+  totalAnnual: number;
+  lines: QuoteLine[];
 }
 
 export interface QuotePerson {
@@ -152,6 +192,154 @@ export function splitEven(total: number, parts: number): number[] {
   const base = Math.floor(total / parts);
   const remainder = total - base * parts;
   return Array.from({ length: parts }, (_, i) => (i < remainder ? base + 1 : base));
+}
+
+/**
+ * Calcul de prime FLEXIBLE : la prime est calculée en fonction des garanties
+ * choisies par l'assuré (taux + plafond) au lieu d'être fixe par produit.
+ *
+ * Formule :
+ *   prime = basePremium + Σ(garantie.basePrice × (taux/100) × (plafond/basePlafond))
+ *   × facteurAge × facteurFréquence
+ *
+ * Si aucune garantie flexible n'est configurée, fallback sur le calcul classique.
+ */
+export function computeFlexibleQuote(
+  pricing: ProductPricing,
+  persons: QuotePerson[],
+  frequency: Frequency,
+  selectedGuarantees?: SelectedGuarantee[],
+): { errors: string[]; quote?: QuoteResult; flexibleDetails?: FlexibleQuoteResult } {
+  const errors: string[] = [];
+  const now = new Date();
+
+  // Validation âge (identique au calcul classique)
+  const principal = persons[0];
+  if (!principal) errors.push('Assuré principal requis');
+  else {
+    const age = ageAt(principal.birthDate, now);
+    if (age < pricing.minAge) errors.push(`Âge minimum requis : ${pricing.minAge} ans`);
+    if (age > pricing.maxAge) errors.push(`Âge maximum : ${pricing.maxAge} ans`);
+  }
+  for (let i = 1; i < persons.length; i++) {
+    const p = persons[i];
+    const age = ageAt(p.birthDate, now);
+    if (age > pricing.maxAge) errors.push(`Bénéficiaire ${i} : âge maximum dépassé (${pricing.maxAge} ans)`);
+    if (p.relation === 'CHILD') {
+      const childMax = pricing.beneficiaryRules?.childMaxAge ?? 21;
+      if (age >= childMax) errors.push(`Enfant ${i} : doit avoir moins de ${childMax} ans`);
+    }
+  }
+  if (errors.length) return { errors };
+
+  // Compter adultes/enfants
+  let adults = 0;
+  let children = 0;
+  let maxAdultAge = 0;
+  for (const p of persons) {
+    const a = ageAt(p.birthDate, now);
+    if (p.relation === 'CHILD') children++;
+    else {
+      adults++;
+      if (a > maxAdultAge) maxAdultAge = a;
+    }
+  }
+
+  const adultExtras = Math.max(0, adults - 1);
+  const basePremium = pricing.basePremiumAnnual;
+  const beneficiaryCost = adultExtras * pricing.pricePerAdditionalAdultAnnual + children * pricing.pricePerChildAnnual;
+
+  // Déterminer le facteur d'âge
+  let ageLoadingFactor = 1;
+  if (pricing.ageLoadings && pricing.ageLoadings.length > 0) {
+    const loading = pricing.ageLoadings.find(l => maxAdultAge >= l.minAge && maxAdultAge <= l.maxAge);
+    if (loading) ageLoadingFactor = loading.factor;
+  }
+
+  // Calcul des coûts de garanties flexibles
+  const guaranteeCosts: FlexibleQuoteResult['guaranteeCosts'] = [];
+  const lines: QuoteLine[] = [];
+
+  if (pricing.guaranteeOptions && pricing.guaranteeOptions.length > 0 && selectedGuarantees && selectedGuarantees.length > 0) {
+    // Mode FLEXIBLE : calculer le coût de chaque garantie choisie
+    for (const selected of selectedGuarantees) {
+      const option = pricing.guaranteeOptions.find(o => o.categoryId === selected.categoryId);
+      if (!option) continue;
+
+      // Valider les bornes
+      const rate = Math.max(option.minRate, Math.min(option.maxRate, selected.rate));
+      const limit = Math.max(option.minLimit, Math.min(option.maxLimit, selected.annualLimit));
+
+      // Coût = basePrice × (taux/100) × (plafond/basePlafond)
+      // Le basePlafond est la valeur de référence (minLimit ou un plafond de base)
+      const baseLimit = option.minLimit || 100000;
+      const guaranteeCost = Math.round(option.basePrice * (rate / 100) * (limit / baseLimit));
+
+      guaranteeCosts.push({
+        categoryId: selected.categoryId,
+        label: option.categoryName ?? selected.categoryId,
+        cost: guaranteeCost,
+        rate,
+        limit,
+      });
+
+      lines.push({
+        label: `${option.categoryName ?? selected.categoryId} (${rate}% — ${round(limit).toLocaleString()} FCFA)`,
+        amount: guaranteeCost,
+      });
+    }
+  }
+
+  const totalGuaranteeCost = guaranteeCosts.reduce((a, g) => a + g.cost, 0);
+  let subtotal = basePremium + beneficiaryCost + totalGuaranteeCost;
+
+  // Facteur âge
+  let ageLoadingAmount = 0;
+  if (ageLoadingFactor !== 1) {
+    ageLoadingAmount = Math.round(subtotal * (ageLoadingFactor - 1));
+    subtotal += ageLoadingAmount;
+  }
+
+  // Facteur fréquence
+  const factor = pricing.frequencyFactors?.[frequency] ?? 1;
+  const totalAnnual = round(subtotal * factor);
+  const periods = PERIODS[frequency];
+  const periodicAmount = splitEven(totalAnnual, periods)[0];
+
+  // Lignes de devis
+  if (lines.length) lines.unshift({ label: 'Cotisation de base', amount: basePremium });
+  else lines.push({ label: 'Cotisation de base (assuré principal)', amount: basePremium });
+  if (beneficiaryCost > 0) lines.push({ label: `Ayants droit (${adultExtras} adulte${adultExtras > 1 ? 's' : ''} + ${children} enfant${children > 1 ? 's' : ''})`, amount: beneficiaryCost });
+  if (ageLoadingAmount > 0) lines.push({ label: `Surcharge âge (${maxAdultAge} ans, ×${ageLoadingFactor})`, amount: ageLoadingAmount });
+  if (factor !== 1) lines.push({ label: `Fractionnement ${frequency.toLowerCase()} (×${factor})`, amount: totalAnnual - subtotal });
+
+  const flexibleDetails: FlexibleQuoteResult = {
+    basePremium,
+    beneficiaryCost,
+    guaranteeCosts,
+    ageLoading: ageLoadingAmount,
+    ageLoadingFactor,
+    subtotal: subtotal,
+    frequency,
+    frequencyFactor: factor,
+    totalAnnual,
+    lines,
+  };
+
+  return {
+    errors: [],
+    quote: {
+      lines,
+      subtotalAnnual: subtotal,
+      frequency,
+      factor,
+      totalAnnual,
+      periods,
+      periodicAmount,
+      currency: 'XOF',
+    },
+    flexibleDetails,
+  };
 }
 
 export function buildSchedule(

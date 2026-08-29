@@ -100,6 +100,8 @@ model Guarantee {
   category  String
   active    Boolean @default(true)
   sortOrder Int     @default(0)
+  // Prix de base annuel pour cette garantie (taux 100%, plafond de référence)
+  basePrice Int     @default(0)
 
   productGuarantees ProductGuarantee[]
 }
@@ -141,12 +143,30 @@ model ProductGuarantee {
   id              String  @id @default(cuid())
   productId       String
   guaranteeId     String
+  // Plafond annuel fixe (si null, calculé dynamiquement)
   annualLimit     Int?
-  rate            Int
+  // Taux de couverture fixe (si null, choisi par l'assuré entre minRate et maxRate)
+  rate            Int?
+  // Taux minimum autorisé pour cette garantie (flexible)
+  minRate         Int     @default(50)
+  // Taux maximum autorisé pour cette garantie (flexible)
+  maxRate         Int     @default(95)
+  // Plafond minimum autorisé
+  minLimit        Int     @default(0)
+  // Plafond maximum autorisé
+  maxLimit        Int     @default(10000000)
+  // Pas d'incrémentation pour le plafond (ex: 50000)
+  limitStep       Int     @default(50000)
+  // Prix de base par tranche de plafond (pour calcul de prime flexible)
+  pricePerLimitStep Int   @default(0)
   deductibleType  String  @default("NONE")
   deductibleValue Int     @default(0)
   copayRate       Int     @default(15)
   maxUnitPrice    Int?
+  // Si true, cette garantie est obligatoire pour le produit
+  mandatory       Boolean @default(true)
+  // Si true, l'assuré peut personnaliser le taux/plafond
+  customizable    Boolean @default(false)
 
   product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   guarantee Guarantee @relation(fields: [guaranteeId], references: [id])

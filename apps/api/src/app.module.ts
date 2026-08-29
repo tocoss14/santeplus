@@ -25,6 +25,7 @@ import { OfflineModule } from './modules/offline/offline.controller';
 import { CronService } from './jobs/cron.service';
 import { RenewalAlertJob } from './jobs/renewal-alert.job';
 import { FraudDetectionJob } from './jobs/fraud-detection.job';
+import { RetentionJob } from './jobs/retention.job';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { FraudDetectionJob } from './jobs/fraud-detection.job';
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     RenewalAlertJob,
     FraudDetectionJob,
+    RetentionJob,
     CronService,
   ],
 })

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDateTime, statusLabel, statusStyle } from '../../format';
 import { Spinner } from '../../components/ui';
+import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
 
@@ -10,15 +11,19 @@ export default function AdminPayments() {
   const [status, setStatus] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [status, from, to]);
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    params.set('page', String(page));
     const qs = params.toString();
     api.get(`/admin/payments${qs ? `?${qs}` : ''}`).then(setData).catch(() => setData({ items: [] }));
-  }, [status, from, to]);
+  }, [status, from, to, page]);
 
   return (
     <div className="space-y-4">
@@ -94,6 +99,8 @@ export default function AdminPayments() {
           </table>
         </div>
       )}
+
+      {data && <Pagination page={data.page} pages={data.pages} total={data.total} onChange={setPage} />}
     </div>
   );
 }

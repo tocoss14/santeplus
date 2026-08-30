@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { PROVIDER_TYPES } from '../../format';
 import { Badge, ErrorBanner, Field, Modal, Spinner } from '../../components/ui';
+import Pagination from '../../components/Pagination';
 import BulkProviderImport from '../../components/BulkProviderImport';
 import { printReport, exportCsv } from '../../printReport';
 
@@ -12,22 +13,30 @@ const EMPTY = {
 };
 
 export default function AdminProviders() {
-  const [items, setItems] = useState<any[] | null>(null);
+  const [data, setData] = useState<any>(null);
   const [pending, setPending] = useState<any[]>([]);
   const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<any | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [tab, setTab] = useState<'all' | 'pending'>('all');
 
+  const items = data?.items ?? null;
+
   const load = () => {
-    api.get(`/admin/providers${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(setItems).catch(() => setItems([]));
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    params.set('page', String(page));
+    api.get(`/admin/providers?${params}`).then(setData).catch(() => setData({ items: [], total: 0 }));
     api.get('/admin/providers/registrations').then(setPending).catch(() => setPending([]));
   };
+
+  useEffect(() => { setPage(1); }, [q]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, page]);
 
   const approveRegistration = async (id: string) => {
     await api.post(`/admin/providers/${id}/approve-registration`, {});
@@ -148,7 +157,7 @@ export default function AdminProviders() {
             <Spinner />
           ) : (
             <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {items.map(p => (
+              {items.map((p: any) => (
                 <li key={p.id} className={`card-p ${!p.active ? 'opacity-50' : ''}`}>
                   <div className="flex justify-between gap-2">
                     <p className="font-semibold">{p.name}</p>
@@ -225,6 +234,8 @@ export default function AdminProviders() {
           </button>
         </Modal>
       )}
+
+      {data && <Pagination page={data.page} pages={data.pages} total={data.total} onChange={setPage} />}
 
       {/* Modal import Excel */}
       {showImport && (

@@ -6,6 +6,8 @@ import { NotificationDispatchService } from '../common/notifications/dispatch.se
 import { RenewalAlertJob } from './renewal-alert.job';
 import { FraudDetectionJob } from './fraud-detection.job';
 import { RetentionJob } from './retention.job';
+import { CommissionFraudJob } from './commission-fraud.job';
+import { PaymentReminderJob } from './payment-reminder.job';
 
 @Injectable()
 export class CronService implements OnApplicationBootstrap {
@@ -15,6 +17,8 @@ export class CronService implements OnApplicationBootstrap {
     private renewalAlertJob?: RenewalAlertJob,
     private fraudDetectionJob?: FraudDetectionJob,
     private retentionJob?: RetentionJob,
+    private commissionFraudJob?: CommissionFraudJob,
+    private paymentReminderJob?: PaymentReminderJob,
   ) {}
 
   onApplicationBootstrap() {
@@ -23,6 +27,8 @@ export class CronService implements OnApplicationBootstrap {
     cron.schedule('30 2 * * *', () => void this.checkRenewalAlerts().catch((e) => console.error('[cron] renewalAlert error', e)));
     cron.schedule('0 2 * * *', () => void this.checkFraud().catch((e) => console.error('[cron] fraud error', e)));
     cron.schedule('0 3 * * *', () => void this.checkRetention().catch((e) => console.error('[cron] retention error', e)));
+    cron.schedule('30 3 * * *', () => void this.checkCommissionFraud().catch((e) => console.error('[cron] commissionFraud error', e)));
+    cron.schedule('0 9 * * *', () => void this.sendPaymentReminders().catch((e) => console.error('[cron] paymentReminder error', e)));
     // also delegate to dedicated job if injected
     if (this.renewalAlertJob) {
       // already scheduled above; also ensure job's own schedule is not double
@@ -58,6 +64,22 @@ export class CronService implements OnApplicationBootstrap {
       return this.retentionJob.run(now);
     }
     const job = new RetentionJob(this.prisma as any);
+    return job.run(now);
+  }
+
+  async checkCommissionFraud(now = new Date()) {
+    if (this.commissionFraudJob) {
+      return this.commissionFraudJob.run(now);
+    }
+    const job = new CommissionFraudJob(this.prisma as any, this.dispatch as any);
+    return job.run(now);
+  }
+
+  async sendPaymentReminders(now = new Date()) {
+    if (this.paymentReminderJob) {
+      return this.paymentReminderJob.run(now);
+    }
+    const job = new PaymentReminderJob(this.prisma as any, this.dispatch as any);
     return job.run(now);
   }
 

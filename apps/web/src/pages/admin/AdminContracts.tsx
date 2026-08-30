@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
 import { Spinner, StatusBadge } from '../../components/ui';
+import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
 
@@ -11,6 +12,7 @@ export default function AdminContracts() {
   const [q, setQ] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
 
   const load = () => {
     const params = new URLSearchParams();
@@ -18,13 +20,16 @@ export default function AdminContracts() {
     if (q) params.set('q', q);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    params.set('page', String(page));
     api.get(`/admin/contracts?${params}`).then(setData).catch(() => setData({ items: [] }));
   };
+
+  useEffect(() => { setPage(1); }, [status, q, from, to]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
-  }, [status, q, from, to]);
+  }, [status, q, from, to, page]);
 
   async function act(id: string, action: string) {
     if (!confirm(`Confirmer l’action « ${action} » sur ce contrat ?`)) return;
@@ -122,6 +127,8 @@ export default function AdminContracts() {
           {data.items.length === 0 && <p className="py-8 text-center text-sm text-slate-400">Aucun contrat</p>}
         </div>
       )}
+
+      {data && <Pagination page={data.page} pages={data.pages} total={data.total} onChange={setPage} />}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { JwtService } from '../../common/guards/jwt.service';
 import { memberNumber } from '../../common/utils';
 import { encryptField } from '../../common/crypto';
 import { changePasswordSchema, loginSchema, registerSchema } from './dto';
+import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { welcomeEmail, smsTemplates } from '../../common/notifications/email-templates';
 
 interface LoginAttempt {
   count: number;
@@ -20,11 +22,38 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    private dispatch: NotificationDispatchService,
   ) {}
 
   async register(dto: typeof registerSchema._input) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new BadRequestException('Un compte existe déjà avec cet email');
+
+    // Lookup distributor from referral code if provided
+    let referredById: string | undefined;
+    if (dto.referralCode) {
+      const distributor = await this.prisma.distributor.findUnique({
+        where: { referralCode: dto.referralCode.toUpperCase() },
+      });
+      if (distributor && distributor.status === 'ACTIVE') {
+        // ANTI-FRAUDE : max 5 inscriptions par jour par distributeur
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayCount = await this.prisma.user.count({
+          where: {
+            referredById: distributor.id,
+            createdAt: { gte: todayStart },
+          },
+        });
+        if (todayCount >= 5) {
+          throw new BadRequestException(
+            'Ce lien de parrainage a atteint la limite quotidienne. Réessayez demain.',
+          );
+        }
+        referredById = distributor.id;
+      }
+    }
+
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
@@ -36,8 +65,26 @@ export class AuthService {
         birthDate: dto.birthDate ?? null,
         gender: dto.gender ?? null,
         memberNumber: memberNumber(),
+        referredById: referredById ?? null,
       },
     });
+
+    // Increment distributor's totalRecruited
+    if (referredById) {
+      await this.prisma.distributor.update({
+        where: { id: referredById },
+        data: { totalRecruited: { increment: 1 } },
+      }).catch(() => {}); // non-blocking
+    }
+    // Send welcome notification (email + SMS)
+    await this.dispatch.dispatchToUser(user.id, {
+      topic: 'WELCOME',
+      title: `Bienvenue sur SantéPlus, ${user.firstName} !`,
+      body: `Votre compte a été créé. Souscrivez une formule pour activer votre couverture santé.`,
+      html: welcomeEmail(user.firstName, `${process.env.APP_URL ?? 'https://santeplus.bj'}/app/souscrire`),
+      meta: { userId: user.id },
+    }).catch(() => {});
+
     const tokens = this.issueTokens(user.id, user.role);
     await this.storeRefreshToken(tokens.refreshToken, user.id);
     return tokens;

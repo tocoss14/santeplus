@@ -8,6 +8,7 @@ export default function Register() {
   const { register, login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', birthDate: '', gender: '', password: '' });
+  const [referralCode, setReferralCode] = useState(() => localStorage.getItem('sp_referral') || '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -37,8 +38,11 @@ export default function Register() {
         birthDate: form.birthDate || undefined,
         gender: form.gender || undefined,
         password: form.password,
+        referralCode: referralCode || undefined,
       });
       await login(form.email, form.password);
+      // Clear referral code from localStorage after successful registration
+      localStorage.removeItem('sp_referral');
       // Upload photo si sélectionnée
       if (photoFile) {
         const fd = new FormData();
@@ -79,6 +83,18 @@ export default function Register() {
           <input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} />
         </Field>
 
+        {!referralCode && (
+          <Field label="Code de parrainage (optionnel)">
+            <input
+              className="input"
+              placeholder="Ex: ABC123"
+              value={referralCode}
+              onChange={e => setReferralCode(e.target.value.toUpperCase())}
+              maxLength={20}
+            />
+          </Field>
+        )}
+
         <div className="mb-3.5">
           <label className="label">Photo d'identité (pour votre carte d'assuré)</label>
           <div className="flex items-center gap-4">
@@ -104,6 +120,12 @@ export default function Register() {
           </div>
         </div>
 
+        {referralCode && (
+          <div className="mb-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm">
+            🤝 Parrainé par le code <span className="font-mono font-bold text-brand-700">{referralCode}</span>
+            <button type="button" onClick={() => { setReferralCode(''); localStorage.removeItem('sp_referral'); }} className="ml-2 text-xs text-stone hover:text-red-500">✕ Retirer</button>
+          </div>
+        )}
         <button className="btn-primary w-full" disabled={busy}>{busy ? 'Création…' : 'Créer mon compte'}</button>
         <p className="mt-4 text-center text-sm text-slate-500">
           Déjà inscrit ? <Link to="/login" className="font-semibold text-brand-700 hover:underline">Se connecter</Link>

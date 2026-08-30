@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators';
 import { AuthUser } from '../../common/guards/jwt-auth.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { SubscriptionService } from './subscription.service';
+import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 
 const beneficiaryDraftSchema = z.object({
   firstName: z.string().min(2).max(60),
@@ -61,7 +62,7 @@ export class SubscriptionController {
 
 @Module({
   controllers: [SubscriptionController],
-  providers: [SubscriptionService],
+  providers: [SubscriptionService, NotificationDispatchService],
   exports: [SubscriptionService],
 })
 export class SubscriptionModule {}

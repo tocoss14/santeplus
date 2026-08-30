@@ -142,7 +142,7 @@ const doc = new Document({
         shading: { type: ShadingType.CLEAR, fill: LIGHT },
         children: [new TextRun({ text: 'À l’attention de la Direction Générale, de la Direction Technique et des équipes métier\npour validation : ce qui est implémenté, comment ça marche, quoi ajuster', font: BFONT, size: 18, color: INK })],
       }),
-      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400 }, children: [new TextRun({ text: `Version 1.1  •  ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}  •  Ref. GUIDE-INTERFACES-001`, font: BFONT, size: 16, color: MUTED })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400 },         children: [new TextRun({ text: `Version 1.2  •  ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}  •  Ref. GUIDE-INTERFACES-002 — ajout vérification photo`, font: BFONT, size: 16, color: MUTED })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Document confidentiel — usage interne', font: BFONT, size: 14, italics: true, color: MUTED })] }),
       new Paragraph({ children: [new PageBreak()] }),
 
@@ -206,6 +206,8 @@ const doc = new Document({
       bullet('Affiche : titulaire, n° assuré (MEM-…), n° contrat (CTR-…), validité, produit + QR code SVG.', ''),
       bullet('Le QR encode {"t":"jeton_32hex"} — jeton opaque, aucune donnée perso. Régénération possible (ancien jeton immédiatement invalide).', ''),
       bullet('Usage : présenté au prestataire qui le scanne (caméra ou saisie) pour vérification serveur.', ''),
+      bullet('Photo obligatoire : portrait de l’assuré et de chaque ayant droit (upload /users/me/photo ou /beneficiaries/:id/photo) — affiché en 80 px sur la carte, 120 px côté prestataire avec case à cocher “Je confirme la photo correspond” bloquante.', ''),
+      note('Si la photo manque, la carte affiche les initiales et un badge “Photo manquante — ajoutez-la depuis Profil” ; la vérification prestataire l’indique également.'),
       h2('3.4  Ordonnances  (/app/ordonnances)  —  NOUVEAU'),
       p('Liste de toutes les ordonnances du patient et de ses ayants droit. Chaque ligne : n° ORD-…, statut, validité, prescripteur.'),
       table(['Statut', 'Signification', 'Options pour l’assuré'],
@@ -354,6 +356,7 @@ const doc = new Document({
       p('Référence DOS-YYYY-… qui chaînone : CareRecord → Consultation → Prescription (→ lignes) → Delivery (→ lignes) → Claim (THIRDPARTY, prise en charge). Chaque création ajoute un CareRecordEvent (CONSULTATION_CREATED → PRESCRIPTION_CREATED → DELIVERY_CREATED → CLAIM_AUTHORIZED…).'),
       h3('Timeline'),
       p('Accessible via GET /care-records/:id/timeline, filtrée par rôle (l’entreprise ne voit que les métadonnées non médicales). L’assuré y retrouve toute son histoire : consultation Dr X (motif, diagnostic) → ordonnance ORD-… (QR, validité) → délivrance DEL-… (produits, substitution) → montants (couvert / reste à charge) → facture.'),
+      bullet('Vérification d’identité : après scan QR, le prestataire voit la photo 120 px de l’assuré/ayant droit et doit valider “photo conforme” avant de saisir les actes — traçé dans CareRecordEvent PHOTO_VERIFIED.', ''),
       h3('Règles de visibilité (§28)'),
       table(['Acteur', 'Voit dans le dossier', 'Ne voit PAS'],
         [
@@ -419,6 +422,7 @@ const doc = new Document({
           ['Notifications', 'Canaux e-mail/SMS/WhatsApp : sujets corrects ?', '', ''],
           ['PDF (certificat, attestation)', 'Mentions légales suffisantes ?', '', ''],
           ['Sécurité', 'Chiffrement, QR opaque, cloisonnement : conforme à vos exigences ?', '', ''],
+          ['Photos', 'Portrait obligatoire sur carte + vérification visuelle prestataire : flux et mentions RGPD clairs ?', '', ''],
           ['Hors-ligne', 'Mode dégradé souhaité en cas de connexion faible ?', '', ''],
         ];
         return table(
@@ -454,7 +458,8 @@ const doc = new Document({
   });
 
   Packer.toBuffer(doc).then(buffer => {
-    const out = 'SantePlus-Guide-des-interfaces.docx';
+    const out = 'SantePlus-Guide-des-interfaces-v1.2.docx';
     fs.writeFileSync(out, buffer);
     console.log('OK ->', out, `(${(buffer.length / 1024).toFixed(1)} Ko)`);
+    try { fs.writeFileSync('SantePlus-Guide-des-interfaces.docx', buffer); console.log('OK -> SantePlus-Guide-des-interfaces.docx'); } catch(e) { console.log('Note: docx verrouille, v1.2 genere'); }
   });

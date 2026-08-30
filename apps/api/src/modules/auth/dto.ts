@@ -10,6 +10,7 @@ export const registerSchema = z.object({
   phone: z.string().regex(/^[+0-9 ]{8,20}$/).optional(),
   birthDate: z.coerce.date().optional(),
   gender: z.enum(['M', 'F']).optional(),
+  referralCode: z.string().min(2).max(20).optional(),
 });
 
 export const loginSchema = z.object({

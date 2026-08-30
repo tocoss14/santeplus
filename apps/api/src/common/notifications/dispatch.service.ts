@@ -1,20 +1,24 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.module';
 import { config } from '../../config';
+
 export interface DispatchInput {
   topic: string;
   title: string;
   body: string;
   meta?: Record<string, any>;
+  html?: string;
 }
 
 const DEFAULT_EMAIL_TOPICS = [
-  'CONTRACT_ACTIVATED', 'PAYMENT_CONFIRMED', 'CLAIM_STATUS', 'CLAIM_RECEIVED',
-  'EXPIRY_REMINDER', 'CONTRACT_EXPIRED',
+  'WELCOME', 'CONTRACT_ACTIVATED', 'PAYMENT_CONFIRMED', 'PAYMENT_REMINDER',
+  'CLAIM_STATUS', 'CLAIM_RECEIVED', 'EXPIRY_REMINDER', 'CONTRACT_EXPIRED',
+  'CONTRACT_SUSPENDED',
 ];
 const DEFAULT_SMS_TOPICS = [
-  'CONTRACT_ACTIVATED', 'PAYMENT_CONFIRMED', 'CONTRACT_SUSPENDED',
-  'DUE_REMINDER', 'EXPIRY_REMINDER', 'THIRDPARTY_CONFIRMED',
+  'WELCOME', 'CONTRACT_ACTIVATED', 'PAYMENT_CONFIRMED', 'PAYMENT_REMINDER',
+  'CONTRACT_SUSPENDED', 'DUE_REMINDER', 'EXPIRY_REMINDER',
+  'THIRDPARTY_CONFIRMED', 'CLAIM_RECEIVED', 'CLAIM_STATUS',
 ];
 
 function topicList(envValue: string, fallback: string[]): Set<string> {
@@ -29,6 +33,7 @@ export class NotificationDispatchService {
   constructor(private prisma: PrismaService) {}
 
   async dispatchToUser(userId: string, input: DispatchInput) {
+    // 1. Create in-app notification
     try {
       await this.prisma.notification.create({
         data: {
@@ -44,6 +49,7 @@ export class NotificationDispatchService {
       return;
     }
 
+    // 2. Send email and/or SMS based on topic config
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, phone: true },
@@ -54,8 +60,12 @@ export class NotificationDispatchService {
     const smsTopics = topicList(config.notifySmsTopics, DEFAULT_SMS_TOPICS);
 
     const jobs: Promise<unknown>[] = [];
-    if (emailTopics.has(input.topic) && user.email) jobs.push(this.sendEmail(user.email, input));
-    if (smsTopics.has(input.topic)) jobs.push(this.sendSmsOrWhatsapp(user.phone, input));
+    if (emailTopics.has(input.topic) && user.email) {
+      jobs.push(this.sendEmail(user.email, input));
+    }
+    if (smsTopics.has(input.topic) && user.phone) {
+      jobs.push(this.sendSmsOrWhatsapp(user.phone, input));
+    }
     await Promise.allSettled(jobs);
   }
 
@@ -65,15 +75,20 @@ export class NotificationDispatchService {
 
   private async sendEmail(to: string, input: DispatchInput) {
     if (!config.emailApiUrl || !config.emailApiKey) {
-      console.log(`[EMAILâ†’${to}] ${input.title} â€” ${input.body}`);
+      console.log(`[EMAIL -> ${to}] ${input.title}`);
       return;
     }
-    await this.postJson(config.emailApiUrl, {
+    const payload: Record<string, unknown> = {
       to,
-      subject: `${input.title}`,
+      subject: input.title,
       text: input.body,
       sender: config.emailFrom,
-    }, config.emailApiKey);
+    };
+    // Support HTML emails via templates
+    if (input.html) {
+      (payload as any).html = input.html;
+    }
+    await this.postJson(config.emailApiUrl, payload, config.emailApiKey);
   }
 
   private async sendSmsOrWhatsapp(to: string | null | undefined, input: DispatchInput) {
@@ -87,7 +102,7 @@ export class NotificationDispatchService {
 
   private async sendSms(to: string, input: DispatchInput) {
     if (!config.smsApiUrl || !config.smsApiKey) {
-      console.log(`[SMSâ†’${to}] ${input.title} â€” ${input.body}`);
+      console.log(`[SMS -> ${to}] ${input.title}`);
       return;
     }
     await this.postJson(config.smsApiUrl, {
@@ -116,7 +131,6 @@ export class NotificationDispatchService {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bearer}` },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`${url.slice(0, 40)} â†’ HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`${url.slice(0, 40)} -> HTTP ${res.status}`);
   }
 }
-

@@ -144,6 +144,58 @@ export default function SubscribeWizard() {
     }).catch(() => {});
   }, []);
 
+  // Poll payment status after redirect (URL has ?paiement=retour)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('paiement') === 'retour') {
+      // User came back from payment provider — check contract status
+      api.get<any[]>('/contracts/mine').then(async list => {
+        if (list.length) {
+          const contract = list[0];
+          if (contract.status === 'ACTIVE') {
+            setStep(6); // Go to success
+            setSubscription({ contractId: contract.id, number: contract.number });
+          } else {
+            // Poll payment status
+            const payments = await api.get<any[]>('/payments/mine').catch(() => []);
+            const last = payments[0];
+            if (last && last.status === 'PENDING' && last.id) {
+              // Poll every 3 seconds for up to 30 seconds
+              let attempts = 0;
+              const poll = setInterval(async () => {
+                attempts++;
+                try {
+                  const res = await api.get<{ status: string }>(`/payments/${last.id}/status`);
+                  if (res.status === 'SUCCEEDED') {
+                    clearInterval(poll);
+                    setStep(6);
+                    setSubscription({ contractId: contract.id, number: contract.number });
+                  } else if (res.status === 'FAILED') {
+                    clearInterval(poll);
+                    setError('Le paiement a échoué. Réessayez.');
+                    setStep(5);
+                  } else if (attempts >= 10) {
+                    clearInterval(poll);
+                    setStep(5);
+                    setError('Paiement en cours de traitement. Vérifiez votre contrat dans quelques minutes.');
+                  }
+                } catch {
+                  if (attempts >= 10) clearInterval(poll);
+                }
+              }, 3000);
+            } else if (last && last.status === 'SUCCEEDED') {
+              setStep(6);
+            } else {
+              setStep(5);
+            }
+          }
+        }
+      }).catch(() => {});
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;

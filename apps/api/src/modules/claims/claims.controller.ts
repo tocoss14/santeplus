@@ -331,7 +331,7 @@ export class ClaimsController {
 
   @Get('admin/claims')
   @RequirePermissions('claims.viewAll')
-  adminList(@Query('status') status?: string, @Query('q') q?: string, @Query('page') page = '1', @Query('kind') kind?: string, @Query('from') from?: string, @Query('to') to?: string) {
+  async adminList(@Query('status') status?: string, @Query('q') q?: string, @Query('page') page = '1', @Query('kind') kind?: string, @Query('from') from?: string, @Query('to') to?: string) {
     const where: any = {};
     if (status) where.status = status;
     if (kind) where.kind = kind;
@@ -342,18 +342,22 @@ export class ClaimsController {
       if (to) where.careDate.lte = new Date(to + 'T23:59:59.999Z');
     }
     const take = 20;
-    return this.prisma.claim.findMany({
-      where,
-      orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
-      skip: (Number(page) - 1) * take,
-      take,
-      include: {
-        claimantUser: { select: { firstName: true, lastName: true, email: true, memberNumber: true } },
-        beneficiary: { select: { firstName: true, lastName: true } },
-        contract: { select: { number: true, product: { select: { name: true } } } },
-        provider: { select: { name: true } },
-      },
-    }).then(async items => ({ items, total: await this.prisma.claim.count({ where }) }));
+    const [items, total] = await Promise.all([
+      this.prisma.claim.findMany({
+        where,
+        orderBy: [{ submittedAt: 'desc' }, { createdAt: 'desc' }],
+        skip: (Number(page) - 1) * take,
+        take,
+        include: {
+          claimantUser: { select: { firstName: true, lastName: true, email: true, memberNumber: true } },
+          beneficiary: { select: { firstName: true, lastName: true } },
+          contract: { select: { number: true, product: { select: { name: true } } } },
+          provider: { select: { name: true } },
+        },
+      }),
+      this.prisma.claim.count({ where }),
+    ]);
+    return { items, total, page: Number(page), pages: Math.ceil(total / take) };
   }
 
   @Post('admin/claims/:id/authorize')

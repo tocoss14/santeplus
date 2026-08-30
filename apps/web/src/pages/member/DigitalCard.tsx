@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { api, fileUrl } from '../../api';
+import { api, API_BASE, fileUrl, getToken } from '../../api';
 import { fmtDate } from '../../format';
 import { Spinner, StatusBadge } from '../../components/ui';
 
 export default function DigitalCard() {
   const [card, setCard] = useState<any>(null);
+  const [contractId, setContractId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = () => {
@@ -14,6 +15,7 @@ export default function DigitalCard() {
       .then(async list => {
         const target = list.find(c => ['ACTIVE', 'SUSPENDED', 'PENDING_PAYMENT'].includes(c.status)) ?? list[0];
         if (!target) throw new Error('Aucun contrat');
+        setContractId(target.id);
         setCard(await api.get(`/contracts/${target.id}/card`));
       })
       .catch(e => setError(e?.message ?? 'Carte indisponible'));
@@ -71,6 +73,17 @@ export default function DigitalCard() {
         <p><b>Chez un prestataire partenaire :</b> présentez ce QR code. Le prestataire vérifie en temps réel votre contrat, vos garanties et vos plafonds restants.</p>
         <p className="text-xs text-slate-400">🔒 Le QR code ne contient aucune donnée personnelle — uniquement un jeton sécurisé à usage de vérification.</p>
       </div>
+
+      {contractId && (
+        <a
+          href={`${API_BASE}/api/contracts/${contractId}/card-pdf?token=${getToken() ?? ''}`}
+          target="_blank"
+          rel="noreferrer"
+          className="btn-primary w-full text-center block"
+        >
+          📥 Télécharger ma carte d’assuré (PDF)
+        </a>
+      )}
 
       <button
         className="btn-outline w-full"

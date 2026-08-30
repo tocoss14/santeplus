@@ -23,10 +23,14 @@ import { StatsModule } from './modules/stats/stats.controller';
 import { AdminMiscModule } from './modules/admin-misc/admin-misc.controller';
 import { DocumentsModule } from './modules/documents/documents.controller';
 import { OfflineModule } from './modules/offline/offline.controller';
+import { DistributorsModule } from './modules/distributors/distributors.controller';
+import { CommissionsModule } from './modules/commissions/commissions.controller';
 import { CronService } from './jobs/cron.service';
 import { RenewalAlertJob } from './jobs/renewal-alert.job';
 import { FraudDetectionJob } from './jobs/fraud-detection.job';
 import { RetentionJob } from './jobs/retention.job';
+import { CommissionFraudJob } from './jobs/commission-fraud.job';
+import { PaymentReminderJob } from './jobs/payment-reminder.job';
 
 @Module({
   imports: [
@@ -50,6 +54,8 @@ import { RetentionJob } from './jobs/retention.job';
     AdminMiscModule,
     DocumentsModule,
     OfflineModule,
+    DistributorsModule,
+    CommissionsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
@@ -58,6 +64,8 @@ import { RetentionJob } from './jobs/retention.job';
     RenewalAlertJob,
     FraudDetectionJob,
     RetentionJob,
+    CommissionFraudJob,
+    PaymentReminderJob,
     CronService,
   ],
 })

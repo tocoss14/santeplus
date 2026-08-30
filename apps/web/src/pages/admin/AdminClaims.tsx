@@ -2,26 +2,32 @@ import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
 
 export default function AdminClaims() {
-  const [items, setItems] = useState<any[] | null>(null);
+  const [data, setData] = useState<any>(null);
   const [status, setStatus] = useState('');
   const [selected, setSelected] = useState<any>(null);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
+
+  const items = data?.items ?? null;
 
   const load = () => {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    params.set('page', String(page));
     const qs = params.toString();
-    api.get(`/admin/claims${qs ? `?${qs}` : ''}`).then((r: any) => setItems(r.items)).catch(() => setItems([]));
+    api.get(`/admin/claims${qs ? `?${qs}` : ''}`).then(setData).catch(() => setData({ items: [], total: 0 }));
   };
 
-  useEffect(load, [status, from, to]);
+  useEffect(() => { setPage(1); }, [status, from, to]);
+  useEffect(load, [status, from, to, page]);
 
   return (
     <div className="space-y-4">
@@ -87,7 +93,7 @@ export default function AdminClaims() {
           <table className="w-full min-w-[760px]">
             <thead><tr><th className="th">Référence</th><th className="th">Assuré</th><th className="th">Soins</th><th className="th">Demandé</th><th className="th">Approuvé</th><th className="th">Statut</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {items.map(c => (
+              {items.map((c: any) => (
                 <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelected(c.id)}>
                   <td className="td font-medium">
                     {c.reference}
@@ -110,6 +116,8 @@ export default function AdminClaims() {
           </table>
         </div>
       )}
+
+      {data && <Pagination page={data.page} pages={data.pages} total={data.total} onChange={setPage} />}
 
       {selected && <ReviewModal claimId={selected} onClose={() => setSelected(null)} onChanged={load} />}
     </div>

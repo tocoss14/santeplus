@@ -232,6 +232,28 @@ export class PaymentsController {
     }
   }
 
+  @Get('payments/:id/status')
+  async status(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
+    const payment = await this.payments.findPayment(id);
+    if (!payment) throw new NotFoundException('Paiement introuvable');
+    if (payment.userId !== auth.id && auth.role !== 'SUPER_ADMIN') throw new ForbiddenException();
+
+    // If still pending, try to check with provider
+    if (payment.status === 'PENDING' && payment.externalRef) {
+      try {
+        const result = await this.payments.confirmFromProvider({
+          provider: payment.method,
+          providerTxId: payment.externalRef,
+          ourReference: payment.reference,
+        });
+        return { status: result.status, paymentId: payment.id };
+      } catch {
+        // Provider check failed, return current status
+      }
+    }
+    return { status: payment.status, paymentId: payment.id };
+  }
+
   @Get('payments/mine')
   mine(@CurrentUser() auth: AuthUser) {
     return this.prisma.payment.findMany({

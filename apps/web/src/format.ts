@@ -104,3 +104,17 @@ export const ROLE_LABELS: Record<string, string> = {
   MEMBER: 'Assuré',
   PROVIDER: 'Prestataire',
 };
+
+export const DISTRIBUTOR_LEVELS: Record<string, string> = {
+  AMBASSADOR: 'Ambassadeur',
+  COMMERCIAL: 'Commercial',
+  DISTRIBUTOR: 'Sous-distributeur',
+  INSTITUTIONAL: 'Institutionnel',
+};
+
+export const COMMISSION_TYPES: Record<string, string> = {
+  NEW_BUSINESS: 'Nouvelle souscription',
+  RENEWAL: 'Renouvellement',
+  OVERRIDE: 'Override équipe',
+  BONUS: 'Bonus performance',
+};

@@ -77,12 +77,16 @@ export class ProvidersService {
     return rows.map(r => r.city);
   }
 
-  adminList(q?: string) {
-    return this.prisma.provider.findMany({
-      where: q ? { OR: [{ name: { contains: q } }, { city: { contains: q } }] } : {},
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
+  adminList(q?: string, page = 1) {
+    const where = q ? { OR: [{ name: { contains: q } }, { city: { contains: q } }] } : {};
+    const take = 20;
+    return (async () => {
+      const [items, total] = await Promise.all([
+        this.prisma.provider.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * take, take }),
+        this.prisma.provider.count({ where }),
+      ]);
+      return { items, total, page, pages: Math.ceil(total / take) };
+    })();
   }
 
   create(dto: any) {
@@ -135,8 +139,8 @@ export class ProvidersController {
 
   @Get('admin/providers')
   @RequirePermissions('providers.read')
-  adminList(@Query('q') q?: string) {
-    return this.providers.adminList(q);
+  adminList(@Query('q') q?: string, @Query('page') page = '1') {
+    return this.providers.adminList(q, Number(page));
   }
 
   @Post('admin/providers')

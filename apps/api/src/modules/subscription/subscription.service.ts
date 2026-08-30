@@ -2,6 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../../common/prisma.module';
 import { computeQuote, computeFlexibleQuote, buildSchedule, Frequency, QuotePerson, SelectedGuarantee } from '../../domain/engine';
 import { ref, memberNumber, secureToken, startOfDay } from '../../common/utils';
+import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { contractActivatedEmail, smsTemplates } from '../../common/notifications/email-templates';
 
 export interface BeneficiaryDraft {
   firstName: string;
@@ -13,7 +15,10 @@ export interface BeneficiaryDraft {
 
 @Injectable()
 export class SubscriptionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private dispatch: NotificationDispatchService,
+  ) {}
 
   private parseProduct(product: any) {
     return {
@@ -129,6 +134,11 @@ export class SubscriptionService {
     const today = startOfDay(new Date());
     const schedule = buildSchedule(quote.totalAnnual, frequency, today);
 
+    // Look up distributor from user's referral
+    const distributor = user.referredById
+      ? await this.prisma.distributor.findUnique({ where: { id: user.referredById } })
+      : null;
+
     const contract = await this.prisma.$transaction(async tx => {
       const created = await tx.contract.create({
         data: {
@@ -142,6 +152,7 @@ export class SubscriptionService {
           frequency,
           quote: JSON.stringify(quote),
           cardToken: secureToken(16),
+          distributorId: distributor?.id ?? null,
         },
       });
       if (beneficiaries.length) {
@@ -162,6 +173,58 @@ export class SubscriptionService {
       });
       return created;
     });
+
+    // Auto-generate NEW_BUSINESS commission for distributor
+    if (distributor && distributor.status === 'ACTIVE') {
+      const monthlyPremium = Math.round(quote.totalAnnual / 12);
+      const commissionAmount = Math.round(monthlyPremium * distributor.commissionRate / 100);
+      await this.prisma.commission.create({
+        data: {
+          distributorId: distributor.id,
+          contractId: contract.id,
+          type: 'NEW_BUSINESS',
+          status: 'PENDING',
+          baseAmount: monthlyPremium,
+          rate: distributor.commissionRate,
+          amount: commissionAmount,
+        },
+      }).catch(() => {}); // non-blocking
+
+      // Generate override for parent distributor if exists
+      if (distributor.parentDistributorId) {
+        const parent = await this.prisma.distributor.findUnique({
+          where: { id: distributor.parentDistributorId },
+        });
+        if (parent && parent.status === 'ACTIVE' && parent.overrideRate > 0) {
+          const overrideAmount = Math.round(monthlyPremium * parent.overrideRate / 100);
+          await this.prisma.commission.create({
+            data: {
+              distributorId: parent.id,
+              contractId: contract.id,
+              type: 'OVERRIDE',
+              status: 'PENDING',
+              baseAmount: monthlyPremium,
+              rate: parent.overrideRate,
+              amount: overrideAmount,
+            },
+          }).catch(() => {});
+        }
+      }
+
+      // Update distributor stats
+      await this.prisma.distributor.update({
+        where: { id: distributor.id },
+        data: { totalPremiumGenerated: { increment: quote.totalAnnual } },
+      }).catch(() => {});
+    }
+
+    // Send subscription confirmation
+    await this.dispatch.dispatchToUser(userId, {
+      topic: 'CONTRACT_ACTIVATED',
+      title: `Souscription en cours — ${contract.number}`,
+      body: `Votre demande de souscription ${contract.number} (${product.name}) est enregistrée. Réglez la cotisation pour activer votre contrat.`,
+      meta: { contractId: contract.id, contractNumber: contract.number },
+    }).catch(() => {});
 
     return {
       contractId: contract.id,

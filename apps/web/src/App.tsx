@@ -39,9 +39,13 @@ import AdminPartners from './pages/admin/AdminPartners';
 import AdminRoles from './pages/admin/AdminRoles';
 import AdminAudit from './pages/admin/AdminAudit';
 import AdminTechnicalResult from './pages/admin/AdminTechnicalResult';
+import AdminDistributors from './pages/admin/AdminDistributors';
+import AdminCommissions from './pages/admin/AdminCommissions';
+import DistributorDashboard from './pages/member/DistributorDashboard';
 import RegisterProvider from './pages/RegisterProvider';
 import CGA from './pages/CGA';
 import PublicProvidersDirectory from './pages/PublicProvidersDirectory';
+import ReferralRedirect from './pages/ReferralRedirect';
 import VerifyCard from './pages/provider/VerifyCard';
 import ProviderDashboard from './pages/provider/ProviderDashboard';
 import ProviderConsultations from './pages/provider/ProviderConsultations';
@@ -75,6 +79,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/cga" element={<CGA />} />
         <Route path="/reseau" element={<PublicProvidersDirectory />} />
+        <Route path="/r/:code" element={<ReferralRedirect />} />
       </Route>
 
       <Route path="/app" element={<Require roles={['MEMBER']}><AppLayout /></Require>}>
@@ -92,6 +97,7 @@ export default function App() {
         <Route path="remboursements/nouveau" element={<NewClaim />} />
         <Route path="remboursements/:id" element={<ClaimDetail />} />
         <Route path="prestataires" element={<ProvidersDirectory />} />
+        <Route path="distributeur" element={<DistributorDashboard />} />
         <Route path="profil" element={<Profile />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
@@ -117,6 +123,8 @@ export default function App() {
         <Route path="roles" element={<AdminRoles />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="technical-result" element={<AdminTechnicalResult />} />
+        <Route path="distributors" element={<AdminDistributors />} />
+        <Route path="commissions" element={<AdminCommissions />} />
         <Route path="profil" element={<Profile />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>

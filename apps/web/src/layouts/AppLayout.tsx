@@ -17,6 +17,7 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/app/carte', label: 'Carte', icon: '🪪' },
       { to: '/app/remboursements', label: 'Remboursements', icon: '💊' },
       { to: '/app/prestataires', label: 'Réseau', icon: '🏥' },
+      { to: '/app/distributeur', label: 'Distributeur', icon: '🤝' },
     ],
   },
   company: {
@@ -40,6 +41,8 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/admin/partners', label: 'Partenaires', icon: '🤝' },
       { to: '/admin/roles', label: 'Rôles', icon: '🔐' },
       { to: '/admin/technical-result', label: 'Résultat technique', icon: '📊' },
+      { to: '/admin/distributors', label: 'Distributeurs', icon: '🤝' },
+      { to: '/admin/commissions', label: 'Commissions', icon: '💰' },
       { to: '/admin/audit', label: 'Audit', icon: '📜' },
     ],
   },

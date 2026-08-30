@@ -31,6 +31,38 @@ export default function MyContractUnified() {
     }).catch(() => setContracts([]));
   }, []);
 
+  // Poll payment status after redirect from FedaPay/CinetPay
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('paiement') !== 'retour') return;
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // Poll: get latest pending payment and check its status
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const pmts = await api.get<any[]>('/payments/mine');
+        const last = pmts[0];
+        if (last && last.status === 'PENDING' && last.id) {
+          const res = await api.get<{ status: string }>(`/payments/${last.id}/status`);
+          if (res.status === 'SUCCEEDED' || res.status === 'FAILED') {
+            clearInterval(poll);
+            // Reload to reflect new state
+            window.location.reload();
+          }
+        } else if (last && last.status === 'SUCCEEDED') {
+          clearInterval(poll);
+          window.location.reload();
+        }
+      } catch { /* ignore */ }
+      if (attempts >= 15) clearInterval(poll);
+    }, 3000);
+
+    return () => clearInterval(poll);
+  }, []);
+
   if (!contracts) return <Spinner />;
 
   if (!contracts.length)
@@ -149,14 +181,24 @@ function ContractTab({ detail }: { detail: any }) {
           )}
 
           {/* PDF */}
-          <a
-            href={`${API_BASE}/api/contracts/${detail.id}/certificate?token=${getToken() ?? ''}`}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-outline w-full"
-          >
-            📄 Télécharger le certificat d'adhésion (PDF)
-          </a>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a
+              href={`${API_BASE}/api/contracts/${detail.id}/certificate?token=${getToken() ?? ''}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-outline w-full text-center"
+            >
+              📄 Certificat d'adhésion (PDF)
+            </a>
+            <a
+              href={`${API_BASE}/api/contracts/${detail.id}/card-pdf?token=${getToken() ?? ''}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-outline w-full text-center"
+            >
+              🪪 Carte d'assuré (PDF)
+            </a>
+          </div>
         </>
       )}
     </div>

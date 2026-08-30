@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { ROLE_LABELS, statusLabel, statusStyle } from '../../format';
 import { Modal, Spinner, Field, ErrorBanner } from '../../components/ui';
+import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
 
@@ -11,6 +12,7 @@ export default function AdminUsers() {
   const [role, setRole] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState<any>(null);
 
@@ -20,13 +22,17 @@ export default function AdminUsers() {
     if (role) params.set('role', role);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    params.set('page', String(page));
     api.get(`/admin/users?${params}`).then(setData).catch(() => setData({ items: [], total: 0 }));
   };
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [q, role, from, to]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
-  }, [q, role, from, to]);
+  }, [q, role, from, to, page]);
 
   async function toggleStatus(u: any) {
     await api.patch(`/admin/users/${u.id}`, { status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' });
@@ -116,6 +122,8 @@ export default function AdminUsers() {
           {data.items.length === 0 && <p className="py-8 text-center text-sm text-slate-400">Aucun utilisateur trouvé</p>}
         </div>
       )}
+
+      {data && <Pagination page={data.page} pages={data.pages} total={data.total} onChange={setPage} />}
 
       <Modal open={!!detail} onClose={() => setDetail(null)} title="Fiche utilisateur" wide>
         {detail && (

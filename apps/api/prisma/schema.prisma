@@ -34,6 +34,8 @@ model User {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
+  referredBy           Distributor?    @relation("ReferredUsers", fields: [referredById], references: [id])
+  referredById         String?
   contractsAsPrincipal Contract[]       @relation("PrincipalContracts")
   beneficiariesAdded   Beneficiary[]    @relation("BeneficiaryCreator")
   beneficiaryChanges   BeneficiaryChange[]
@@ -50,6 +52,7 @@ model User {
   claimsDecided        Claim[]          @relation("ClaimDecider")
   refreshTokens        RefreshToken[]
   careRecords          CareRecord[]     @relation("CareRecordPatient")
+  distributorProfile   Distributor?     @relation("DistributorUser")
 
   @@index([role])
   @@index([status])
@@ -211,6 +214,9 @@ model Contract {
   contributions Contribution[]
   claims        Claim[]
   payments      Payment[]
+  distributorId String?
+  distributor   Distributor? @relation(fields: [distributorId], references: [id])
+  commissions   Commission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -530,6 +536,88 @@ model Prescription {
 
   @@index([patientUserId])
   @@index([status])
+}
+
+// ═══════════════════════════════════════════
+// DISTRIBUTION & COMMISSIONS
+// ═══════════════════════════════════════════
+
+model Distributor {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation("DistributorUser", fields: [userId], references: [id])
+  parentDistributorId String?
+  parentDistributor Distributor? @relation("DistributorHierarchy", fields: [parentDistributorId], references: [id])
+  children        Distributor[] @relation("DistributorHierarchy")
+
+  level           String    @default("AMBASSADOR")  // AMBASSADOR | COMMERCIAL | DISTRIBUTOR | INSTITUTIONAL
+  territory       String?
+  referralCode    String    @unique
+  status          String    @default("PENDING")     // PENDING | ACTIVE | SUSPENDED
+
+  commissionRate  Int       @default(10)            // % sur nouvelles souscriptions
+  renewalRate     Int       @default(3)             // % sur renouvellements
+  overrideRate    Int       @default(0)             // % override sur équipe
+
+  totalRecruited  Int       @default(0)
+  totalPremiumGenerated Int @default(0)
+
+  referredUsers   User[]    @relation("ReferredUsers")
+  contracts       Contract[]
+  commissions     Commission[]
+  performanceBonuses PerformanceBonus[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([referralCode])
+  @@index([level])
+  @@index([status])
+}
+
+model Commission {
+  id              String    @id @default(cuid())
+  distributorId   String
+  distributor     Distributor @relation(fields: [distributorId], references: [id])
+  contractId      String?
+  contract        Contract?  @relation(fields: [contractId], references: [id])
+
+  type            String                      // NEW_BUSINESS | RENEWAL | OVERRIDE | BONUS
+  status          String    @default("PENDING")  // PENDING | APPROVED | PAID | REJECTED
+
+  baseAmount      Int                          // Montant de base de la prime
+  rate            Int                          // Taux de commission en %
+  amount          Int                          // Montant de la commission calculée
+
+  period          String?                      // "2026-01" pour les renouvellements
+  paidAt          DateTime?
+  paymentRef      String?
+  note            String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([distributorId, status])
+  @@index([type, status])
+  @@index([period])
+}
+
+model PerformanceBonus {
+  id              String    @id @default(cuid())
+  distributorId   String
+  distributor     Distributor @relation(fields: [distributorId], references: [id])
+
+  period          String                      // "2026-01" or "2026-Q1"
+  metric          String                      // NEW_SIGNUPS | RETENTION | ZERO_FRAUD
+  target          Int
+  bonusAmount     Int
+
+  status          String    @default("PENDING")
+  paidAt          DateTime?
+
+  createdAt       DateTime  @default(now())
+
+  @@index([distributorId, period])
 }
 
 model PrescriptionLine {

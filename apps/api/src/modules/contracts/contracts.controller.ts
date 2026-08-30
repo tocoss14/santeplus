@@ -1,4 +1,5 @@
-﻿import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+﻿import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
 import { CurrentUser } from '../../common/decorators';
@@ -7,6 +8,7 @@ import { PermissionsGuard, RequirePermissions } from '../../common/guards/permis
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { addDays, addYears, memberNumber, ref, secureToken, startOfDay } from '../../common/utils';
+import { PdfService } from './pdf.service';
 import { CLAIM_STATUSES_CONSUMING_CAPS } from '../../domain/engine';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
@@ -104,6 +106,7 @@ export class ContractsController {
   constructor(
     private contracts: ContractsService,
     private prisma: PrismaService,
+    private pdf: PdfService,
   ) {}
 
   @Get('contracts/mine')
@@ -159,6 +162,24 @@ export class ContractsController {
   @Post('contracts/:id/renew')
   renew(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
     return this.contracts.renew(auth, id);
+  }
+
+  @Get('contracts/:id/certificate')
+  async certificate(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Res() res: Response) {
+    await this.contracts.canAccess(auth, id);
+    const buffer = await this.pdf.generateContractPdf(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="certificat-adhesion-${id.slice(0, 8)}.pdf"`);
+    res.send(buffer);
+  }
+
+  @Get('contracts/:id/card-pdf')
+  async cardPdf(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Res() res: Response) {
+    await this.contracts.canAccess(auth, id);
+    const buffer = await this.pdf.generateCardPdf(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="carte-assure-${id.slice(0, 8)}.pdf"`);
+    res.send(buffer);
   }
 
   @Get('admin/contracts')
@@ -340,7 +361,7 @@ export class BeneficiariesController {
 
 @Module({
   controllers: [ContractsController, BeneficiariesController],
-  providers: [ContractsService],
+  providers: [ContractsService, PdfService],
   exports: [ContractsService],
 })
 export class ContractsModule {}

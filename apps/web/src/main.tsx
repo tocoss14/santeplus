@@ -6,6 +6,13 @@ import { AuthProvider } from './auth';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
+// PWA auto-update
+if ('serviceWorker' in navigator) {
+  import('virtual:pwa-register').then(({ registerSW }) => {
+    registerSW({ immediate: true });
+  }).catch(() => {});
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

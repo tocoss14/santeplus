@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { ROLE_HOME, useAuth } from '../auth';
+import InstallPrompt from '../components/InstallPrompt';
 
 interface Item {
   to: string;
@@ -139,6 +140,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
           ))}
         </nav>
       </div>
+      <InstallPrompt />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth';
+import InstallPrompt from '../components/InstallPrompt';
 
 export default function PublicLayout() {
   const { me } = useAuth();
@@ -62,6 +63,7 @@ export default function PublicLayout() {
           </div>
         </div>
       </footer>
+      <InstallPrompt />
     </div>
   );
 }

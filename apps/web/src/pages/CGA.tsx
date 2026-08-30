@@ -318,7 +318,7 @@ export default function CGA() {
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Max par acte</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Copay</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Franchise</th>
-                        {f.guarantees.some(g => g.limit) && <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Limite</th>}
+                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Limite</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -330,7 +330,7 @@ export default function CGA() {
                           <td className="p-2.5 text-center text-slate-600">{g.perAct}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.copay}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.franchise ?? '—'}</td>
-                          {f.guarantees.some(gg => gg.limit) && <td className="p-2.5 text-center text-xs text-slate-500">{g.limit ?? '—'}</td>}
+                          <td className="p-2.5 text-center text-xs text-slate-500">{'limit' in g ? (g as any).limit ?? '—' : '—'}</td>
                         </tr>
                       ))}
                     </tbody>

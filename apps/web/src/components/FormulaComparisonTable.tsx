@@ -21,6 +21,7 @@ interface Product {
     guarantee: { category: string; name: string };
   }[];
   exclusions: { categoryId: string; description: string }[];
+  beneficiaryRules?: { maxBeneficiaries?: number } | string;
 }
 
 function parseEligibility(conditions?: string): Record<string, any> {

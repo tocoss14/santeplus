@@ -14,7 +14,7 @@ export default function PublicLayout() {
           <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600">
             <NavLink to="/offres" className="rounded-lg px-3 py-2 hover:bg-slate-100">Nos formules</NavLink>
             <a href="/#fonctionnement" className="rounded-lg px-3 py-2 hover:bg-slate-100">Fonctionnement</a>
-            <a href="/#reseau" className="rounded-lg px-3 py-2 hover:bg-slate-100">Réseau de soins</a>
+            <NavLink to="/reseau" className="rounded-lg px-3 py-2 hover:bg-slate-100">Réseau de soins</NavLink>
             <NavLink to="/cga" className="rounded-lg px-3 py-2 hover:bg-slate-100">Conditions Générales</NavLink>
             <a href="/#faq" className="rounded-lg px-3 py-2 hover:bg-slate-100">FAQ</a>
           </nav>
@@ -45,6 +45,7 @@ export default function PublicLayout() {
               <li><Link className="hover:text-brand-700" to="/offres">Formules individuelles</Link></li>
               <li><span className="text-slate-400">Offres entreprises</span></li>
               <li><Link className="hover:text-brand-700" to="/cga">Conditions Générales</Link></li>
+              <li><Link className="hover:text-brand-700" to="/reseau">Réseau de soins</Link></li>
             </ul>
           </div>
           <div>

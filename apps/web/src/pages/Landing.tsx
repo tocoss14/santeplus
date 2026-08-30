@@ -273,7 +273,7 @@ export default function Landing() {
             <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-stone">Établissements partenaires</p>
             <p className="mt-2 font-display text-5xl font-bold tracking-tight">{providerCount || 12}<span className="text-laterite-600">+</span></p>
             <p className="mt-1 text-sm font-medium text-stone">référencés dans la démo, partout sur le territoire</p>
-            <Link to="/login" className="btn-outline mt-5 w-full rounded-full">Explorer le réseau</Link>
+            <Link to="/reseau" className="btn-outline mt-5 w-full rounded-full">Explorer le réseau</Link>
             <Link to="/inscription-prestataire" className="mt-3 block text-center text-xs font-bold text-brand-700 hover:underline">🏥 Vous êtes prestataire ? Inscrivez-vous</Link>
           </div>
         </div>

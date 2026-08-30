@@ -14,7 +14,11 @@ async function bootstrap(): Promise<void> {
     console.error('FATAL: JWT_SECRET doit faire au moins 32 caractères en production');
     process.exit(1);
   }
-  if (config.isProd && !config.fieldEncryptionKey) {
+  if (config.isProd && (!config.fieldEncryptionKey || config.fieldEncryptionKey.length < 64)) {
+    console.error('FATAL: FIELD_ENCRYPTION_KEY manquant ou <64 hex chars en production — risque perte données chiffrées');
+    process.exit(1);
+  }
+  if (!config.isProd && !config.fieldEncryptionKey) {
     console.warn('WARNING: FIELD_ENCRYPTION_KEY non défini — clé dérivée utilisée (données non persistantes entre rotations JWT)');
   }
 
@@ -32,6 +36,9 @@ async function bootstrap(): Promise<void> {
       logger: ['error', 'warn', 'log'],
     });
 
+    // Trust proxy (Fly.io, Render) pour que rateLimit voie la vraie IP
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
     // CORS AVANT helmet — sinon helmet bloque les preflight OPTIONS
     app.enableCors({
       origin: [
@@ -42,48 +49,30 @@ async function bootstrap(): Promise<void> {
       methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     });
-    app.use(helmet.default({ crossOriginResourcePolicy: false }));
+    app.use(helmet.default({
+      crossOriginResourcePolicy: false,
+      contentSecurityPolicy: false, // API JSON, pas de HTML
+      hsts: config.isProd ? { maxAge: 31536000, includeSubDomains: true } : false,
+    }));
     app.setGlobalPrefix('api');
     app.useGlobalFilters(new HttpExceptionFilter());
 
-    // Rate limiting global : 100 requêtes par minute par IP
-    // Skip OPTIONS (CORS preflight) pour éviter le blocage
-    app.use((req: Request, res: Response, next: NextFunction) => {
-      if (req.method === 'OPTIONS') return next();
-      rateLimit({
-        windowMs: 60_000,
-        limit: 100,
-        standardHeaders: true,
-        legacyHeaders: false,
-        keyGenerator: (r: Request) => r.ip ?? 'unknown',
-      })(req, res, next);
-    });
+    // Rate limiting — instances réutilisées (pas recréées à chaque requête)
+    const globalLimiter = rateLimit({ windowMs: 60_000, limit: 100, standardHeaders: true, legacyHeaders: false, keyGenerator: (r: Request) => r.ip ?? 'unknown', skip: (r: Request) => r.method === 'OPTIONS' });
+    const loginLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 5, standardHeaders: true, legacyHeaders: false, message: { message: 'Trop de tentatives, réessayez dans 15 minutes' } });
+    const registerLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: true, legacyHeaders: false });
+    const refreshLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
+    const paymentsLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
+    const claimsLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
+    const thirdPartyLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
 
-    // Rate limiting spécifique sur les endpoints critiques
-    app.use(
-      '/api/auth/login',
-      rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }),
-    );
-    app.use(
-      '/api/auth/register',
-      rateLimit({ windowMs: 60 * 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
-    );
-    app.use(
-      '/api/auth/refresh',
-      rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
-    );
-    app.use(
-      '/api/payments',
-      rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }),
-    );
-    app.use(
-      '/api/claims',
-      rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
-    );
-    app.use(
-      '/api/provider/thirdparty',
-      rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }),
-    );
+    app.use(globalLimiter);
+    app.use('/api/auth/login', loginLimiter);
+    app.use('/api/auth/register', registerLimiter);
+    app.use('/api/auth/refresh', refreshLimiter);
+    app.use('/api/payments', paymentsLimiter);
+    app.use('/api/claims', claimsLimiter);
+    app.use('/api/provider/thirdparty', thirdPartyLimiter);
 
     const signals = ['SIGTERM', 'SIGINT'];
     signals.forEach((signal) => {

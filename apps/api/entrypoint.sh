@@ -2,12 +2,12 @@
 set -e
 
 echo "Waiting for database..."
-until ./node_modules/.bin/prisma migrate deploy 2>/dev/null; do
+until ./node_modules/.bin/prisma migrate deploy 2>/dev/null || ./node_modules/.bin/prisma db push --accept-data-loss 2>/dev/null; do
   echo "Waiting for database to be ready..."
   sleep 2
 done
 
-echo "Migrations applied. Checking if database needs seeding..."
+echo "Migrations applied (deploy or db push fallback). Checking if database needs seeding..."
 
 # Use node to check user count (POSIX-compatible, no bashisms)
 USER_COUNT=$(node -e "

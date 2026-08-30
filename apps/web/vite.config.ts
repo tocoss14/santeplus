@@ -48,6 +48,18 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['recharts'],
+          qr: ['qrcode.react', 'jsqr'],
+        },
+      },
+    },
+  },
   server: {
     host: '127.0.0.1',
     port: 3000,

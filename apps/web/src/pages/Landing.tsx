@@ -230,7 +230,7 @@ export default function Landing() {
                 <li key={t} className="flex items-start gap-2.5"><span className="mt-0.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-[10px] text-white">✓</span><span>{t}</span></li>
               ))}
             </ul>
-            <Link to="/register" className="btn-primary mt-6 rounded-full">Créer mon espace entreprise</Link>
+            <Link to="/register-entreprise" className="btn-primary mt-6 rounded-full">Créer mon espace entreprise</Link>
           </div>
           <div className="relative rounded-2xl bg-ink p-4 sm:p-5">
             <div className="flex items-center justify-between">

@@ -6,6 +6,7 @@ import AppLayout from './layouts/AppLayout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import RegisterCompany from './pages/RegisterCompany';
 import Offers from './pages/Offers';
 import MemberDashboard from './pages/member/Dashboard';
 import SubscribeWizard from './pages/member/SubscribeWizard';
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/offres" element={<Offers />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/register-entreprise" element={<RegisterCompany />} />
         <Route path="/cga" element={<CGA />} />
         <Route path="/reseau" element={<PublicProvidersDirectory />} />
         <Route path="/r/:code" element={<ReferralRedirect />} />

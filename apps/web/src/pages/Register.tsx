@@ -129,6 +129,8 @@ export default function Register() {
         <button className="btn-primary w-full" disabled={busy}>{busy ? 'Création…' : 'Créer mon compte'}</button>
         <p className="mt-4 text-center text-sm text-slate-500">
           Déjà inscrit ? <Link to="/login" className="font-semibold text-brand-700 hover:underline">Se connecter</Link>
+          <span className="mx-2 text-slate-300">·</span>
+          Entreprise ? <Link to="/register-entreprise" className="font-semibold text-ink hover:underline">Créer mon espace entreprise</Link>
         </p>
       </form>
       <p className="mt-4 text-center text-xs text-slate-400">

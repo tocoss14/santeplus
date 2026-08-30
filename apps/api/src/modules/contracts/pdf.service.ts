@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../../common/prisma.module';
 import { config } from '../../config';
-import { StorageService } from '../files/files.service';
 
 // Colors as hex strings for PDFKit compatibility
 const BRAND = '#1D6A4C';
@@ -25,10 +24,7 @@ function fmtDate(d: Date | string | null | undefined): string {
 
 @Injectable()
 export class PdfService {
-  constructor(
-    private prisma: PrismaService,
-    private storage: StorageService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Génère le PDF du certificat d'adhésion / contrat d'assurance

@@ -2,20 +2,27 @@
 set -e
 
 echo "Waiting for database..."
-until npx prisma migrate deploy; do
+until ./node_modules/.bin/prisma migrate deploy 2>/dev/null; do
   echo "Waiting for database to be ready..."
   sleep 2
 done
 
-echo "Checking if database needs seeding..."
-# Check if users table is empty (meaning seed hasn't run)
-USER_COUNT=$(npx prisma db execute --stdin <<< "SELECT COUNT(*)::int FROM \"User\"" 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
+echo "Migrations applied. Checking if database needs seeding..."
 
-if [ "$USER_COUNT" = "0" ] 2>/dev/null || [ -z "$USER_COUNT" ]; then
+# Use node to check user count (POSIX-compatible, no bashisms)
+USER_COUNT=$(node -e "
+  const { PrismaClient } = require('@prisma/client');
+  const p = new PrismaClient();
+  p.user.count().then(c => { console.log(c); process.exit(0); }).catch(() => { console.log(0); process.exit(0); });
+" 2>/dev/null || echo "0")
+
+echo "User count: ${USER_COUNT}"
+
+if [ "$USER_COUNT" = "0" ]; then
   echo "Database is empty — running seed..."
-  npx tsx prisma/seed.ts || echo "Seed failed or already seeded, continuing..."
+  npx tsx prisma/seed.ts && echo "Seed completed." || echo "Seed failed — continuing without seed data."
 else
-  echo "Database already has $USER_COUNT users — skipping seed."
+  echo "Database has ${USER_COUNT} users — skipping seed."
 fi
 
 echo "Starting application..."

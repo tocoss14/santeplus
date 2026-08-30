@@ -71,10 +71,15 @@ export class AdminMiscController {
 
   @Get('audit')
   @RequirePermissions('audit.view')
-  async audit(@Query('page') page = '1', @Query('q') q?: string, @Query('userId') userId?: string) {
+  async audit(@Query('page') page = '1', @Query('q') q?: string, @Query('userId') userId?: string, @Query('from') from?: string, @Query('to') to?: string) {
     const where: any = {};
     if (userId) where.userId = userId;
     if (q) where.OR = [{ action: { contains: q } }, { entityType: { contains: q } }];
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from);
+      if (to) where.createdAt.lte = new Date(to + 'T23:59:59.999Z');
+    }
     const [items, total] = await Promise.all([
       this.prisma.auditLog.findMany({
         where,

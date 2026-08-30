@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
-import { api } from '../api';
+import { api, fileUrl } from '../api';
 import { ErrorBanner, Field } from '../components/ui';
 
 export default function Register() {
@@ -10,9 +10,19 @@ export default function Register() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', birthDate: '', gender: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f: any) => ({ ...f, [k]: e.target.value }));
+
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +39,12 @@ export default function Register() {
         password: form.password,
       });
       await login(form.email, form.password);
+      // Upload photo si sélectionnée
+      if (photoFile) {
+        const fd = new FormData();
+        fd.append('photo', photoFile);
+        await api.post('/users/me/photo', fd);
+      }
       navigate('/app/souscrire');
     } catch (err: any) {
       const fieldErrors = err?.data?.errors?.fieldErrors;
@@ -62,6 +78,32 @@ export default function Register() {
         <Field label="Mot de passe" error="8 caractères minimum, lettres et chiffres">
           <input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} />
         </Field>
+
+        <div className="mb-3.5">
+          <label className="label">Photo d'identité (pour votre carte d'assuré)</label>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-sm text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+            >
+              {photoPreview ? (
+                <img src={photoPreview} alt="Aperçu" className="h-full w-full rounded-full object-cover" />
+              ) : (
+                <span className="text-center text-xs leading-tight">📸<br />Photo</span>
+              )}
+            </button>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhoto} />
+            <div className="text-xs text-slate-400 space-y-1">
+              <p>Photo carrée recommandée (format carte).</p>
+              <p>JPG, PNG ou WebP — max 5 Mo.</p>
+              {photoPreview && (
+                <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="text-red-500 hover:underline">Retirer</button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <button className="btn-primary w-full" disabled={busy}>{busy ? 'Création…' : 'Créer mon compte'}</button>
         <p className="mt-4 text-center text-sm text-slate-500">
           Déjà inscrit ? <Link to="/login" className="font-semibold text-brand-700 hover:underline">Se connecter</Link>

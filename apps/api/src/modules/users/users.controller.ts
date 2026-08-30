@@ -81,6 +81,8 @@ export class UsersController {
     @Query('q') q?: string,
     @Query('role') role?: string,
     @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('page') page = '1',
   ) {
     const where: any = {};
@@ -94,6 +96,11 @@ export class UsersController {
         { memberNumber: { contains: q } },
         { phone: { contains: q } },
       ];
+    }
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from);
+      if (to) where.createdAt.lte = new Date(to + 'T23:59:59.999Z');
     }
     const take = 20;
     const [items, total] = await Promise.all([
@@ -201,6 +208,7 @@ private safeSelect() {
       id: true, email: true, phone: true, firstName: true, lastName: true, role: true, status: true,
       birthDate: true, gender: true, address: true, city: true, emergencyContact: true,
       memberNumber: true, companyId: true, language: true, lastLoginAt: true, createdAt: true,
+      photoFileId: true,
     } as const;
   }
 

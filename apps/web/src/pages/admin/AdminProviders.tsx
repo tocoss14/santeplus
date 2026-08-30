@@ -3,6 +3,7 @@ import { api } from '../../api';
 import { PROVIDER_TYPES } from '../../format';
 import { Badge, ErrorBanner, Field, Modal, Spinner } from '../../components/ui';
 import BulkProviderImport from '../../components/BulkProviderImport';
+import { printReport, exportCsv } from '../../printReport';
 
 const EMPTY = {
   name: '', type: 'PHARMACY', city: '', address: '', phone: '', specialties: '',
@@ -47,6 +48,44 @@ export default function AdminProviders() {
         <h1 className="text-xl font-bold mr-auto">Réseau de soins ({items?.length ?? '…'})</h1>
         <input className="input w-52" placeholder="Rechercher…" value={q} onChange={e => setQ(e.target.value)} />
         <button className="btn-outline btn-sm" onClick={() => setShowImport(true)}>📥 Import Excel</button>
+        <button className="btn-outline btn-sm" onClick={() => {
+          if (!items) return;
+          const filters = q ? `Recherche : "${q}"` : 'Aucun filtre';
+          printReport({
+            title: 'État du réseau de soins',
+            subtitle: `${items.length} prestataire(s)`,
+            filters,
+            columns: [
+              { label: 'Nom', key: 'name' },
+              { label: 'Type', key: 'type', format: (v: string) => PROVIDER_TYPES[v] ?? v },
+              { label: 'Ville', key: 'city' },
+              { label: 'Adresse', key: 'address' },
+              { label: 'Téléphone', key: 'phone' },
+              { label: 'Convention', key: 'conventionLevel' },
+              { label: 'Tiers payant', key: 'thirdPartyPayer', format: (v: boolean) => v ? 'Oui' : 'Non' },
+              { label: 'Statut', key: 'active', format: (v: boolean) => v ? 'Actif' : 'Inactif' },
+            ],
+            rows: items,
+            summary: [
+              { label: 'Total', value: `${items.length} prestataire(s)`, accent: true },
+              { label: 'Actifs', value: `${items.filter((p: any) => p.active).length}` },
+              { label: 'Tiers payant', value: `${items.filter((p: any) => p.thirdPartyPayer).length}` },
+            ],
+          });
+        }}>🖨️ Imprimer</button>
+        <button className="btn-outline btn-sm" onClick={() => {
+          if (!items) return;
+          exportCsv('etats-reseau-soins.csv', [
+            { label: 'Nom', key: 'name' },
+            { label: 'Type', key: 'type', format: (v: string) => PROVIDER_TYPES[v] ?? v },
+            { label: 'Ville', key: 'city' },
+            { label: 'Adresse', key: 'address' },
+            { label: 'Téléphone', key: 'phone' },
+            { label: 'Convention', key: 'conventionLevel' },
+            { label: 'Tiers payant', key: 'thirdPartyPayer', format: (v: boolean) => v ? 'Oui' : 'Non' },
+            { label: 'Statut', key: 'active', format: (v: boolean) => v ? 'Actif' : 'Inactif' },
+          ], items);
+        }}>📊 CSV</button>
         <button className="btn-primary btn-sm" onClick={() => setEditing({ ...EMPTY })}>＋ Prestataire</button>
       </div>
 

@@ -131,7 +131,7 @@ export class ContractsController {
     const contract = await this.contracts.canAccess(auth, id);
     const principal = await this.prisma.user.findUnique({
       where: { id: contract.principalUserId },
-      select: { firstName: true, lastName: true, memberNumber: true },
+      select: { firstName: true, lastName: true, memberNumber: true, photoFileId: true },
     });
     return {
       holder: `${principal!.firstName} ${principal!.lastName}`,
@@ -141,6 +141,7 @@ export class ContractsController {
       validUntil: contract.endDate,
       status: contract.status,
       cardToken: contract.cardToken,
+      photoFileId: principal?.photoFileId ?? null,
       qrPayload: JSON.stringify({ t: contract.cardToken }),
     };
   }
@@ -162,10 +163,15 @@ export class ContractsController {
 
   @Get('admin/contracts')
   @RequirePermissions('contracts.viewAll')
-  async adminList(@Query('status') status?: string, @Query('q') q?: string, @Query('page') page = '1') {
+  async adminList(@Query('status') status?: string, @Query('q') q?: string, @Query('page') page = '1', @Query('from') from?: string, @Query('to') to?: string) {
     const where: any = {};
     if (status) where.status = status;
     if (q) where.OR = [{ number: { contains: q } }, { principalUser: { is: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }, { email: { contains: q } }, { memberNumber: { contains: q } }] } } }];
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from);
+      if (to) where.createdAt.lte = new Date(to + 'T23:59:59.999Z');
+    }
     const take = 20;
     const [items, total] = await Promise.all([
       this.prisma.contract.findMany({

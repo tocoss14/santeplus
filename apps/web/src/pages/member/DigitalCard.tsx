@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { api } from '../../api';
+import { api, fileUrl } from '../../api';
 import { fmtDate } from '../../format';
 import { Spinner, StatusBadge } from '../../components/ui';
 
@@ -36,8 +36,23 @@ export default function DigitalCard() {
             <p className="text-xs font-bold uppercase tracking-widest text-brand-100">SantéPlus · Carte assuré</p>
             <StatusBadge status={card.status} />
           </div>
-          <p className="mt-5 text-xl font-bold">{card.holder}</p>
-          <p className="text-sm text-brand-100">{card.productName}</p>
+          <div className="mt-4 flex items-center gap-4">
+            {card.photoFileId ? (
+              <img
+                src={fileUrl(card.photoFileId)}
+                alt="Photo d'identité"
+                className="h-20 w-20 rounded-full border-2 border-white/40 object-cover shadow-lg"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/20 bg-white/10 text-3xl">
+                👤
+              </div>
+            )}
+            <div>
+              <p className="text-xl font-bold">{card.holder}</p>
+              <p className="text-sm text-brand-100">{card.productName}</p>
+            </div>
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-brand-100">
             <span>N° assuré<br /><b className="text-white tracking-wide">{card.memberNumber}</b></span>
             <span>Contrat<br /><b className="text-white">{card.contractNumber}</b></span>

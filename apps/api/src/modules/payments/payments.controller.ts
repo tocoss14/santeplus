@@ -244,8 +244,13 @@ export class PaymentsController {
 
   @Get('admin/payments')
   @RequirePermissions('payments.viewAll')
-  async adminList(@Query('status') status?: string, @Query('page') page = '1') {
-    const where = status ? { status } : {};
+  async adminList(@Query('status') status?: string, @Query('page') page = '1', @Query('from') from?: string, @Query('to') to?: string) {
+    const where: any = status ? { status } : {};
+    if (from || to) {
+      where.initiatedAt = {};
+      if (from) where.initiatedAt.gte = new Date(from);
+      if (to) where.initiatedAt.lte = new Date(to + 'T23:59:59.999Z');
+    }
     const [items, total] = await Promise.all([
       this.prisma.payment.findMany({
         where,

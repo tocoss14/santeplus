@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { api } from '../../api';
+import { api, fileUrl } from '../../api';
 import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
 import { Badge, ErrorBanner, Field, Spinner } from '../../components/ui';
 
@@ -31,7 +31,7 @@ interface GuaranteeOption {
   customizable: boolean;
 }
 
-const STEPS = ['Formule', 'Mes garanties', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
+const STEPS = ['Formule', 'Mes garanties', 'Photo', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
 
 function GuaranteeSlider({ option, value, onChange }: { option: GuaranteeOption; value: SelectedGuarantee; onChange: (v: SelectedGuarantee) => void }) {
   const rateSteps = Math.min(10, option.maxRate - option.minRate);
@@ -132,6 +132,23 @@ export default function SubscribeWizard() {
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Charger la photo existante de l'utilisateur
+  useEffect(() => {
+    api.get<{ fileId: string | null }>('/users/me/photo').then(r => {
+      if (r.fileId) setPhotoPreview(fileUrl(r.fileId));
+    }).catch(() => {});
+  }, []);
+
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
 
   useEffect(() => {
     api.get<any[]>('/products?clientType=INDIVIDUAL').then(setProducts).catch(() => setProducts([]));
@@ -204,17 +221,29 @@ export default function SubscribeWizard() {
   };
 
   const goStep3 = () => {
-    // Passer aux bénéficiaires
+    // Passer à la photo
     setStep(2);
     setError(null);
   };
 
-  const goStep4 = async () => {
+  const goStep4 = () => {
+    // Upload photo puis passer aux bénéficiaires
+    if (photoFile) {
+      const fd = new FormData();
+      fd.append('photo', photoFile);
+      api.post('/users/me/photo', fd).catch(() => {});
+    }
+    setStep(3);
+    setError(null);
+  };
+
+  const goStep5 = async () => {
+    // Passer au devis
     setBusy(true);
     const ok = await computeQuote(beneficiaries, selectedGuarantees);
     setBusy(false);
     if (ok) {
-      setStep(3);
+      setStep(4);
       setError(null);
     }
   };
@@ -231,7 +260,7 @@ export default function SubscribeWizard() {
       });
       setSubscription(res);
       setQuote(res.quote);
-      setStep(4);
+      setStep(5);
     } catch (e: any) {
       setError(e?.message ?? 'Souscription impossible');
     } finally {
@@ -255,7 +284,7 @@ export default function SubscribeWizard() {
       const conf = await api.post('/payments/mock/confirm', { paymentId: init.payment.id, outcome: 'SUCCESS' });
       if ((conf as any).status === 'SUCCEEDED') {
         setPaymentResult(init.payment);
-        setStep(5);
+        setStep(6);
       } else {
         setError('Le paiement a échoué. Réessayez.');
       }
@@ -361,8 +390,45 @@ export default function SubscribeWizard() {
         </div>
       )}
 
-      {/* Étape 3 : Bénéficiaires */}
+      {/* Étape 3 : Photo d'identité */}
       {step === 2 && (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-brand-50 p-4 text-sm text-brand-800">
+            <p className="font-semibold">📸 Photo pour votre carte d'assuré</p>
+            <p className="mt-1">
+              Ajoutez une photo d'identité qui apparaîtra sur votre carte d'assuré SantéPlus.
+              Elle sera visible par les prestataires lors de la vérification.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-4">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="relative flex h-36 w-36 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+            >
+              {photoPreview ? (
+                <img src={photoPreview} alt="Photo d'identité" className="h-full w-full rounded-full object-cover" />
+              ) : (
+                <span className="text-center text-sm leading-tight">📸<br />Ajouter une photo</span>
+              )}
+            </button>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhoto} />
+            {photoPreview && (
+              <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="text-xs text-red-500 hover:underline">
+                Retirer la photo
+              </button>
+            )}
+            <p className="text-xs text-slate-400">JPG, PNG ou WebP — max 5 Mo</p>
+          </div>
+          <div className="flex gap-2">
+            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
+            <button className="btn-primary flex-[2]" onClick={goStep4}>Continuer</button>
+          </div>
+        </div>
+      )}
+
+      {/* Étape 4 : Bénéficiaires */}
+      {step === 3 && (
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
             Ajoutez vos ayants droit ({product?.beneficiaryRules?.maxBeneficiaries ?? 6} maximum).
@@ -405,14 +471,14 @@ export default function SubscribeWizard() {
             </button>
           )}
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
-            <button className="btn-primary flex-[2]" disabled={busy} onClick={goStep4}>{busy ? 'Calcul…' : 'Voir mon devis'}</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(2)}>Retour</button>
+            <button className="btn-primary flex-[2]" disabled={busy} onClick={goStep5}>{busy ? 'Calcul…' : 'Voir mon devis'}</button>
           </div>
         </div>
       )}
 
-      {/* Étape 4 : Devis */}
-      {step === 3 && quote && (
+      {/* Étape 5 : Devis */}
+      {step === 4 && quote && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Récapitulatif</h3>
@@ -456,14 +522,14 @@ export default function SubscribeWizard() {
             <p>• Contrat porté par {product?.insurerPartner?.name}. SantéPlus agit comme plateforme technologique.</p>
           </div>
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(2)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(3)}>Retour</button>
             <button className="btn-primary flex-[2]" disabled={busy} onClick={subscribe}>{busy ? 'Création…' : 'Valider ma souscription'}</button>
           </div>
         </div>
       )}
 
-      {/* Étape 5 : Paiement */}
-      {step === 4 && subscription && (
+      {/* Étape 6 : Paiement */}
+      {step === 5 && subscription && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Contrat {subscription.number} créé</h3>
@@ -488,8 +554,8 @@ export default function SubscribeWizard() {
         </div>
       )}
 
-      {/* Étape 6 : Terminé */}
-      {step === 5 && (
+      {/* Étape 7 : Terminé */}
+      {step === 6 && (
         <div className="card-p text-center">
           <div className="text-5xl">🎉</div>
           <h2 className="mt-3 text-xl font-bold text-emerald-700">Paiement confirmé — contrat actif !</h2>

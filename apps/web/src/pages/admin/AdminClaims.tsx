@@ -2,17 +2,26 @@ import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { printReport, exportCsv } from '../../printReport';
+import DateRangeFilter from '../../components/DateRangeFilter';
 
 export default function AdminClaims() {
   const [items, setItems] = useState<any[] | null>(null);
   const [status, setStatus] = useState('');
   const [selected, setSelected] = useState<any>(null);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
   const load = () => {
-    api.get(`/admin/claims${status ? `?status=${status}` : ''}`).then((r: any) => setItems(r.items)).catch(() => setItems([]));
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    api.get(`/admin/claims${qs ? `?${qs}` : ''}`).then((r: any) => setItems(r.items)).catch(() => setItems([]));
   };
 
-  useEffect(load, [status]);
+  useEffect(load, [status, from, to]);
 
   return (
     <div className="space-y-4">
@@ -29,6 +38,46 @@ export default function AdminClaims() {
           <option value="REJECTED">Refusées</option>
           <option value="PAID">Payées</option>
         </select>
+        <DateRangeFilter from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
+        <button className="btn-outline btn-sm" onClick={() => {
+          if (!items) return;
+          const stLabels: Record<string, string> = { SUBMITTED: 'Soumises', UNDER_REVIEW: 'En analyse', INFO_REQUESTED: 'Infos requises', AUTH_REQUIRED: 'Autorisation TP', APPROVED: 'Approuvées', PARTIALLY_APPROVED: 'Partiellement approuvées', REJECTED: 'Refusées', PAID: 'Payées' };
+          const period = [from && `Du ${new Date(from).toLocaleDateString('fr-FR')}`, to && `au ${new Date(to).toLocaleDateString('fr-FR')}`].filter(Boolean).join(' ');
+          const filters = [status ? `Statut : ${stLabels[status] ?? status}` : '', period || 'Toutes périodes'].filter(Boolean).join(' · ');
+          const totalReq = items.reduce((s: number, c: any) => s + (c.totalRequested ?? 0), 0);
+          const totalApp = items.reduce((s: number, c: any) => s + (c.totalApproved ?? 0), 0);
+          printReport({
+            title: 'État des demandes de remboursement',
+            subtitle: `${items.length} demande(s)`,
+            filters,
+            columns: [
+              { label: 'Référence', key: 'reference' },
+              { label: 'Assuré', key: 'claimantUser', format: (_: any, r: any) => `${r.claimantUser?.firstName ?? ''} ${r.claimantUser?.lastName ?? ''}` },
+              { label: 'Bénéficiaire', key: 'beneficiary', format: (_: any, r: any) => r.beneficiary ? `${r.beneficiary.firstName} ${r.beneficiary.lastName}` : 'Principal' },
+              { label: 'Date soins', key: 'careDate', format: (v: string) => new Date(v).toLocaleDateString('fr-FR') },
+              { label: 'Demandé', key: 'totalRequested', align: 'right', format: (v: number) => v?.toLocaleString('fr-FR') + ' F' },
+              { label: 'Approuvé', key: 'totalApproved', align: 'right', format: (v: number) => v != null ? v.toLocaleString('fr-FR') + ' F' : '—' },
+              { label: 'Statut', key: 'status', format: (v: string) => stLabels[v] ?? v },
+            ],
+            rows: items,
+            summary: [
+              { label: 'Total demandé', value: totalReq.toLocaleString('fr-FR') + ' FCFA', accent: true },
+              { label: 'Total approuvé', value: totalApp.toLocaleString('fr-FR') + ' FCFA' },
+            ],
+          });
+        }}>🖨️ Imprimer</button>
+        <button className="btn-outline btn-sm" onClick={() => {
+          if (!items) return;
+          exportCsv('etats-remboursements.csv', [
+            { label: 'Référence', key: 'reference' },
+            { label: 'Assuré', key: 'claimantUser', format: (_: any, r: any) => `${r.claimantUser?.firstName ?? ''} ${r.claimantUser?.lastName ?? ''}` },
+            { label: 'Bénéficiaire', key: 'beneficiary', format: (_: any, r: any) => r.beneficiary ? `${r.beneficiary.firstName} ${r.beneficiary.lastName}` : 'Principal' },
+            { label: 'Date soins', key: 'careDate', format: (v: string) => new Date(v).toLocaleDateString('fr-FR') },
+            { label: 'Demandé', key: 'totalRequested' },
+            { label: 'Approuvé', key: 'totalApproved' },
+            { label: 'Statut', key: 'status', format: (v: string) => statusLabel(v) },
+          ], items);
+        }}>📊 CSV</button>
       </div>
 
       {!items ? (

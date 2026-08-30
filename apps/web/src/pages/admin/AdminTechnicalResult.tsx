@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
+import { printDocument, escapeHtml } from '../../print';
+import { exportCsv } from '../../printReport';
 
 interface ProductAnalysis {
   product: { id: string; name: string; code: string };
@@ -77,7 +79,66 @@ export default function AdminTechnicalResult() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
-      <h1 className="text-2xl font-bold">📊 Résultat Technique</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold">📊 Résultat Technique</h1>
+        <button className="btn-outline btn-sm ml-auto" onClick={() => {
+          const { summary, byProduct, emergencyOverrides } = data;
+          const prodRows = byProduct.map((p: any) => {
+            const lr = p.lossRatio != null ? p.lossRatio.toFixed(1) + '%' : '—';
+            return `<tr>
+              <td>${escapeHtml(p.product.name)}</td>
+              <td style="text-align:right">${p.activeContracts}</td>
+              <td style="text-align:right">${p.basePremium.toLocaleString('fr-FR')} F</td>
+              <td style="text-align:right">${p.estimatedRevenue.toLocaleString('fr-FR')} F</td>
+              <td style="text-align:right">${p.claimsCount}</td>
+              <td style="text-align:right">${p.claimsTotalApproved.toLocaleString('fr-FR')} F</td>
+              <td style="text-align:center">${lr}</td>
+              <td style="text-align:right">${p.margin.toLocaleString('fr-FR')} F</td>
+            </tr>`;
+          }).join('');
+          const body = `
+            <div class="band">
+              <div><div class="brand">SantéPlus</div><div class="tag">Système de gestion de mutuelle santé</div></div>
+              <div style="text-align:right"><div style="font-size:12px;font-weight:600">État : Résultat Technique</div><div class="tag">${escapeHtml(new Date().toLocaleString('fr-FR'))}</div></div>
+            </div>
+            <h1>Résultat Technique — Tableau de bord</h1>
+            <div class="totals">
+              <div class="row big"><span>Cotisations perçues</span><span>${summary.totalCollected.toLocaleString('fr-FR')} FCFA</span></div>
+              <div class="row amber"><span>Remboursements payés</span><span>${summary.totalClaimsPaid.toLocaleString('fr-FR')} FCFA</span></div>
+              <div class="row"><span>Résultat technique</span><span>${summary.technicalResult >= 0 ? '+' : ''}${summary.technicalResult.toLocaleString('fr-FR')} FCFA</span></div>
+              <div class="row"><span>Loss ratio global</span><span>${summary.lossRatio != null ? summary.lossRatio.toFixed(1) + '%' : '—'}</span></div>
+              <div class="row"><span>Nombre de sinistres</span><span>${summary.claimsCount}</span></div>
+              <div class="row"><span>Montant moyen / sinistre</span><span>${summary.avgClaimAmount.toLocaleString('fr-FR')} FCFA</span></div>
+              <div class="row"><span>Dérogations urgence</span><span>${emergencyOverrides.count} (${emergencyOverrides.percentageOfTotal.toFixed(1)}%)</span></div>
+            </div>
+            <h1>Analyse par produit</h1>
+            <table>
+              <thead><tr>
+                <th>Produit</th><th style="text-align:right">Contrats</th><th style="text-align:right">Prime/base</th>
+                <th style="text-align:right">Revenu estimé</th><th style="text-align:right">Sinistres</th>
+                <th style="text-align:right">Payé</th><th style="text-align:center">Loss Ratio</th><th style="text-align:right">Marge</th>
+              </tr></thead>
+              <tbody>${prodRows}</tbody>
+            </table>
+            <div class="legal">
+              Imprimé le ${escapeHtml(new Date().toLocaleString('fr-FR'))} — SantéPlus &copy; ${new Date().getFullYear()}. Document à usage interne uniquement.
+            </div>
+          `;
+          printDocument('État — Résultat Technique', body);
+        }}>🖨️ Imprimer</button>
+        <button className="btn-outline btn-sm" onClick={() => {
+          exportCsv('etats-resultat-technique.csv', [
+            { label: 'Produit', key: 'product', format: (v: any) => v?.name ?? '—' },
+            { label: 'Contrats actifs', key: 'activeContracts' },
+            { label: 'Prime/base', key: 'basePremium' },
+            { label: 'Revenu estimé', key: 'estimatedRevenue' },
+            { label: 'Sinistres', key: 'claimsCount' },
+            { label: 'Payé', key: 'claimsTotalApproved' },
+            { label: 'Loss Ratio', key: 'lossRatio', format: (v: number | null) => v != null ? v.toFixed(1) + '%' : '—' },
+            { label: 'Marge', key: 'margin' },
+          ], data.byProduct);
+        }}>📊 CSV</button>
+      </div>
 
       {/* Alertes */}
       {alerts.length > 0 && (

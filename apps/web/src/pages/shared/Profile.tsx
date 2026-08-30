@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { api } from '../../api';
+import { useEffect, useRef, useState } from 'react';
+import { api, fileUrl } from '../../api';
 import { useAuth } from '../../auth';
 import { ErrorBanner, Field, Spinner } from '../../components/ui';
 
@@ -10,6 +10,31 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
   const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Charger la photo existante
+  useEffect(() => {
+    api.get<{ fileId: string | null }>('/users/me/photo').then(r => {
+      if (r.fileId) setPhotoPreview(fileUrl(r.fileId));
+    }).catch(() => {});
+  }, []);
+
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  async function uploadPhoto() {
+    if (!photoFile) return;
+    const fd = new FormData();
+    fd.append('photo', photoFile);
+    await api.post('/users/me/photo', fd);
+    setPhotoFile(null);
+  }
 
   useEffect(() => {
     if (me) {
@@ -31,6 +56,41 @@ export default function Profile() {
       <h1 className="text-xl font-bold">Mon profil</h1>
 
       <div className="card-p">
+        {/* Photo d'identité */}
+        <div className="mb-5 flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+          >
+            {photoPreview ? (
+              <img src={photoPreview} alt="Photo" className="h-full w-full rounded-full object-cover" />
+            ) : (
+              <span className="text-center text-xs leading-tight">📸<br />Photo</span>
+            )}
+          </button>
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhoto} />
+          <div>
+            <p className="text-sm font-medium text-slate-700">Photo d'identité</p>
+            <p className="text-xs text-slate-400">Apparaît sur votre carte d'assuré</p>
+            {photoFile && (
+              <button
+                className="mt-1 text-xs text-brand-600 hover:underline"
+                onClick={async () => {
+                  try {
+                    await uploadPhoto();
+                    setMsg('Photo mise à jour.');
+                  } catch (e: any) {
+                    setError(e?.message ?? 'Erreur upload');
+                  }
+                }}
+              >
+                💾 Enregistrer la photo
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="mb-4 grid grid-cols-2 gap-3 text-sm text-slate-500">
           <div><p className="label">Email</p>{me.email}</div>
           <div><p className="label">N° assuré</p>{me.memberNumber ?? '—'}</div>
@@ -51,6 +111,7 @@ export default function Profile() {
             setMsg(null); setError(null);
             try {
               await api.patch('/users/me', form);
+              if (photoFile) await uploadPhoto();
               await refresh();
               setMsg('Profil mis à jour.');
             } catch (e: any) {

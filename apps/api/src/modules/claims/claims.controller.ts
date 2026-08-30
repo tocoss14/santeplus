@@ -297,11 +297,16 @@ export class ClaimsController {
 
   @Get('admin/claims')
   @RequirePermissions('claims.viewAll')
-  adminList(@Query('status') status?: string, @Query('q') q?: string, @Query('page') page = '1', @Query('kind') kind?: string) {
+  adminList(@Query('status') status?: string, @Query('q') q?: string, @Query('page') page = '1', @Query('kind') kind?: string, @Query('from') from?: string, @Query('to') to?: string) {
     const where: any = {};
     if (status) where.status = status;
     if (kind) where.kind = kind;
     if (q) where.OR = [{ reference: { contains: q } }, { claimantUser: { is: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }] } } }];
+    if (from || to) {
+      where.careDate = {};
+      if (from) where.careDate.gte = new Date(from);
+      if (to) where.careDate.lte = new Date(to + 'T23:59:59.999Z');
+    }
     const take = 20;
     return this.prisma.claim.findMany({
       where,

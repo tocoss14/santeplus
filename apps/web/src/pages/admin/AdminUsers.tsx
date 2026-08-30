@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../api';
+import { api, fileUrl } from '../../api';
 import { ROLE_LABELS, statusLabel, statusStyle } from '../../format';
 import { Modal, Spinner, Field, ErrorBanner } from '../../components/ui';
+import { printReport, exportCsv } from '../../printReport';
+import DateRangeFilter from '../../components/DateRangeFilter';
 
 export default function AdminUsers() {
   const [data, setData] = useState<any>(null);
   const [q, setQ] = useState('');
   const [role, setRole] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState<any>(null);
 
@@ -14,13 +18,15 @@ export default function AdminUsers() {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (role) params.set('role', role);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
     api.get(`/admin/users?${params}`).then(setData).catch(() => setData({ items: [], total: 0 }));
   };
 
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
-  }, [q, role]);
+  }, [q, role, from, to]);
 
   async function toggleStatus(u: any) {
     await api.patch(`/admin/users/${u.id}`, { status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' });
@@ -36,6 +42,40 @@ export default function AdminUsers() {
           {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <input className="input w-52" placeholder="Nom, email, n° assuré…" value={q} onChange={e => setQ(e.target.value)} />
+        <DateRangeFilter from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
+        <button className="btn-outline btn-sm" onClick={() => {
+          if (!data?.items) return;
+          const period = [from && `Du ${new Date(from).toLocaleDateString('fr-FR')}`, to && `au ${new Date(to).toLocaleDateString('fr-FR')}`].filter(Boolean).join(' ');
+          const filters = [role && `Rôle : ${ROLE_LABELS[role] ?? role}`, q && `Recherche : "${q}"`, period || 'Toutes périodes'].filter(Boolean).join(' · ');
+          printReport({
+            title: 'État des assurés & utilisateurs',
+            subtitle: `${data.total} utilisateur(s) trouvé(s)`,
+            filters,
+            columns: [
+              { label: 'Nom', key: 'lastName', format: (_: any, r: any) => `${r.lastName} ${r.firstName}` },
+              { label: 'Email', key: 'email' },
+              { label: 'Rôle', key: 'role', format: (v: string) => ROLE_LABELS[v] ?? v },
+              { label: 'N° assuré', key: 'memberNumber' },
+              { label: 'Inscrit le', key: 'createdAt', format: (v: string) => new Date(v).toLocaleDateString('fr-FR') },
+              { label: 'Statut', key: 'status', format: (v: string) => statusLabel(v) },
+            ],
+            rows: data.items,
+            summary: [
+              { label: 'Total', value: `${data.total} utilisateur(s)`, accent: true },
+            ],
+          });
+        }}>🖨️ Imprimer</button>
+        <button className="btn-outline btn-sm" onClick={() => {
+          if (!data?.items) return;
+          exportCsv('etats-assures-utilisateurs.csv', [
+            { label: 'Nom', key: 'lastName', format: (_: any, r: any) => `${r.lastName} ${r.firstName}` },
+            { label: 'Email', key: 'email' },
+            { label: 'Rôle', key: 'role', format: (v: string) => ROLE_LABELS[v] ?? v },
+            { label: 'N° assuré', key: 'memberNumber' },
+            { label: 'Inscrit le', key: 'createdAt', format: (v: string) => new Date(v).toLocaleDateString('fr-FR') },
+            { label: 'Statut', key: 'status', format: (v: string) => statusLabel(v) },
+          ], data.items);
+        }}>📊 CSV</button>
         <button className="btn-primary btn-sm" onClick={() => setCreateOpen(true)}>＋ Utilisateur interne</button>
       </div>
 
@@ -49,8 +89,17 @@ export default function AdminUsers() {
               {data.items.map((u: any) => (
                 <tr key={u.id} className="cursor-pointer hover:bg-slate-50" onClick={() => api.get(`/admin/users/${u.id}`).then(setDetail)}>
                   <td className="td">
-                    <p className="font-medium">{u.lastName} {u.firstName}</p>
-                    <p className="text-xs text-slate-400">{u.email}{u.company ? ` · ${u.company.name}` : ''}</p>
+                    <div className="flex items-center gap-2">
+                      {u.photoFileId ? (
+                        <img src={fileUrl(u.photoFileId)} alt="" className="h-8 w-8 rounded-full object-cover" />
+                      ) : (
+                        <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-sm">👤</span>
+                      )}
+                      <div>
+                        <p className="font-medium">{u.lastName} {u.firstName}</p>
+                        <p className="text-xs text-slate-400">{u.email}{u.company ? ` · ${u.company.name}` : ''}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="td text-xs">{ROLE_LABELS[u.role] ?? u.role}</td>
                   <td className="td text-xs">{u.memberNumber ?? '—'}</td>
@@ -71,6 +120,15 @@ export default function AdminUsers() {
       <Modal open={!!detail} onClose={() => setDetail(null)} title="Fiche utilisateur" wide>
         {detail && (
           <div className="text-sm space-y-3">
+            {detail.photoFileId && (
+              <div className="flex items-center gap-3">
+                <img src={fileUrl(detail.photoFileId)} alt="Photo" className="h-16 w-16 rounded-full object-cover border-2 border-slate-200" />
+                <div>
+                  <p className="font-semibold text-base">{detail.lastName} {detail.firstName}</p>
+                  <p className="text-xs text-slate-400">{ROLE_LABELS[detail.role] ?? detail.role}</p>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <p><b>Nom :</b> {detail.lastName} {detail.firstName}</p>
               <p><b>Email :</b> {detail.email}</p>

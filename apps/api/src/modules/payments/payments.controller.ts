@@ -48,15 +48,18 @@ export class PaymentsService {
     });
     if (!contribution) throw new BadRequestException('Aucune cotisation en attente sur ce contrat');
 
+    const needsAdhesion = (contract as any).adhesionFee > 0 && !(contract as any).adhesionPaidAt;
+    const adhesionPart = needsAdhesion ? (contract as any).adhesionFee : 0;
+    const totalAmount = contribution.amount + adhesionPart;
     const payment = await this.prisma.payment.create({
       data: {
         reference: ref('PAY'),
         contractId: contract.id,
         userId: auth.id,
-        amount: contribution.amount,
+        amount: totalAmount,
         method: provider.code,
         status: 'PENDING',
-        meta: JSON.stringify({ contributionId: contribution.id }),
+        meta: JSON.stringify({ contributionId: contribution.id, adhesionFee: adhesionPart }),
       },
     });
     const initiation = await provider.initiate({ reference: payment.reference, amount: payment.amount, method: provider.code, customerPhone: dto.customerPhone });
@@ -120,6 +123,12 @@ export class PaymentsService {
           where: { id: meta.contributionId },
           data: { status: 'PAID', paidAt: new Date(), paymentId },
         });
+      }
+      if (meta.adhesionFee > 0) {
+        const c = await tx.contract.findUnique({ where: { id: p.contractId! } });
+        if (c && !(c as any).adhesionPaidAt) {
+          await tx.contract.update({ where: { id: c.id }, data: { adhesionPaidAt: new Date() } });
+        }
       }
       return p;
     });

@@ -13,12 +13,29 @@ export interface BeneficiaryDraft {
   relation: 'SPOUSE' | 'CHILD' | 'OTHER';
 }
 
+const DEFAULT_ADHESION_PER_PERSON = 3000;
+const DEFAULT_ADHESION_ENTERPRISE_CAP = 100000;
+
 @Injectable()
 export class SubscriptionService {
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
   ) {}
+
+  private async adhesionConfig(): Promise<{ perPerson: number; enterpriseCap: number }> {
+    try {
+      const rows = await this.prisma.systemConfig.findMany({ where: { key: { in: ['adhesionFeePerPerson', 'adhesionFeeEnterpriseCap'] } } });
+      const per = rows.find(r => r.key === 'adhesionFeePerPerson')?.value;
+      const cap = rows.find(r => r.key === 'adhesionFeeEnterpriseCap')?.value;
+      return {
+        perPerson: per ? Number(JSON.parse(per)) || Number(per) : DEFAULT_ADHESION_PER_PERSON,
+        enterpriseCap: cap ? Number(JSON.parse(cap)) || Number(cap) : DEFAULT_ADHESION_ENTERPRISE_CAP,
+      };
+    } catch {
+      return { perPerson: DEFAULT_ADHESION_PER_PERSON, enterpriseCap: DEFAULT_ADHESION_ENTERPRISE_CAP };
+    }
+  }
 
   private parseProduct(product: any) {
     return {
@@ -59,7 +76,10 @@ export class SubscriptionService {
     const pricing = this.parseProduct(product);
     const { errors, quote, flexibleDetails } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees);
     if (errors.length) throw new BadRequestException({ message: errors[0], errors });
-    return { product: { id: product.id, name: product.name, code: product.code }, quote, flexibleDetails };
+    const { perPerson } = await this.adhesionConfig();
+    const adhesionFee = persons.length * perPerson;
+    const adhesionDetails = { perPerson, personsCount: persons.length, adhesionFee, enterpriseCap: null as number | null };
+    return { product: { id: product.id, name: product.name, code: product.code }, quote, flexibleDetails, adhesion: adhesionDetails };
   }
 
   async quoteForUser(userId: string, productId: string, frequency: Frequency, beneficiaries: { birthDate: Date; relation: string }[], selectedGuarantees?: SelectedGuarantee[]) {
@@ -139,6 +159,9 @@ export class SubscriptionService {
       ? await this.prisma.distributor.findUnique({ where: { id: user.referredById } })
       : null;
 
+    const { perPerson } = await this.adhesionConfig();
+    const adhesionFee = (1 + beneficiaries.length) * perPerson;
+
     const contract = await this.prisma.$transaction(async tx => {
       const created = await tx.contract.create({
         data: {
@@ -150,9 +173,10 @@ export class SubscriptionService {
           insurerPartnerId: product.insurerPartnerId,
           premiumAnnual: quote.totalAnnual,
           frequency,
-          quote: JSON.stringify(quote),
+          quote: JSON.stringify({ ...quote, adhesionFee, adhesionPerPerson: perPerson }),
           cardToken: secureToken(16),
           distributorId: distributor?.id ?? null,
+          adhesionFee,
         },
       });
       if (beneficiaries.length) {
@@ -229,9 +253,10 @@ export class SubscriptionService {
     return {
       contractId: contract.id,
       number: contract.number,
-      quote,
+      quote: { ...quote, adhesionFee, adhesionPerPerson: perPerson },
       contributions: schedule,
-      firstPayment: schedule[0],
+      firstPayment: { ...schedule[0], adhesionFee, totalFirstPayment: schedule[0].amount + adhesionFee },
+      adhesion: { perPerson, personsCount: 1 + beneficiaries.length, adhesionFee },
     };
   }
 
@@ -267,6 +292,10 @@ export class SubscriptionService {
     };
     quote.periodicAmount = Math.ceil(total / quote.periods);
 
+    const { perPerson, enterpriseCap } = await this.adhesionConfig();
+    const rawAdhesion = employeesCount * perPerson;
+    const adhesionFee = Math.min(rawAdhesion, enterpriseCap);
+
     const today = startOfDay(new Date());
     const schedule = buildSchedule(total, frequency, today);
 
@@ -282,8 +311,9 @@ export class SubscriptionService {
           insurerPartnerId: product.insurerPartnerId,
           premiumAnnual: total,
           frequency,
-          quote: JSON.stringify({ ...quote, employeesCount }),
+          quote: JSON.stringify({ ...quote, employeesCount, adhesionFee, adhesionPerPerson: perPerson, adhesionCap: enterpriseCap }),
           cardToken: secureToken(16),
+          adhesionFee,
         },
       });
       await tx.contribution.createMany({
@@ -292,7 +322,7 @@ export class SubscriptionService {
       return created;
     });
 
-    return { contractId: contract.id, number: contract.number, quote, contributions: schedule, firstPayment: schedule[0] };
+    return { contractId: contract.id, number: contract.number, quote: { ...quote, adhesionFee, adhesionPerPerson: perPerson, adhesionCap: enterpriseCap }, contributions: schedule, firstPayment: { ...schedule[0], adhesionFee, totalFirstPayment: schedule[0].amount + adhesionFee }, adhesion: { perPerson, personsCount: employeesCount, adhesionFee, enterpriseCap } };
   }
 
   private async getActiveProduct(id: string) {

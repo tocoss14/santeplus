@@ -103,6 +103,7 @@ export class PdfService {
         ['Date de fin', fmtDate(contract.endDate)],
         ['Cotisation annuelle', fcfa(contract.premiumAnnual)],
         ['Fréquence de paiement', contract.frequency === 'MONTHLY' ? 'Mensuelle' : contract.frequency === 'QUARTERLY' ? 'Trimestrielle' : 'Annuelle'],
+        ...(((contract as any).adhesionFee > 0) ? [['Frais d\'adhésion', `${fcfa((contract as any).adhesionFee)} — une fois, réglés le ${fmtDate((contract as any).adhesionPaidAt) || 'avec 1ère cotisation'}`] as [string, string]] : []),
       ];
 
       y += 18;

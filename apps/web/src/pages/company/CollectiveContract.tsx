@@ -105,12 +105,19 @@ export default function CollectiveContract() {
               </Field>
             </div>
             {productId && (
-              <div className="card-p text-sm">
-                <p className="font-medium">Estimation</p>
-                <p className="mt-1 text-slate-500">
-                  {fcfa(products.find(p => p.id === productId)?.pricePerAdditionalAdultAnnual ?? 0)} / salarié / an
-                </p>
-              </div>
+              <>
+                <div className="card-p text-sm">
+                  <p className="font-medium">Estimation</p>
+                  <p className="mt-1 text-slate-500">
+                    {fcfa(products.find(p => p.id === productId)?.pricePerAdditionalAdultAnnual ?? 0)} / salarié / an — Total cotisation : {fcfa((products.find(p => p.id === productId)?.pricePerAdditionalAdultAnnual ?? 0) * employeesCount)}
+                  </p>
+                </div>
+                <div className="card-p bg-amber-50 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-600">Frais d'adhésion (une fois)</span><span className="font-medium">{employeesCount} × 3 000 = {fcfa(Math.min(employeesCount * 3000, 100000))}</span></div>
+                  <p className="mt-1 text-xs text-amber-700">Plafond entreprise : 100 000 FCFA · Payable avec la 1ère échéance</p>
+                  <div className="mt-2 flex justify-between border-t border-amber-200 pt-2 font-bold"><span>Total 1er paiement</span><span>{fcfa((products.find(p => p.id === productId)?.pricePerAdditionalAdultAnnual ?? 0) * employeesCount / (frequency === 'MONTHLY' ? 12 : frequency === 'QUARTERLY' ? 4 : 1) + Math.min(employeesCount * 3000, 100000))} (cotisation + adhésion)</span></div>
+                </div>
+              </>
             )}
             <button className="btn-primary w-full" disabled={!productId || busy} onClick={subscribe}>
               {busy ? 'Création…' : 'Créer le contrat collectif'}
@@ -144,9 +151,14 @@ export default function CollectiveContract() {
           <div><p className="label">Fréquence</p>{FREQUENCY_LABELS[contract.frequency]}</div>
           <div><p className="label">Porté par</p>{contract.product.insurerPartner?.name ?? '—'}</div>
         </div>
+        {contract.adhesionFee > 0 && (
+          <div className={`mt-3 rounded-lg p-3 text-sm ${contract.adhesionPaidAt ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+            <div className="flex justify-between"><span>Frais d'adhésion (une fois)</span><span className="font-bold">{fcfa(contract.adhesionFee)} {contract.adhesionPaidAt ? '✓ réglés' : '— à régler avec la 1ère échéance'}</span></div>
+          </div>
+        )}
         {nextDue && (
           <button className="btn-primary mt-4 btn-sm" disabled={busy} onClick={payNextDue}>
-            Payer l’échéance de {fmtDate(nextDue.dueDate)} ({fcfa(nextDue.amount)})
+            Payer l’échéance de {fmtDate(nextDue.dueDate)} ({fcfa(nextDue.amount + (contract.adhesionFee > 0 && !contract.adhesionPaidAt ? contract.adhesionFee : 0))}{contract.adhesionFee > 0 && !contract.adhesionPaidAt ? ' dont adhésion' : ''})
           </button>
         )}
         {contract.status === 'ACTIVE' && (

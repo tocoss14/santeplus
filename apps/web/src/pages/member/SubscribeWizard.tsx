@@ -127,6 +127,7 @@ export default function SubscribeWizard() {
   const [beneficiaries, setBeneficiaries] = useState<BenefDraft[]>([]);
   const [quote, setQuote] = useState<any>(null);
   const [flexibleDetails, setFlexibleDetails] = useState<any>(null);
+  const [adhesion, setAdhesion] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [method, setMethod] = useState('');
@@ -256,6 +257,7 @@ export default function SubscribeWizard() {
       });
       setQuote(res.quote);
       setFlexibleDetails(res.flexibleDetails);
+      setAdhesion(res.adhesion ?? null);
       return true;
     } catch (e: any) {
       setError(e?.message ?? 'Simulation impossible');
@@ -534,12 +536,21 @@ export default function SubscribeWizard() {
             </ul>
             <div className="mt-3 rounded-lg bg-brand-50 p-4">
               <div className="flex justify-between font-bold text-brand-800">
-                <span>Total annuel</span><span>{fcfa(quote.totalAnnual)}</span>
+                <span>Total annuel (cotisation)</span><span>{fcfa(quote.totalAnnual)}</span>
               </div>
               <div className="mt-1 flex justify-between text-sm text-brand-700">
                 <span>Prélèvement {FREQUENCY_LABELS[frequency].toLowerCase()}</span>
                 <span className="font-semibold">{fcfa(quote.periodicAmount)} × {quote.periods}</span>
               </div>
+              {adhesion && (
+                <div className="mt-2 flex justify-between border-t border-brand-100 pt-2 text-sm">
+                  <span>Frais d'adhésion (une fois) — {adhesion.personsCount} pers. × {fcfa(adhesion.perPerson)}</span>
+                  <span className="font-semibold">{fcfa(adhesion.adhesionFee)}</span>
+                </div>
+              )}
+              {adhesion && (
+                <p className="mt-1 text-xs text-brand-600">Payable une seule fois avec la 1ère cotisation</p>
+              )}
             </div>
           </div>
 
@@ -575,9 +586,16 @@ export default function SubscribeWizard() {
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Contrat {subscription.number} créé</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Réglez {fcfa(subscription.firstPayment.amount)} pour activer votre couverture.
-            </p>
+            {subscription.adhesion && (
+              <div className="mt-2 rounded-lg bg-amber-50 p-3 text-sm">
+                <div className="flex justify-between"><span className="text-slate-600">Cotisation 1ère échéance</span><span className="font-medium">{fcfa(subscription.firstPayment.amount)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600">Frais d'adhésion ({subscription.adhesion.personsCount} pers. × {fcfa(subscription.adhesion.perPerson)}) — une fois</span><span className="font-medium">{fcfa(subscription.adhesion.adhesionFee)}</span></div>
+                <div className="mt-2 flex justify-between border-t border-amber-200 pt-2 font-bold text-amber-800"><span>Total à régler</span><span>{fcfa(subscription.firstPayment.totalFirstPayment ?? subscription.firstPayment.amount + (subscription.adhesion.adhesionFee ?? 0))}</span></div>
+              </div>
+            )}
+            {!subscription.adhesion && (
+              <p className="mt-1 text-sm text-slate-500">Réglez {fcfa(subscription.firstPayment.amount)} pour activer votre couverture.</p>
+            )}
             <Field label="Moyen de paiement">
               <div className="grid gap-2">
                 {paymentMethods.map(m => (
@@ -591,7 +609,7 @@ export default function SubscribeWizard() {
             </Field>
           </div>
           <button className="btn-primary w-full" disabled={busy || !method} onClick={pay}>
-            {busy ? 'Traitement du paiement…' : `Payer ${fcfa(subscription.firstPayment.amount)}`}
+            {busy ? 'Traitement du paiement…' : `Payer ${fcfa(subscription.firstPayment.totalFirstPayment ?? subscription.firstPayment.amount + (subscription.adhesion?.adhesionFee ?? 0))}`}
           </button>
         </div>
       )}

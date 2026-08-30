@@ -209,6 +209,8 @@ model Contract {
   frequency String
   quote     String   @default("{}")
   cardToken String   @unique
+  adhesionFee     Int       @default(0)
+  adhesionPaidAt  DateTime?
 
   beneficiaries Beneficiary[]
   contributions Contribution[]

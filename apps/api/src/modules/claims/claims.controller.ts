@@ -65,6 +65,37 @@ export class ClaimsService {
     const usedGlobal = allPriorItems.reduce((a, i) => a + (i.amountApproved ?? 0), 0);
     const globalAnnualCap = contract.product.globalAnnualCap ?? 5000000;
 
+    // Parser eligibilityConditions pour les délais spécifiques et limites spécialiste
+    let eligibility: any = {};
+    try { eligibility = JSON.parse(contract.product.eligibilityConditions ?? '{}'); } catch {}
+
+    const categoryWaitingPeriods: Record<string, number> = {};
+    if (eligibility.waitingPeriodDays && typeof eligibility.waitingPeriodDays === 'object') {
+      for (const [cat, days] of Object.entries(eligibility.waitingPeriodDays)) {
+        if (cat !== 'default' && typeof days === 'number' && days > 0) {
+          categoryWaitingPeriods[cat.toUpperCase()] = days;
+        }
+      }
+    }
+
+    // Compteur de consultations spécialiste utilisées cette année
+    let specialistConsultationsUsed = 0;
+    if (eligibility.specialistConsultationsPerYear) {
+      const specItems = await this.prisma.claimItem.findMany({
+        where: {
+          claim: {
+            contractId: contract.id,
+            status: { in: CAPS_CONSUMING },
+            ...(yearStart ? { careDate: { gte: yearStart } } : {}),
+          },
+          categoryLabel: 'SPECIALIZED',
+          amountEligible: { gt: 0 },
+        },
+        select: { id: true },
+      });
+      specialistConsultationsUsed = specItems.length;
+    }
+
     return estimateClaim(
       {
         contractStatus: contract.status,
@@ -76,6 +107,9 @@ export class ClaimsService {
         usedPerCategory,
         globalAnnualCap: globalAnnualCap > 0 ? globalAnnualCap : undefined,
         usedGlobal,
+        categoryWaitingPeriods: Object.keys(categoryWaitingPeriods).length > 0 ? categoryWaitingPeriods : undefined,
+        specialistConsultationsUsed,
+        specialistConsultationsPerYear: eligibility.specialistConsultationsPerYear ?? null,
       },
       careDate,
       items,

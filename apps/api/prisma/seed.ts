@@ -111,8 +111,10 @@ async function main() {
     return prisma.product.create({
       data: {
         ...rest,
-        beneficiaryRules: JSON.stringify(rest.beneficiaryRules),
-        frequencyFactors: JSON.stringify(rest.frequencyFactors ?? { ANNUAL: 1, QUARTERLY: 1.03, MONTHLY: 1.06 }),
+        beneficiaryRules: typeof rest.beneficiaryRules === 'string' ? rest.beneficiaryRules : JSON.stringify(rest.beneficiaryRules),
+        ageLoadings: typeof rest.ageLoadings === 'string' ? rest.ageLoadings : JSON.stringify(rest.ageLoadings ?? []),
+        eligibilityConditions: typeof rest.eligibilityConditions === 'string' ? rest.eligibilityConditions : JSON.stringify(rest.eligibilityConditions ?? null),
+        frequencyFactors: typeof rest.frequencyFactors === 'string' ? rest.frequencyFactors : JSON.stringify(rest.frequencyFactors ?? { ANNUAL: 1, QUARTERLY: 1.03, MONTHLY: 1.06 }),
         guarantees: {
           create: gs.map((g: any) => ({
             guaranteeId: guarantees[g.category],
@@ -136,99 +138,231 @@ async function main() {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // FORMULES v2.0 — Équilibre Technique Bénin
+  // Objectif : résultat technique positif via tickets modérateurs,
+  // plafonds stricts par acte, délais de carence et entente préalable.
+  // ═══════════════════════════════════════════════════════════════════
+
+  // --- Formule 1 : Santé Essentielle (6 000 FCFA/mois) ---
+  // Gestion du risque de base. Pas de maternité/optique/dentaire.
+  // Ticket modérateur fort (30%) pour freiner la surconsommation.
   const prodEssentielle = await createProduct({
-    code: 'ESS', name: 'Formule Essentielle', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 1,
-    description: "L'essentiel pour se soigner sereinement : hospitalisation, consultations, pharmacie et analyses.",
+    code: 'ESS', name: 'Santé Essentielle', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 1,
+    description: "Gestion du risque de base : consultations, pharmacie, analyses et hospitalisation courte. Ticket modérateur de 30% pour responsabiliser l'assuré.",
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
-    basePremiumAnnual: 45000, pricePerAdditionalAdultAnnual: 30000, pricePerChildAnnual: 20000,
+    basePremiumAnnual: 72000, // 6 000 FCFA/mois
+    pricePerAdditionalAdultAnnual: 48000, // 4 000 FCFA/mois par conjoint/adulte
+    pricePerChildAnnual: 48000, // 4 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 120000,
+    globalAnnualCap: 500000, // Plafond annuel global par assuré
+    ageLoadings: [
+      { minAge: 0, maxAge: 30, factor: 1.0 },
+      { minAge: 31, maxAge: 45, factor: 1.1 },
+      { minAge: 46, maxAge: 55, factor: 1.25 },
+      { minAge: 56, maxAge: 65, factor: 1.4 },
+    ],
+    insurerPartnerId: partnerB.id,
+    beneficiaryRules: { spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 6 },
+    eligibilityConditions: JSON.stringify({
+      waitingPeriodDays: { default: 30, hospitalization: 90, maternity: null }, // Maternité non couverte
+      copayRate: 30, // Ticket modérateur 30% sur tous les actes
+      perActCap: { CONSULTATION: 10000, SPECIALIST: 12000 }, // Plafond par acte
+      specialistConsultationsPerYear: 3, // Max 3 consultations spécialiste/an
+    }),
+    guarantees: [
+      // Hospitalisation : 60%, plafond 150 000 FCFA/an, maxUnitPrice 45 000/jour
+      { category: 'HOSPITALIZATION', limit: 150000, rate: 60, minRate: 60, maxRate: 60, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 40, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 45000 },
+      // Consultation généraliste : 70%, plafond par acte 10 000 FCFA
+      { category: 'CONSULTATION', limit: 100000, rate: 70, minRate: 70, maxRate: 70, minLimit: 100000, maxLimit: 100000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 10000 },
+      // Pharmacie : 60%, plafond 15 000 FCFA/mois (180 000/an), maxUnitPrice 15 000/ordonnance
+      { category: 'PHARMACY', limit: 180000, rate: 60, minRate: 60, maxRate: 60, minLimit: 180000, maxLimit: 180000, limitStep: 0, customizable: false, copayRate: 40, maxUnitPrice: 15000 },
+      // Analyses & labos : 50%, plafond annuel 30 000 FCFA, maxUnitPrice 10 000/acte
+      { category: 'LABORATORY', limit: 30000, rate: 50, minRate: 50, maxRate: 50, minLimit: 30000, maxLimit: 30000, limitStep: 0, customizable: false, copayRate: 50, maxUnitPrice: 10000 },
+    ],
+    exclusions: [
+      { categoryId: 'MATERNITY', description: 'Maternité non couverte par la formule Essentielle (souscription dédiée requise)' },
+      { categoryId: 'DENTAL', description: 'Soins dentaires non couverts — frais à 100% charge de l\'assuré' },
+      { categoryId: 'OPTICAL', description: 'Optique non couverte — frais à 100% charge de l\'assuré' },
+      { categoryId: 'SPECIALIZED', description: 'Soins spécialisés non couverts par cette formule d\'entrée de gamme' },
+    ],
+  });
+
+  // --- Formule 2 : Santé Confort (12 000 FCFA/mois) ---
+  // Couverture intermédiaire avec maternité, spécialiste et dentaire.
+  // Délai de carence maternité 10 mois strict.
+  const prodConfort = await createProduct({
+    code: 'CONF', name: 'Santé Confort', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 2,
+    description: 'Équilibre entre couverture et rentabilité : consultations, spécialistes, maternité, dentaire et optique. Ticket modérateur 20%.',
+    minAge: 0, maxAge: 65, waitingPeriodDays: 30,
+    basePremiumAnnual: 144000, // 12 000 FCFA/mois
+    pricePerAdditionalAdultAnnual: 108000, // 9 000 FCFA/mois par conjoint/adulte
+    pricePerChildAnnual: 108000, // 9 000 FCFA/mois par enfant
+    thirdPartyAuthThreshold: 200000,
+    globalAnnualCap: 1200000, // Plafond annuel global par assuré
     ageLoadings: [
       { minAge: 0, maxAge: 30, factor: 1.0 },
       { minAge: 31, maxAge: 45, factor: 1.15 },
       { minAge: 46, maxAge: 55, factor: 1.35 },
-      { minAge: 56, maxAge: 65, factor: 1.6 },
-    ],
-    insurerPartnerId: partnerB.id,
-    beneficiaryRules: { spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 6 },
-    guarantees: [
-      { category: 'HOSPITALIZATION', limit: 3000000, rate: 80, minRate: 60, maxRate: 90, minLimit: 1000000, maxLimit: 5000000, limitStep: 500000, customizable: true },
-      { category: 'CONSULTATION', limit: 100000, rate: 70, minRate: 50, maxRate: 85, minLimit: 50000, maxLimit: 300000, limitStep: 25000, customizable: true },
-      { category: 'PHARMACY', limit: 250000, rate: 70, minRate: 50, maxRate: 85, minLimit: 100000, maxLimit: 500000, limitStep: 25000, customizable: true },
-      { category: 'LABORATORY', limit: 150000, rate: 80, minRate: 60, maxRate: 90, minLimit: 50000, maxLimit: 400000, limitStep: 25000, customizable: true },
-    ],
-    exclusions: [{ categoryId: 'DENTAL', description: 'Soins dentaires non couverts par la formule Essentielle' }],
-  });
-
-  const prodConfort = await createProduct({
-    code: 'CONF', name: 'Formule Confort', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 2,
-    description: 'Garanties renforcÃ©es : maternitÃ©, soins spÃ©cialisÃ©s et plafonds plus Ã©levÃ©s.',
-    minAge: 0, maxAge: 65, waitingPeriodDays: 30,
-    basePremiumAnnual: 75000, pricePerAdditionalAdultAnnual: 45000, pricePerChildAnnual: 28000,
-    thirdPartyAuthThreshold: 200000,
-    ageLoadings: [
-      { minAge: 0, maxAge: 30, factor: 1.0 },
-      { minAge: 31, maxAge: 45, factor: 1.2 },
-      { minAge: 46, maxAge: 55, factor: 1.45 },
-      { minAge: 56, maxAge: 65, factor: 1.75 },
+      { minAge: 56, maxAge: 65, factor: 1.55 },
     ],
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 25, otherAllowed: false, maxBeneficiaries: 8 },
+    eligibilityConditions: JSON.stringify({
+      waitingPeriodDays: { default: 30, hospitalization: 90, maternity: 300 }, // Maternité : 10 mois de carence
+      copayRate: 20, // Ticket modérateur 20%
+      perActCap: { CONSULTATION: 12000, SPECIALIST: 15000 },
+      specialistConsultationsPerYear: 5, // Max 5 consultations spécialiste/an
+      opticalEvery2Years: true, // Forfait optique tous les 2 ans
+    }),
     guarantees: [
-      { category: 'HOSPITALIZATION', limit: 5000000, rate: 85, minRate: 65, maxRate: 95, minLimit: 2000000, maxLimit: 10000000, limitStep: 500000, customizable: true },
-      { category: 'CONSULTATION', limit: 150000, rate: 80, minRate: 60, maxRate: 90, minLimit: 75000, maxLimit: 500000, limitStep: 25000, customizable: true },
-      { category: 'PHARMACY', limit: 400000, rate: 75, minRate: 55, maxRate: 90, minLimit: 150000, maxLimit: 800000, limitStep: 25000, customizable: true },
-      { category: 'LABORATORY', limit: 250000, rate: 85, minRate: 65, maxRate: 95, minLimit: 100000, maxLimit: 600000, limitStep: 25000, customizable: true },
-      { category: 'SPECIALIZED', limit: 500000, rate: 70, minRate: 50, maxRate: 85, minLimit: 200000, maxLimit: 1500000, limitStep: 50000, customizable: true },
-      { category: 'MATERNITY', limit: 400000, rate: 60, deductibleType: 'FIXED', deductibleValue: 10000 },
+      // Hospitalisation médecine générale : 75%, plafond 500 000 FCFA/an, maxUnitPrice 45 000/jour
+      { category: 'HOSPITALIZATION', limit: 500000, rate: 75, minRate: 75, maxRate: 75, minLimit: 500000, maxLimit: 500000, limitStep: 0, customizable: false, copayRate: 25, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 45000 },
+      // Consultation généraliste : 80%, maxUnitPrice 12 000/acte
+      { category: 'CONSULTATION', limit: 144000, rate: 80, minRate: 80, maxRate: 80, minLimit: 144000, maxLimit: 144000, limitStep: 0, customizable: false, copayRate: 20, maxUnitPrice: 12000 },
+      // Pharmacie : 70%, maxUnitPrice 30 000/ordonnance
+      { category: 'PHARMACY', limit: 360000, rate: 70, minRate: 70, maxRate: 70, minLimit: 360000, maxLimit: 360000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 30000 },
+      // Analyses & imagerie : 70%, maxUnitPrice 15 000/acte
+      { category: 'LABORATORY', limit: 75000, rate: 70, minRate: 70, maxRate: 70, minLimit: 75000, maxLimit: 75000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 15000 },
+      // Soins spécialisés : 70%, maxUnitPrice 15 000/acte
+      { category: 'SPECIALIZED', limit: 200000, rate: 70, minRate: 70, maxRate: 70, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 15000 },
+      // Maternité : forfait 200 000 FCFA
+      { category: 'MATERNITY', limit: 200000, rate: 100, minRate: 100, maxRate: 100, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 200000 },
+      // Dentaire : 60%, maxUnitPrice 15 000/acte
+      { category: 'DENTAL', limit: 40000, rate: 60, minRate: 60, maxRate: 60, minLimit: 40000, maxLimit: 40000, limitStep: 0, customizable: false, copayRate: 40, maxUnitPrice: 15000 },
+      // Optique : forfait 30 000 FCFA tous les 2 ans
+      { category: 'OPTICAL', limit: 30000, rate: 100, minRate: 100, maxRate: 100, minLimit: 30000, maxLimit: 30000, limitStep: 0, customizable: false, maxUnitPrice: 30000 },
     ],
   });
 
+  // --- Formule 3 : Santé Excellence (25 000 FCFA/mois) ---
+  // Haute gamme pour cadres. Ticket modérateur 10% maintenu.
+  // Entente préalable obligatoire sauf urgences vitales.
   const prodPremium = await createProduct({
-    code: 'PREM', name: 'Formule Premium', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 3,
-    description: 'La protection la plus complÃ¨te : plafonds Ã©levÃ©s, optique et dentaire inclus.',
-    minAge: 0, maxAge: 70, waitingPeriodDays: 0,
-    basePremiumAnnual: 120000, pricePerAdditionalAdultAnnual: 70000, pricePerChildAnnual: 42000,
-    thirdPartyAuthThreshold: 250000,
+    code: 'EXC', name: 'Santé Excellence', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 3,
+    description: 'Haute gamme : toutes cliniques, évacuation sanitaire, plafonds élevés. Entente préalable pour les gros actes. Ticket modérateur 10%.',
+    minAge: 0, maxAge: 70, waitingPeriodDays: 30,
+    basePremiumAnnual: 300000, // 25 000 FCFA/mois
+    pricePerAdditionalAdultAnnual: 240000, // 20 000 FCFA/mois par conjoint/adulte
+    pricePerChildAnnual: 240000, // 20 000 FCFA/mois par enfant
+    thirdPartyAuthThreshold: 150000, // Entente préalable à partir de 150 000 FCFA
+    globalAnnualCap: 3000000, // Plafond annuel global par assuré
     ageLoadings: [
       { minAge: 0, maxAge: 30, factor: 1.0 },
-      { minAge: 31, maxAge: 45, factor: 1.25 },
-      { minAge: 46, maxAge: 55, factor: 1.55 },
-      { minAge: 56, maxAge: 65, factor: 1.85 },
-      { minAge: 66, maxAge: 70, factor: 2.2 },
+      { minAge: 31, maxAge: 45, factor: 1.15 },
+      { minAge: 46, maxAge: 55, factor: 1.3 },
+      { minAge: 56, maxAge: 65, factor: 1.5 },
+      { minAge: 66, maxAge: 70, factor: 1.7 },
     ],
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 26, otherAllowed: true, maxBeneficiaries: 10 },
-    eligibilityConditions: "Aucun dÃ©lai de carence. Questionnaire de santÃ© simplifiÃ©.",
+    eligibilityConditions: JSON.stringify({
+      waitingPeriodDays: { default: 30, hospitalization: 90, maternity: 300 },
+      copayRate: 10, // Ticket modérateur 10% maintenu pour responsabiliser
+      perActCap: { CONSULTATION: 25000, SPECIALIST: 25000 },
+      priorAuthRequired: true, // Entente préalable obligatoire sauf urgences
+      privateRoomCap: 20000, // Chambre particulière max 20 000 FCFA/jour
+    }),
     guarantees: [
-      { category: 'HOSPITALIZATION', limit: 10000000, rate: 90, minRate: 70, maxRate: 95, minLimit: 5000000, maxLimit: 20000000, limitStep: 1000000, customizable: true },
-      { category: 'CONSULTATION', limit: 250000, rate: 85, minRate: 65, maxRate: 95, minLimit: 100000, maxLimit: 800000, limitStep: 25000, customizable: true },
-      { category: 'PHARMACY', limit: 600000, rate: 80, minRate: 60, maxRate: 95, minLimit: 200000, maxLimit: 1200000, limitStep: 50000, customizable: true },
-      { category: 'LABORATORY', limit: 400000, rate: 90, minRate: 70, maxRate: 95, minLimit: 150000, maxLimit: 800000, limitStep: 25000, customizable: true },
-      { category: 'SPECIALIZED', limit: 1000000, rate: 80, minRate: 60, maxRate: 90, minLimit: 300000, maxLimit: 3000000, limitStep: 100000, customizable: true },
-      { category: 'MATERNITY', limit: 700000, rate: 70 },
-      { category: 'DENTAL', limit: 200000, rate: 70, minRate: 50, maxRate: 80, minLimit: 50000, maxLimit: 500000, limitStep: 25000, customizable: true },
-      { category: 'OPTICAL', limit: 100000, rate: 60, deductibleType: 'PERCENT', deductibleValue: 10 },
+      // Hospitalisation (toutes cliniques) : 90%, plafond 1 500 000 FCFA/an, maxUnitPrice 45 000/jour
+      { category: 'HOSPITALIZATION', limit: 1500000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1500000, maxLimit: 1500000, limitStep: 0, customizable: false, copayRate: 10, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 45000 },
+      // Consultations (généraliste + spécialiste) : 90%, maxUnitPrice 25 000/acte
+      { category: 'CONSULTATION', limit: 300000, rate: 90, minRate: 90, maxRate: 90, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 25000 },
+      // Pharmacie : 90%, maxUnitPrice 40 000/ordonnance
+      { category: 'PHARMACY', limit: 600000, rate: 90, minRate: 90, maxRate: 90, minLimit: 600000, maxLimit: 600000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 40000 },
+      // Analyses, labos, imagerie (IRM, scanner) : 90%, maxUnitPrice 25 000/acte
+      { category: 'LABORATORY', limit: 250000, rate: 90, minRate: 90, maxRate: 90, minLimit: 250000, maxLimit: 250000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 25000 },
+      // Soins spécialisés : 90%, maxUnitPrice 25 000/acte
+      { category: 'SPECIALIZED', limit: 500000, rate: 90, minRate: 90, maxRate: 90, minLimit: 500000, maxLimit: 500000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 25000 },
+      // Maternité : 80%, plafond 400 000 FCFA
+      { category: 'MATERNITY', limit: 400000, rate: 80, minRate: 80, maxRate: 80, minLimit: 400000, maxLimit: 400000, limitStep: 0, customizable: false, copayRate: 20, maxUnitPrice: 400000 },
+      // Dentaire : 80%, maxUnitPrice 15 000/acte
+      { category: 'DENTAL', limit: 100000, rate: 80, minRate: 80, maxRate: 80, minLimit: 100000, maxLimit: 100000, limitStep: 0, customizable: false, copayRate: 20, maxUnitPrice: 15000 },
+      // Optique : 70%, maxUnitPrice 80 000 FCFA tous les 2 ans
+      { category: 'OPTICAL', limit: 80000, rate: 70, minRate: 70, maxRate: 70, minLimit: 80000, maxLimit: 80000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 80000 },
     ],
   });
 
-  const prodEntreprise = await createProduct({
-    code: 'ENT-COLL', name: 'Collective Entreprise', clientType: 'COMPANY', status: 'ACTIVE', sortOrder: 1,
-    description: 'Couverture collective pour vos salariÃ©s et leurs ayants droit.',
+  // --- Formule Entreprise 1 : Entreprise Performance (10 000 FCFA/mois/salarié) ---
+  // Employeur 5 000 + Salarié 5 000. Plafond global 500 000 FCFA/an/salarié.
+  const prodEntreprisePerf = await createProduct({
+    code: 'ENT-PERF', name: 'Entreprise Performance', clientType: 'COMPANY', status: 'ACTIVE', sortOrder: 1,
+    description: 'Couverture collective à co-partage employeur/salarié. Plafond annuel strict de 500 000 FCFA/salarié pour maîtriser les coûts.',
     minAge: 18, maxAge: 63, waitingPeriodDays: 15,
-    basePremiumAnnual: 0, pricePerAdditionalAdultAnnual: 55000, pricePerChildAnnual: 35000,
-    thirdPartyAuthThreshold: 180000,
+    basePremiumAnnual: 120000, // 10 000 FCFA/mois (5 000 employeur + 5 000 salarié)
+    pricePerAdditionalAdultAnnual: 0, // Inclus dans le tarif salarié
+    pricePerChildAnnual: 48000, // 4 000 FCFA/mois par enfant
+    thirdPartyAuthThreshold: 150000,
+    globalAnnualCap: 500000, // Plafond annuel global par salarié
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 23, otherAllowed: false, maxBeneficiaries: 6 },
+    eligibilityConditions: JSON.stringify({
+      waitingPeriodDays: { default: 15, hospitalization: 90, maternity: 300 },
+      copayRate: 30, // Ticket modérateur 30%
+      employerShare: 5000, // Part employeur 5 000 FCFA/mois
+      employeeShare: 5000, // Part salarié 5 000 FCFA/mois
+      globalAnnualCapPerEmployee: 500000, // Plafond de consommation globale par salarié
+    }),
     guarantees: [
-      { category: 'HOSPITALIZATION', limit: 6000000, rate: 85 },
-      { category: 'CONSULTATION', limit: 180000, rate: 80 },
-      { category: 'PHARMACY', limit: 450000, rate: 75 },
-      { category: 'LABORATORY', limit: 300000, rate: 85 },
-      { category: 'SPECIALIZED', limit: 600000, rate: 70 },
-      { category: 'MATERNITY', limit: 450000, rate: 65 },
+      // Hospitalisation : 70%, plafond 350 000 FCFA/an
+      { category: 'HOSPITALIZATION', limit: 350000, rate: 70, minRate: 70, maxRate: 70, minLimit: 350000, maxLimit: 350000, limitStep: 0, customizable: false, copayRate: 30, deductibleType: 'FIXED', deductibleValue: 10000 },
+      // Consultations : 70%, plafond 10 000 FCFA/acte
+      { category: 'CONSULTATION', limit: 120000, rate: 70, minRate: 70, maxRate: 70, minLimit: 120000, maxLimit: 120000, limitStep: 0, customizable: false, copayRate: 30 },
+      // Pharmacie : 70%, plafond 25 000 FCFA/mois (300 000/an)
+      { category: 'PHARMACY', limit: 300000, rate: 70, minRate: 70, maxRate: 70, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 30 },
+      // Analyses : 70%, plafond 50 000 FCFA/an
+      { category: 'LABORATORY', limit: 50000, rate: 70, minRate: 70, maxRate: 70, minLimit: 50000, maxLimit: 50000, limitStep: 0, customizable: false, copayRate: 30 },
+      // Maternité : forfait 150 000 FCFA, carence 10 mois
+      { category: 'MATERNITY', limit: 150000, rate: 100, minRate: 100, maxRate: 100, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, deductibleType: 'FIXED', deductibleValue: 10000 },
+    ],
+    exclusions: [
+      { categoryId: 'DENTAL', description: 'Soins dentaires non couverts par le contrat Entreprise Performance' },
+      { categoryId: 'OPTICAL', description: 'Optique non couverte par le contrat Entreprise Performance' },
+      { categoryId: 'SPECIALIZED', description: 'Soins spécialisés non couverts — formule Cadre requise' },
     ],
   });
-  console.log('Produits crÃ©Ã©s');
+
+  // --- Formule Entreprise 2 : Entreprise Cadre/VIP (20 000 FCFA/mois/salarié) ---
+  // Employeur 10 000 + Salarié 10 000. Plafond global 1 200 000 FCFA/an.
+  const prodEntrepriseCadre = await createProduct({
+    code: 'ENT-VIP', name: 'Entreprise Cadre / VIP', clientType: 'COMPANY', status: 'ACTIVE', sortOrder: 2,
+    description: 'Couverture premium pour cadres : entente préalable exigée pour hospitalisations, plafond annuel 1,2M FCFA/salarié.',
+    minAge: 18, maxAge: 65, waitingPeriodDays: 15,
+    basePremiumAnnual: 240000, // 20 000 FCFA/mois (10 000 employeur + 10 000 salarié)
+    pricePerAdditionalAdultAnnual: 0,
+    pricePerChildAnnual: 96000, // 8 000 FCFA/mois par enfant
+    thirdPartyAuthThreshold: 100000, // Entente préalable plus stricte
+    globalAnnualCap: 1200000, // Plafond annuel global par salarié
+    insurerPartnerId: partnerA.id,
+    beneficiaryRules: { spouse: true, childMaxAge: 25, otherAllowed: false, maxBeneficiaries: 8 },
+    eligibilityConditions: JSON.stringify({
+      waitingPeriodDays: { default: 15, hospitalization: 90, maternity: 300 },
+      copayRate: 10, // Ticket modérateur réduit 10%
+      employerShare: 10000,
+      employeeShare: 10000,
+      globalAnnualCapPerEmployee: 1200000,
+      priorAuthRequired: true, // Entente préalable obligatoire pour hospitalisations
+    }),
+    guarantees: [
+      // Hospitalisation (toutes cliniques) : 90%, plafond 1 000 000 FCFA/an, entente préalable
+      { category: 'HOSPITALIZATION', limit: 1000000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1000000, maxLimit: 1000000, limitStep: 0, customizable: false, copayRate: 10, deductibleType: 'FIXED', deductibleValue: 10000 },
+      // Consultations : 90%, plafond 20 000 FCFA/acte
+      { category: 'CONSULTATION', limit: 240000, rate: 90, minRate: 90, maxRate: 90, minLimit: 240000, maxLimit: 240000, limitStep: 0, customizable: false, copayRate: 10 },
+      // Pharmacie : 85%, plafond 40 000 FCFA/mois (480 000/an)
+      { category: 'PHARMACY', limit: 480000, rate: 85, minRate: 85, maxRate: 85, minLimit: 480000, maxLimit: 480000, limitStep: 0, customizable: false, copayRate: 15 },
+      // Analyses & imagerie : 85%, plafond 150 000 FCFA/an
+      { category: 'LABORATORY', limit: 150000, rate: 85, minRate: 85, maxRate: 85, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 15 },
+      // Soins spécialisés : 85%, plafond 400 000 FCFA/an
+      { category: 'SPECIALIZED', limit: 400000, rate: 85, minRate: 85, maxRate: 85, minLimit: 400000, maxLimit: 400000, limitStep: 0, customizable: false, copayRate: 15 },
+      // Maternité : 85%, plafond 300 000 FCFA, carence 10 mois
+      { category: 'MATERNITY', limit: 300000, rate: 85, minRate: 85, maxRate: 85, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 15 },
+      // Dentaire : 70%, plafond 60 000 FCFA/an
+      { category: 'DENTAL', limit: 60000, rate: 70, minRate: 70, maxRate: 70, minLimit: 60000, maxLimit: 60000, limitStep: 0, customizable: false, copayRate: 30 },
+      // Optique : 60%, plafond 50 000 FCFA tous les 2 ans
+      { category: 'OPTICAL', limit: 50000, rate: 60, minRate: 60, maxRate: 60, minLimit: 50000, maxLimit: 50000, limitStep: 0, customizable: false, copayRate: 40 },
+    ],
+  });
+  console.log('Produits v2.0 crÃ©Ã©s : Essentielle, Confort, Excellence, Entreprise Performance, Entreprise Cadre/VIP');
 
   const providersData = [
     { name: 'CHU Hubert Koutoukou Maga', type: 'HOSPITAL', city: 'Cotonou', address: 'Avenue Jean-Paul II', phone: '+229 21 30 01 81', lat: 6.357, lng: 2.429, specialties: 'MÃ©decine gÃ©nÃ©rale, chirurgie, pÃ©diatrie', openingHours: '24h/24', services: 'Urgences, hospitalisation, imagerie', conventionLevel: 'PREMIUM', thirdPartyPayer: true },
@@ -458,7 +592,7 @@ async function main() {
       data: {
         number: `CTR-COLL-S${String(empIdx).padStart(3, '0')}`,
         kind: 'INDIVIDUAL', status: 'ACTIVE',
-        principalUserId: user.id, productId: prodEntreprise.id, companyId: company1.id,
+        principalUserId: user.id, productId: prodEntreprisePerf.id, companyId: company1.id,
         startDate: groupStart, endDate: groupEnd, premiumAnnual: 0, frequency: 'QUARTERLY',
         quote: JSON.stringify({ viaGroup: 'collectif' }), cardToken: `tok_emp${empIdx}_demo`,
       },
@@ -469,7 +603,7 @@ async function main() {
     data: {
       number: 'CTR-COLLECTIF-001',
       kind: 'GROUP', status: 'ACTIVE',
-      principalUserId: companyAdmin.id, productId: prodEntreprise.id, companyId: company1.id,
+      principalUserId: companyAdmin.id, productId: prodEntreprisePerf.id, companyId: company1.id,
       startDate: groupStart, endDate: groupEnd,
       premiumAnnual: 330000, frequency: 'QUARTERLY',
       quote: JSON.stringify({ lines: [{ label: 'SalariÃ©s assurÃ©s (6)', amount: 330000 }], employeesCount: 6, periodicAmount: 84150 }),
@@ -557,7 +691,7 @@ async function main() {
       reference: 'SIN-2026-A00004', contractId: jeanContract.id, claimantUserId: jean.id, beneficiaryId: sylvie!.id,
       careDate: daysFromNow(-100), status: 'REJECTED', submittedAt: daysFromNow(-98), decidedAt: daysFromNow(-92),
       totalRequested: 120000, totalApproved: 0,
-      decisionNote: 'Prestation hors garanties du contrat (soins dentaires exclus par la formule Confort).',
+      decisionNote: "Prestation hors garanties du contrat (soins dentaires exclus par la formule Santé Confort v2.0).",
       items: { create: [{ categoryLabel: 'DENTAL', amountRequested: 120000 }] },
     },
   });
@@ -674,8 +808,8 @@ async function main() {
   console.log('  gestionnaire@santeplus.bj  Gestionnaire assurance');
   console.log('  support@santeplus.bj       Agent support');
   console.log('  entreprise@santeplus.bj    Admin entreprise SOTRABEN');
-  console.log('  jean@demo.bj               AssurÃ© (formule Confort)');
-  console.log('  fatou@demo.bj              AssurÃ©e (formule Essentielle)');
+  console.log('  jean@demo.bj               AssurÃ© (SantÃ© Confort v2.0)');
+  console.log('  fatou@demo.bj              AssurÃ©e (SantÃ© Essentielle v2.0)');
   console.log('  kossi@demo.bj              AssurÃ© (souscription Ã  payer)');
   console.log('  prestataire@santeplus.bj   Prestataire (vÃ©rification QR)');
 }

@@ -14,7 +14,8 @@ export default function Offers() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="text-2xl sm:text-3xl font-bold text-center">Choisissez votre formule</h1>
-      <p className="mt-2 text-center text-slate-500">Cotisation annuelle pour l’assuré principal. Conjoint et enfants en supplément.</p>
+      <p className="mt-2 text-center text-stone">Cotisation annuelle pour l'assuré principal. Conjoint et enfants en supplément.</p>
+      <div className="mt-2 text-center"><Link to="/cga" className="font-mono text-xs font-bold uppercase tracking-widest text-brand-700 hover:underline">📋 Consulter les Conditions Générales →</Link></div>
 
       <div className="mt-8 space-y-4">
         {products.map(p => (

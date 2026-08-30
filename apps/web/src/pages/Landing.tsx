@@ -23,7 +23,9 @@ export default function Landing() {
     api.get<any[]>('/providers').then(p => setProviderCount(p.length)).catch(() => {});
   }, []);
 
-  const simProduct = products[simIndex] || products[1] || products[0];
+  // Filtrer les produits individuels (pas entreprise)
+  const individualProducts = products.filter(p => p.clientType === 'INDIVIDUAL');
+  const simProduct = individualProducts[simIndex] || individualProducts[1] || individualProducts[0];
   const simTotal = simProduct
     ? Math.round(simProduct.basePremiumAnnual + Math.max(0, adults - 1) * (simProduct.pricePerAdditionalAdultAnnual || 0) + children * (simProduct.pricePerChildAnnual || 0))
     : 0;
@@ -98,14 +100,14 @@ export default function Landing() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-2">
-                  {products.slice(0, 3).map((p, i) => (
+                <div className="mt-4 flex gap-1.5">
+                  {individualProducts.map((p, i) => (
                     <button
                       key={p.id}
                       onClick={() => setSimIndex(i)}
-                      className={`flex-1 rounded-full px-3 py-2 text-xs font-bold transition ${simIndex === i ? 'bg-ink text-white' : 'bg-mist text-stone hover:bg-ink/10'}`}
+                      className={`flex-1 rounded-full px-2 py-1.5 text-[10px] font-bold transition ${simIndex === i ? 'bg-ink text-white' : 'bg-mist text-stone hover:bg-ink/10'}`}
                     >
-                      {p.name.replace('Formule ', '')}
+                      {p.name.replace('Santé ', '').replace('Formule ', '')}
                     </button>
                   ))}
                 </div>
@@ -175,15 +177,17 @@ export default function Landing() {
       {/* FORMULES */}
       <section id="offres" className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
         <div className="text-center">
-          <p className="eyebrow">Formules</p>
+          <p className="eyebrow">Formules individuelles</p>
           <h2 className="mt-2 font-display text-3xl sm:text-[38px] font-bold">Une protection à votre mesure</h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-stone">Trois niveaux, mêmes fondamentaux : transparence des garanties, plafonds clairs, aucun frais caché.</p>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-stone">Trois niveaux de couverture, mêmes fondamentaux : transparence, plafonds clairs, aucun frais caché.</p>
         </div>
         <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {products.map((p, i) => (
-            <div key={p.id} className={`group relative flex flex-col overflow-hidden rounded-[24px] border bg-white p-6 shadow-[0_8px_30px_rgba(15,30,46,0.06)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,30,46,0.10)] ${i === 1 ? 'border-ink ring-[1.5px] ring-ink' : 'border-mist'}`}>
-              {i === 1 && <div className="absolute left-0 right-0 top-0 h-[10px]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='12' viewBox='0 0 24 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6 L6 0 L12 6 L18 0 L24 6 L18 12 L12 6 L6 12 Z' fill='%23C2512F'/%3E%3C/svg%3E")`, backgroundSize: '24px 12px' }} />}
-              {i === 1 && <span className="absolute right-4 top-4 rounded-full bg-laterite-600 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white">Populaire</span>}
+          {individualProducts.map((p, i) => {
+            const isPopular = p.code === 'CONF';
+            return (
+            <div key={p.id} className={`group relative flex flex-col overflow-hidden rounded-[24px] border bg-white p-6 shadow-[0_8px_30px_rgba(15,30,46,0.06)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,30,46,0.10)] ${isPopular ? 'border-ink ring-[1.5px] ring-ink' : 'border-mist'}`}>
+              {isPopular && <div className="absolute left-0 right-0 top-0 h-[10px]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='12' viewBox='0 0 24 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6 L6 0 L12 6 L18 0 L24 6 L18 12 L12 6 L6 12 Z' fill='%23C2512F'/%3E%3C/svg%3E")`, backgroundSize: '24px 12px' }} />}
+              {isPopular && <span className="absolute right-4 top-4 rounded-full bg-laterite-600 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white">Populaire</span>}
               <h3 className="font-display text-xl font-bold leading-tight">{p.name}</h3>
               <p className="mt-2 min-h-[44px] text-sm leading-relaxed text-stone">{p.description}</p>
               <div className="mt-5 rounded-2xl bg-sand p-4">
@@ -199,10 +203,16 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link to="/offres" className={`mt-6 w-full ${i === 1 ? 'btn-primary rounded-full' : 'btn-outline rounded-full'}`}>Voir la formule</Link>
+              <Link to="/offres" className={`mt-6 w-full ${isPopular ? 'btn-primary rounded-full' : 'btn-outline rounded-full'}`}>Voir la formule</Link>
               <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-stone/60">Sans engagement · Détails à l’étape suivante</p>
             </div>
-          ))}
+            );
+          })}
+        </div>
+        <div className="mt-8 text-center">
+          <Link to="/cga" className="font-mono text-xs font-bold uppercase tracking-widest text-brand-700 hover:text-brand-800 hover:underline">
+            📋 Voir tous les barèmes et conditions générales →
+          </Link>
         </div>
       </section>
 

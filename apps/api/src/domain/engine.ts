@@ -392,6 +392,12 @@ export interface ClaimCtx {
   globalAnnualCap?: number;
   /** Dépense totale déjà consommée sur l'année (toutes catégories) */
   usedGlobal?: number;
+  /** Délais de carence spécifiques par catégorie (jours). Si défini, remplace waitingPeriodDays pour cette catégorie. Ex: { MATERNITY: 300 } = 10 mois pour maternité */
+  categoryWaitingPeriods?: Record<string, number>;
+  /** Nombre de consultations spécialiste déjà utilisées cette année */
+  specialistConsultationsUsed?: number;
+  /** Nombre maximum de consultations spécialiste par an (null = pas de limite) */
+  specialistConsultationsPerYear?: number | null;
 }
 
 export interface ClaimItemInput {
@@ -443,12 +449,13 @@ export function estimateClaim(
     flags.push('OUT_OF_PERIOD');
     blocked = true;
   }
-  if (ctx.startDate && ctx.waitingPeriodDays > 0) {
-    const waitEnd = addDaysSafe(ctx.startDate, ctx.waitingPeriodDays);
-    if (careDate < waitEnd) {
-      flags.push(`WAITING_PERIOD:${fmt(waitEnd)}`);
-      blocked = true;
-    }
+  // Délai de carence global (par défaut)
+  const defaultWaitEnd = ctx.startDate && ctx.waitingPeriodDays > 0
+    ? addDaysSafe(ctx.startDate, ctx.waitingPeriodDays)
+    : null;
+  if (defaultWaitEnd && careDate < defaultWaitEnd) {
+    flags.push(`WAITING_PERIOD:${fmt(defaultWaitEnd)}`);
+    blocked = true;
   }
   if (duplicateSuspect) flags.push('DUPLICATE_SUSPECT');
 
@@ -489,6 +496,41 @@ export function estimateClaim(
         outOfPocket: item.amountRequested,
         reason: 'EXCLUDED',
       };
+    }
+    // Vérifier le délai de carence spécifique à la catégorie (ex: maternité 10 mois)
+    if (ctx.categoryWaitingPeriods && ctx.startDate) {
+      const catWaitDays = ctx.categoryWaitingPeriods[item.categoryId];
+      if (catWaitDays && catWaitDays > 0) {
+        const catWaitEnd = addDaysSafe(ctx.startDate, catWaitDays);
+        if (careDate < catWaitEnd) {
+          return {
+            ...item,
+            amountEligible: 0,
+            rateApplied: 0,
+            deductibleApplied: 0,
+            copayApplied: 0,
+            amountApproved: 0,
+            outOfPocket: item.amountRequested,
+            reason: 'WAITING_PERIOD' as const,
+          };
+        }
+      }
+    }
+    // Vérifier la limite de consultations spécialiste par an
+    if (ctx.specialistConsultationsPerYear != null && item.categoryId === 'SPECIALIZED') {
+      const used = ctx.specialistConsultationsUsed ?? 0;
+      if (used >= ctx.specialistConsultationsPerYear) {
+        return {
+          ...item,
+          amountEligible: 0,
+          rateApplied: rule.rate,
+          deductibleApplied: 0,
+          copayApplied: 0,
+          amountApproved: 0,
+          outOfPocket: item.amountRequested,
+          reason: 'CAP_REACHED' as const,
+        };
+      }
     }
     const used = ctx.usedPerCategory[item.categoryId] ?? 0;
     const remaining = rule.annualLimit == null ? Infinity : Math.max(0, rule.annualLimit - used);

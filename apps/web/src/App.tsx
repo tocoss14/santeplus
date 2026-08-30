@@ -40,6 +40,7 @@ import AdminRoles from './pages/admin/AdminRoles';
 import AdminAudit from './pages/admin/AdminAudit';
 import AdminTechnicalResult from './pages/admin/AdminTechnicalResult';
 import RegisterProvider from './pages/RegisterProvider';
+import CGA from './pages/CGA';
 import VerifyCard from './pages/provider/VerifyCard';
 import ProviderDashboard from './pages/provider/ProviderDashboard';
 import ProviderConsultations from './pages/provider/ProviderConsultations';
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/offres" element={<Offers />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/cga" element={<CGA />} />
       </Route>
 
       <Route path="/app" element={<Require roles={['MEMBER']}><AppLayout /></Require>}>

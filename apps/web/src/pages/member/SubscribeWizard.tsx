@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
 import { Badge, ErrorBanner, Field, Spinner } from '../../components/ui';
+import FormulaComparisonTable from '../../components/FormulaComparisonTable';
 
 interface BenefDraft {
   firstName: string;
@@ -317,27 +318,14 @@ export default function SubscribeWizard() {
 
       <ErrorBanner message={error} />
 
-      {/* Étape 1 : Formule */}
+      {/* Étape 1 : Formule — Tableau comparatif */}
       {step === 0 && (
-        <div className="space-y-3">
-          {products.map(p => (
-            <button
-              key={p.id}
-              onClick={() => { setProductId(p.id); setFrequency('ANNUAL'); setSelectedGuarantees([]); }}
-              className={`card-p w-full text-left transition ${productId === p.id ? 'ring-2 ring-brand-600 bg-brand-50/40' : 'hover:border-brand-300'}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-bold">{p.name}</p>
-                  <p className="mt-0.5 text-sm text-slate-500 line-clamp-2">{p.description}</p>
-                  <p className="mt-1.5 text-xs text-slate-400">
-                    {p.guarantees.map((g: any) => CATEGORY_LABELS[g.guarantee.category]).join(' · ')}
-                  </p>
-                </div>
-                <Badge tone={productId === p.id ? 'bg-brand-600 text-white' : ''}>{fcfa(Math.round(p.basePremiumAnnual / 12))}/mois</Badge>
-              </div>
-            </button>
-          ))}
+        <div className="space-y-4">
+          <FormulaComparisonTable
+            products={products}
+            selectedId={productId}
+            onSelect={id => { setProductId(id); setSelectedGuarantees([]); }}
+          />
           <Field label="Fréquence de paiement">
             <select className="input" value={frequency} onChange={e => setFrequency(e.target.value)}>
               <option value="ANNUAL">Annuel (meilleur tarif)</option>
@@ -345,7 +333,9 @@ export default function SubscribeWizard() {
               <option value="MONTHLY">Mensuel</option>
             </select>
           </Field>
-          <button onClick={goStep2} disabled={!productId} className="btn-primary w-full">Continuer</button>
+          <button onClick={goStep2} disabled={!productId} className="btn-primary w-full">
+            {productId ? `Choisir ${products.find(p => p.id === productId)?.name ?? ''}` : 'Sélectionnez une formule ci-dessus'}
+          </button>
         </div>
       )}
 

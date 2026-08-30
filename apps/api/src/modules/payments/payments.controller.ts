@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Optional, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
 import { CurrentUser } from '../../common/decorators';
@@ -11,6 +11,7 @@ import { config } from '../../config';
 import { getProvider, getProviders } from './providers';
 import { extractCinetpayReference, extractFedapayTransactionId } from '../../domain/payment-mapping';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { AccountingService, AccountingModule } from '../accounting/accounting.controller';
 
 const initiateSchema = z.object({
   contractId: z.string().min(5),
@@ -28,6 +29,7 @@ export class PaymentsService {
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
+    @Optional() private accounting?: AccountingService,
   ) {}
 
   methods() {
@@ -154,6 +156,8 @@ export class PaymentsService {
       await this.notify(contract.principalUserId, 'PAYMENT_CONFIRMED',
         `Paiement reçu : ${payment.amount} FCFA`,
         `Référence ${payment.reference}. Merci pour votre paiement.`);
+      // Compta technique
+      try { await this.accounting?.recordPremium(succeeded); } catch {}
     }
     return { ok: true, status: succeeded.status };
   }
@@ -299,5 +303,5 @@ export class PaymentsController {
   }
 }
 
-@Module({ controllers: [PaymentsController], providers: [PaymentsService] })
+@Module({ imports: [AccountingModule], controllers: [PaymentsController], providers: [PaymentsService] })
 export class PaymentsModule {}

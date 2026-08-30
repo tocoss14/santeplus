@@ -60,6 +60,11 @@ async function main() {
     prisma.provider.deleteMany(),
     prisma.refreshToken.deleteMany(),
     prisma.distributor.deleteMany(),
+    prisma.accountingEntry.deleteMany(),
+    prisma.account.deleteMany(),
+    prisma.journal.deleteMany(),
+    prisma.branch.deleteMany(),
+    prisma.disease.deleteMany(),
     prisma.user.deleteMany(),
     prisma.company.deleteMany(),
     prisma.act.deleteMany(),
@@ -89,6 +94,48 @@ async function main() {
   }
   console.log('RÃ´les et configuration OK');
 
+  // Branches & plan comptable OHADA
+  const branchMal = await prisma.branch.create({ data: { code: 'MAL', name: 'Maladie', description: 'Assurance maladie / santé', sortOrder: 1 } });
+  await prisma.branch.createMany({
+    data: [
+      { code: 'PREV', name: 'Prévoyance', description: 'Décès, invalidité', sortOrder: 2 },
+      { code: 'MAT', name: 'Maternité', description: 'Maternité isolée', sortOrder: 3 },
+    ],
+    skipDuplicates: true,
+  });
+  await prisma.journal.createMany({
+    data: [{ code: 'OD', name: 'Opérations diverses' }, { code: 'BQ', name: 'Banque' }],
+    skipDuplicates: true,
+  });
+  await prisma.account.createMany({
+    data: [
+      { code: '702100', name: 'Primes émises — Santé', type: 'REVENUE', sortOrder: 1 },
+      { code: '603100', name: 'Sinistres payés — Santé', type: 'EXPENSE', sortOrder: 2 },
+      { code: '395000', name: 'Provisions sinistres à payer', type: 'PROVISION', sortOrder: 3 },
+      { code: '512000', name: 'Banque', type: 'ASSET', sortOrder: 4 },
+      { code: '411100', name: 'Assurés — créances primes', type: 'ASSET', sortOrder: 5 },
+      { code: '401100', name: 'Prestataires — dettes sinistres', type: 'LIABILITY', sortOrder: 6 },
+      { code: '706100', name: 'Frais d’adhésion', type: 'REVENUE', sortOrder: 7 },
+    ],
+    skipDuplicates: true,
+  });
+  await prisma.disease.createMany({
+    data: [
+      { code: 'B54', name: 'Paludisme, sans précision', category: 'Infectieux' },
+      { code: 'A09', name: 'Diarrhée et gastro-entérite', category: 'Infectieux' },
+      { code: 'J06', name: 'Infection aiguë des voies respiratoires', category: 'Respiratoire' },
+      { code: 'I10', name: 'Hypertension essentielle', category: 'Cardio' },
+      { code: 'E11', name: 'Diabète sucré type 2', category: 'Métabolique' },
+      { code: 'O80', name: 'Accouchement unique spontané', category: 'Maternité' },
+      { code: 'K02', name: 'Carie dentaire', category: 'Dentaire' },
+      { code: 'H52', name: 'Troubles de la réfraction (optique)', category: 'Optique' },
+      { code: 'S09', name: 'Lésion traumatique tête', category: 'Trauma' },
+      { code: 'N39', name: 'Infection urinaire', category: 'Uro' },
+    ],
+    skipDuplicates: true,
+  });
+  console.log('Branches, plan comptable et maladies OK');
+
   const guaranteesData = [
     { code: 'HOSP', name: 'Hospitalisation', category: 'HOSPITALIZATION', sortOrder: 1, basePrice: 25000 },
     { code: 'CONS', name: 'Consultations', category: 'CONSULTATION', sortOrder: 2, basePrice: 8000 },
@@ -114,6 +161,7 @@ async function main() {
 
   async function createProduct(data: any) {
     const { guarantees: gs, exclusions, ...rest } = data;
+    if (!rest.branchId) rest.branchId = branchMal.id;
     return prisma.product.create({
       data: {
         ...rest,

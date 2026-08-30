@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Post, Query, UploadedFiles } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Optional, Param, Post, Query, UploadedFiles } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
@@ -12,6 +12,7 @@ import { sha256 } from '../../common/crypto';
 import { estimateClaim, CoverageRule, EstimationResult, CLAIM_STATUSES_CONSUMING_CAPS } from '../../domain/engine';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { StorageService, FilesModule } from '../files/files.service';
+import { AccountingModule, AccountingService } from '../accounting/accounting.controller';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
 
@@ -176,6 +177,7 @@ export class ClaimsController {
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
     private storage: StorageService,
+    @Optional() private accounting?: AccountingService,
   ) {}
 
   @Get('claims/categories')
@@ -492,8 +494,9 @@ export class ClaimsController {
   @RequirePermissions('payments.manage')
   async markPaid(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ paidRef: z.string().min(2).max(60).optional() }))) dto: any) {
     const claim = await this.decisionGuard(id, ['APPROVED', 'PARTIALLY_APPROVED']);
-    await this.prisma.claim.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), paidRef: dto.paidRef ?? null, decidedById: claim.decidedById ?? auth.id, decidedAt: claim.decidedAt ?? new Date() } });
+    const updated = await this.prisma.claim.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), paidRef: dto.paidRef ?? null, decidedById: claim.decidedById ?? auth.id, decidedAt: claim.decidedAt ?? new Date() } });
     await this.notifyClaimant(claim.claimantUserId, claim.reference, 'Remboursement payÃ©', `Le paiement de ${claim.totalApproved} FCFA a Ã©tÃ© effectuÃ©.`);
+    try { await this.accounting?.recordSinistre({ ...claim, ...updated }); } catch {}
     return { ok: true };
   }
 
@@ -593,7 +596,7 @@ export class ClaimsController {
 @Module({
   controllers: [ClaimsController],
   providers: [ClaimsService],
-  imports: [FilesModule],
+  imports: [FilesModule, AccountingModule],
   exports: [ClaimsService],
 })
 export class ClaimsModule {}

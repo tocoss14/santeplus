@@ -132,6 +132,8 @@ model Product {
   thirdPartyAuthThreshold Int?
   insurerPartnerId String?
   insurerPartner   InsurerPartner? @relation(fields: [insurerPartnerId], references: [id])
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -333,6 +335,8 @@ model Claim {
   emergencyActorId       String?
   emergencyAt            DateTime?
   authorizedAmount       Int?
+  diseaseId String?
+  disease   Disease? @relation(fields: [diseaseId], references: [id])
 
   items     ClaimItem[]
   documents ClaimDocument[]
@@ -350,6 +354,7 @@ model Claim {
   @@index([claimantUserId])
   @@index([contractId])
   @@index([kind, status])
+  @@index([diseaseId])
 }
 
 model ClaimItem {
@@ -789,4 +794,69 @@ model CareRecordEvent {
 
   @@index([careRecordId])
   @@index([type])
+}
+
+// ── Comptabilité technique OHADA ──
+model Account {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  name      String
+  type      String
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  entries   AccountingEntry[]
+}
+
+model Journal {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  name      String
+  createdAt DateTime @default(now())
+  entries   AccountingEntry[]
+}
+
+model AccountingEntry {
+  id            String   @id @default(cuid())
+  journalId     String
+  journal       Journal  @relation(fields: [journalId], references: [id])
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id])
+  date          DateTime @default(now())
+  label         String
+  debit         Int      @default(0)
+  credit        Int      @default(0)
+  referenceType String?
+  referenceId   String?
+  period        String?
+  createdAt     DateTime @default(now())
+
+  @@index([journalId])
+  @@index([accountId])
+  @@index([date])
+  @@index([referenceType, referenceId])
+  @@index([period])
+}
+
+// ── Référentiels Branchen / Maladies / Panier ──
+model Branch {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+  products    Product[]
+  createdAt   DateTime @default(now())
+}
+
+model Disease {
+  id        String  @id @default(cuid())
+  code      String  @unique // CIM-10
+  name      String
+  category  String?
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+  claims    Claim[]
 }

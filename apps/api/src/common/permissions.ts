@@ -20,6 +20,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'audit.view': "Journal d'audit",
   'roles.manage': 'GÃ©rer les rÃ´les et permissions',
   'config.manage': 'ParamÃ¨tres systÃ¨me',
+  'accounting.view': 'Comptabilité technique',
+  'referential.manage': 'Gérer branches et maladies',
   'company.dashboard': 'Tableau de bord entreprise',
   'company.employees.manage': 'GÃ©rer les salariÃ©s',
   'company.claims.view': 'Suivre la sinistralitÃ© salariÃ©s',
@@ -36,7 +38,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
   INSURANCE_MANAGER: [
     'members.read', 'members.manage', 'companies.read', 'providers.read', 'providers.manage',
     'contracts.viewAll', 'contracts.manage', 'claims.viewAll', 'claims.decide',
-    'payments.viewAll', 'payments.manage', 'stats.admin',
+    'payments.viewAll', 'payments.manage', 'stats.admin', 'accounting.view', 'referential.manage',
   ],
   SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
   COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],

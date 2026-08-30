@@ -25,6 +25,8 @@ import { DocumentsModule } from './modules/documents/documents.controller';
 import { OfflineModule } from './modules/offline/offline.controller';
 import { DistributorsModule } from './modules/distributors/distributors.controller';
 import { CommissionsModule } from './modules/commissions/commissions.controller';
+import { AccountingModule } from './modules/accounting/accounting.controller';
+import { ReferentialModule } from './modules/referential/referential.controller';
 import { CronService } from './jobs/cron.service';
 import { RenewalAlertJob } from './jobs/renewal-alert.job';
 import { FraudDetectionJob } from './jobs/fraud-detection.job';
@@ -56,6 +58,8 @@ import { PaymentReminderJob } from './jobs/payment-reminder.job';
     OfflineModule,
     DistributorsModule,
     CommissionsModule,
+    AccountingModule,
+    ReferentialModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

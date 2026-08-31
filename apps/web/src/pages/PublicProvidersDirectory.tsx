@@ -136,36 +136,43 @@ export default function PublicProvidersDirectory() {
         ) : (
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map(p => (
-              <li key={p.id} className="group relative card-wax rounded-[20px] p-5 shadow-[0_4px_20px_rgba(15,30,46,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,30,46,0.08)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-display font-bold leading-tight">{p.name}</p>
-                    <p className="mt-1 text-xs text-stone">{PROVIDER_TYPES[p.type]} · {p.city}</p>
-                    <p className="mt-1 text-xs text-stone truncate">{p.address}</p>
-                    {p.specialties && <p className="mt-0.5 text-xs text-stone truncate">🩺 {p.specialties}</p>}
-                    <p className="mt-0.5 text-xs text-stone">🕒 {p.openingHours ?? '—'}</p>
-                    {p.phone && <p className="mt-0.5 text-xs font-medium text-ink">📞 {p.phone}</p>}
+              <li key={p.id} className="group relative card-wax overflow-hidden rounded-[20px] shadow-[0_4px_20px_rgba(15,30,46,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,30,46,0.08)]">
+                {p.photoUrl ? (
+                  <img src={p.photoUrl} alt={p.name} className="h-36 w-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="grid h-36 w-full place-items-center bg-sand text-2xl">🏥</div>
+                )}
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-display font-bold leading-tight">{p.name}</p>
+                      <p className="mt-1 text-xs text-stone">{PROVIDER_TYPES[p.type]} · {p.city}</p>
+                      <p className="mt-1 text-xs text-stone truncate">{p.address}</p>
+                      {p.specialties && <p className="mt-0.5 text-xs text-stone truncate">🩺 {p.specialties}</p>}
+                      <p className="mt-0.5 text-xs text-stone">🕒 {p.openingHours ?? '—'}</p>
+                      {p.phone && <p className="mt-0.5 text-xs font-medium text-ink">📞 {p.phone}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      {p.conventionLevel && (
+                        <span className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-bold ${CONVENTION_COLORS[p.conventionLevel] || 'bg-sand text-ink'}`}>
+                          {p.conventionLevel}
+                        </span>
+                      )}
+                      {p.thirdPartyPayer && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-1 font-mono text-[10px] font-bold text-emerald-700">Tiers payant</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    {p.conventionLevel && (
-                      <span className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-bold ${CONVENTION_COLORS[p.conventionLevel] || 'bg-sand text-ink'}`}>
-                        {p.conventionLevel}
-                      </span>
-                    )}
-                    {p.thirdPartyPayer && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-1 font-mono text-[10px] font-bold text-emerald-700">Tiers payant</span>
-                    )}
+                  <div className="mt-3 flex items-center gap-3">
+                    <a
+                      className="flex-1 rounded-full border border-mist bg-white py-2 text-center text-xs font-bold text-ink transition hover:border-ink/20"
+                      target="_blank"
+                      rel="noreferrer"
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.name} ${p.city}`)}`}
+                    >
+                      Itinéraire ↗
+                    </a>
                   </div>
-                </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <a
-                    className="flex-1 rounded-full border border-mist bg-white py-2 text-center text-xs font-bold text-ink transition hover:border-ink/20"
-                    target="_blank"
-                    rel="noreferrer"
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.name} ${p.city}`)}`}
-                  >
-                    Itinéraire ↗
-                  </a>
                 </div>
               </li>
             ))}

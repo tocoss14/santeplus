@@ -433,6 +433,7 @@ model Provider {
   status          String  @default("ACTIVE")
   notes           String?
   active          Boolean @default(true)
+  photoUrl        String?
   // Champs inscription publique
   registrationStatus String @default("")  // PENDING_REGISTRATION, DOCUMENTS_REVIEWED, APPROVED, REJECTED
   registrationNote   String?

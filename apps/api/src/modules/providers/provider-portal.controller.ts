@@ -1,5 +1,5 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Query, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuditInterceptor } from '../../common/audit.interceptor';
 import { AuthUser } from '../../common/guards/jwt-auth.guard';
@@ -158,6 +158,7 @@ export class ProviderPortalController {
         conventionLevel: establishment.conventionLevel,
         thirdPartyPayer: establishment.thirdPartyPayer,
         partnerStatus: establishment.partnerStatus,
+        photoUrl: (establishment as any).photoUrl ?? null,
       },
     };
   }
@@ -175,6 +176,21 @@ export class ProviderPortalController {
     const { establishment } = await this.portal.requireEstablishmentAdmin(auth);
     await this.prisma.provider.update({ where: { id: establishment.id }, data: dto });
     return { ok: true };
+  }
+
+  @Post('me/photo')
+  @RequirePermissions('provider.staff')
+  @UseInterceptors(FileInterceptor('photo'))
+  async uploadPhoto(@CurrentUser() auth: AuthUser, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Photo requise');
+    const { establishment } = await this.portal.requireEstablishmentAdmin(auth);
+    const saved = await this.storage.save(auth.id, file);
+    const fileObj = await this.prisma.fileObject.create({
+      data: { storagePath: saved.storagePath, mime: saved.mime, size: saved.size, sha256: saved.sha256, ownerId: auth.id, documentType: 'PROVIDER_PHOTO', tags: JSON.stringify(['provider', establishment.id]) },
+    });
+    const url = `/api/files/${fileObj.id}/view`;
+    await this.prisma.provider.update({ where: { id: establishment.id }, data: { photoUrl: url } });
+    return { photoUrl: url, fileId: fileObj.id };
   }
 
   @Get('acts')

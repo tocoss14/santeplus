@@ -3,7 +3,7 @@ import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { Response } from 'express';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { AuthUser, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { AuthUser, JwtAuthGuard, Public } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators';
 import { PrismaService } from '../../common/prisma.module';
 import { config } from '../../config';
@@ -70,18 +70,23 @@ export class StorageService {
   async open(auth: AuthUser, fileId: string, res: Response) {
     const f = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
     if (!f) throw new NotFoundException('Fichier introuvable');
-    const isStaff = ['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT'].includes(auth.role);
-    if (f.ownerId !== auth.id && !isStaff) {
-      const doc = await this.prisma.claimDocument.findFirst({
-        where: { fileId },
-        select: { claim: { select: { claimantUserId: true, contract: { select: { principalUserId: true, companyId: true } } } } },
-      });
-      const allowed =
-        doc &&
-        (doc.claim.claimantUserId === auth.id ||
-          doc.claim.contract.principalUserId === auth.id ||
-          (auth.role === 'COMPANY_ADMIN' && auth.companyId && doc.claim.contract.companyId === auth.companyId));
-      if (!allowed) throw new ForbiddenException();
+    // Provider photos are public
+    if ((f as any).documentType === 'PROVIDER_PHOTO') {
+      // allow public
+    } else {
+      const isStaff = auth && ['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT'].includes(auth.role);
+      if (f.ownerId !== auth?.id && !isStaff) {
+        const doc = await this.prisma.claimDocument.findFirst({
+          where: { fileId },
+          select: { claim: { select: { claimantUserId: true, contract: { select: { principalUserId: true, companyId: true } } } } },
+        });
+        const allowed =
+          doc &&
+          (doc.claim.claimantUserId === auth?.id ||
+            doc.claim.contract.principalUserId === auth?.id ||
+            (auth?.role === 'COMPANY_ADMIN' && auth?.companyId && doc.claim.contract.companyId === auth.companyId));
+        if (!allowed) throw new ForbiddenException();
+      }
     }
     res.setHeader('Content-Type', f.mime);
     res.setHeader('Content-Disposition', `inline; filename="${f.storagePath}"`);
@@ -104,8 +109,9 @@ export class FilesController {
   constructor(private storage: StorageService, private prisma: PrismaService) {}
 
   @Get('files/:id/view')
+  @Public()
   view(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Res() res: Response) {
-    return this.storage.open(auth, id, res);
+    return this.storage.open(auth ?? { id: '', role: '', providerId: null, companyId: null } as any, id, res);
   }
 
   @Get('admin/documents')

@@ -65,6 +65,10 @@ export default function Landing() {
                 <span className="text-white/20">·</span>
                 <span>Résiliable à l’échéance</span>
               </div>
+              <div className="mt-8 overflow-hidden rounded-[20px] border border-white/10 bg-white/5 backdrop-blur">
+                <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800&h=500&fit=crop" alt="Famille protégée SantéPlus" className="h-48 w-full object-cover sm:h-56" loading="lazy" />
+                <div className="px-4 py-2.5 text-center font-mono text-[10px] uppercase tracking-widest text-white/60">Famille protégée · Soins à portée de main</div>
+              </div>
             </div>
 
             {/* right — interactive simulator card */}

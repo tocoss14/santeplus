@@ -55,6 +55,18 @@ export class StorageService {
     return { storagePath: name, mime: file.mimetype, size: file.size, sha256: hash };
   }
 
+  async saveBuffer(ownerId: string, buffer: Buffer, fileName: string, mime = 'application/pdf'): Promise<{ storagePath: string; mime: string; size: number; sha256: string }> {
+    const hash = sha256(buffer);
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${extname(fileName).slice(0, 10) || '.pdf'}`;
+    if (this.s3Enabled()) {
+      await this.client().send(new PutObjectCommand({ Bucket: config.s3Bucket, Key: name, Body: buffer, ContentType: mime }));
+    } else {
+      if (!existsSync(config.uploadsDir)) mkdirSync(config.uploadsDir, { recursive: true });
+      writeFileSync(join(config.uploadsDir, name), buffer);
+    }
+    return { storagePath: name, mime, size: buffer.length, sha256: hash };
+  }
+
   async open(auth: AuthUser, fileId: string, res: Response) {
     const f = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
     if (!f) throw new NotFoundException('Fichier introuvable');

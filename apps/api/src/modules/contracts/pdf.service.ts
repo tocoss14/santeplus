@@ -337,6 +337,63 @@ export class PdfService {
     doc.rect(0, 80, 595, 3).fill(LATERITE);
   }
 
+  async generateInvoicePdf(claimId: string): Promise<Buffer> {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+      include: {
+        items: true,
+        contract: { select: { number: true } },
+        provider: { select: { name: true, address: true, city: true, phone: true } },
+        claimantUser: { select: { firstName: true, lastName: true, memberNumber: true } },
+        beneficiary: { select: { firstName: true, lastName: true, memberNumber: true } },
+      },
+    });
+    if (!claim) throw new Error('Demande introuvable');
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    return new Promise<Buffer>((resolve) => {
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      this.drawHeader(doc, 'FACTURE PRESTATAIRE', claim.reference);
+      let y = 130;
+      doc.fontSize(9).fillColor(INK).font('Helvetica-Bold');
+      doc.text(`Prestataire : ${claim.provider?.name ?? '—'}`, 50, y);
+      doc.font('Helvetica').fontSize(8).fillColor(STONE);
+      doc.text(`${claim.provider?.address ?? ''} ${claim.provider?.city ?? ''} ${claim.provider?.phone ?? ''}`.trim(), 50, y + 14);
+      y += 30;
+      const patient = claim.beneficiary ? `${claim.beneficiary.firstName} ${claim.beneficiary.lastName} (${claim.beneficiary.memberNumber})` : `${claim.claimantUser.firstName} ${claim.claimantUser.lastName} (${claim.claimantUser.memberNumber})`;
+      doc.font('Helvetica-Bold').fillColor(INK).text('Patient', 50, y);
+      doc.font('Helvetica').fillColor(STONE).text(patient, 120, y);
+      doc.font('Helvetica-Bold').fillColor(INK).text('Contrat', 50, y + 14);
+      doc.font('Helvetica').fillColor(STONE).text(claim.contract.number, 120, y + 14);
+      doc.font('Helvetica-Bold').fillColor(INK).text('Date soins', 50, y + 28);
+      doc.font('Helvetica').fillColor(STONE).text(fmtDate(claim.careDate), 120, y + 28);
+      y += 50;
+      // Table
+      doc.fontSize(8).font('Helvetica-Bold').fillColor(WHITE);
+      doc.rect(50, y, 500, 16).fill(BRAND);
+      doc.text('Prestation', 55, y + 3, { width: 260 });
+      doc.text('Montant demandé', 320, y + 3, { width: 80 });
+      doc.text('Montant approuvé', 410, y + 3, { width: 80 });
+      y += 18;
+      doc.font('Helvetica').fontSize(8).fillColor(INK);
+      for (const it of claim.items) {
+        doc.text(it.categoryLabel, 55, y, { width: 260 });
+        doc.text(fcfa(it.amountRequested), 320, y, { width: 80 });
+        doc.text(fcfa(it.amountApproved ?? 0), 410, y, { width: 80 });
+        y += 14;
+      }
+      y += 10;
+      doc.font('Helvetica-Bold').fillColor(INK);
+      doc.text('Total approuvé', 320, y);
+      doc.text(fcfa(claim.totalApproved ?? 0), 410, y);
+      y += 20;
+      doc.fontSize(7).fillColor(STONE).text(`Facture générée le ${fmtDate(new Date())} — ${config.appUrl} — Réf claim ${claim.reference}`, 50, y);
+      this.drawFooter(doc);
+      doc.end();
+    });
+  }
+
   private drawFooter(doc: PDFKit.PDFDocument) {
     const footerY = 780;
     doc.fontSize(7).font('Helvetica').fillColor(STONE);

@@ -13,6 +13,7 @@ import { estimateClaim, CoverageRule, EstimationResult, CLAIM_STATUSES_CONSUMING
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { StorageService, FilesModule } from '../files/files.service';
 import { AccountingModule, AccountingService } from '../accounting/accounting.controller';
+import { PdfService } from '../contracts/pdf.service';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
 
@@ -178,7 +179,26 @@ export class ClaimsController {
     private dispatch: NotificationDispatchService,
     private storage: StorageService,
     @Optional() private accounting?: AccountingService,
+    @Optional() private pdf?: PdfService,
   ) {}
+
+  private async attachInvoice(claimId: string) {
+    try {
+      const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
+      if (!claim || !claim.providerId || claim.invoiceNumber) return;
+      if (!this.pdf || !this.storage) return;
+      const buf = await this.pdf.generateInvoicePdf(claimId);
+      const saved = await this.storage.saveBuffer(claim.claimantUserId, buf, `facture-${claim.reference}.pdf`);
+      const fileObj = await this.prisma.fileObject.create({
+        data: { storagePath: saved.storagePath, mime: saved.mime, size: saved.size, sha256: saved.sha256, ownerId: claim.claimantUserId, documentType: 'INVOICE', tags: JSON.stringify(['auto', 'prestataire']) },
+      });
+      await this.prisma.claimDocument.create({
+        data: { claimId, fileId: fileObj.id, docType: 'INVOICE', fileName: `facture-${claim.reference}.pdf`, mime: saved.mime, size: saved.size, sha256: saved.sha256 },
+      });
+      const invNumber = `FAC-${new Date().getFullYear()}-${claim.reference}`;
+      await this.prisma.claim.update({ where: { id: claimId }, data: { invoiceNumber: invNumber, invoicedAt: new Date() } });
+    } catch {}
+  }
 
   @Get('claims/categories')
   async categories() {
@@ -478,6 +498,8 @@ export class ClaimsController {
     await this.notifyClaimant(claim.claimantUserId, claim.reference,
       reduced ? 'Demande partiellement approuvée' : 'Demande approuvée',
       `Montant approuvé : ${totalApproved} FCFA. ${dto.note ?? ''}`);
+    // Facturation auto prestataire
+    try { if (claim.providerId) await this.attachInvoice(id); } catch {}
     return { ok: true, totalApproved };
   }
 
@@ -497,6 +519,7 @@ export class ClaimsController {
     const updated = await this.prisma.claim.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), paidRef: dto.paidRef ?? null, decidedById: claim.decidedById ?? auth.id, decidedAt: claim.decidedAt ?? new Date() } });
     await this.notifyClaimant(claim.claimantUserId, claim.reference, 'Remboursement payÃ©', `Le paiement de ${claim.totalApproved} FCFA a Ã©tÃ© effectuÃ©.`);
     try { await this.accounting?.recordSinistre({ ...claim, ...updated }); } catch {}
+    try { if (claim.providerId) await this.attachInvoice(id); } catch {}
     return { ok: true };
   }
 
@@ -595,7 +618,7 @@ export class ClaimsController {
 
 @Module({
   controllers: [ClaimsController],
-  providers: [ClaimsService],
+  providers: [ClaimsService, PdfService],
   imports: [FilesModule, AccountingModule],
   exports: [ClaimsService],
 })

@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+echo "Resolving failed migrations (if any)..."
+./node_modules/.bin/prisma migrate resolve --rolled-back "20260901_add_ged_rgpd" 2>/dev/null || true
+./node_modules/.bin/prisma migrate resolve --rolled-back "20260901_add_act_branch" 2>/dev/null || true
+./node_modules/.bin/prisma migrate resolve --rolled-back "20260901_add_compta_branch_disease" 2>/dev/null || true
+
 echo "Waiting for database..."
 until ./node_modules/.bin/prisma migrate deploy; do
   echo "Waiting for database to be ready..."

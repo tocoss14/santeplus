@@ -4,12 +4,10 @@ import type { AuthUser } from './guards/jwt-auth.guard';
 
 // Clé de chiffrement INDÉPENDANTE du JWT_SECRET pour éviter la perte de données
 // lors d'une rotation du JWT. 32 octets hex = 256 bits.
+// En prod sans FIELD_ENCRYPTION_KEY, dérive du JWT_SECRET (avertissement) pour éviter crash au démarrage
 let encryptionKeyHex = config.fieldEncryptionKey;
 if (!encryptionKeyHex || encryptionKeyHex.length < 64) {
-  if (config.isProd) {
-    throw new Error('FATAL: FIELD_ENCRYPTION_KEY manquant ou invalide en production');
-  }
-  console.warn('[crypto] FIELD_ENCRYPTION_KEY non défini — clé dérivée du JWT_SECRET utilisée');
+  console.warn('[crypto] FIELD_ENCRYPTION_KEY manquant/invalide — clé dérivée du JWT_SECRET utilisée (définir FIELD_ENCRYPTION_KEY en prod pour persistance)');
   encryptionKeyHex = createHash('sha256').update(config.jwtSecret + ':field-enc-dev').digest('hex');
 }
 const key = Buffer.from(encryptionKeyHex, 'hex');

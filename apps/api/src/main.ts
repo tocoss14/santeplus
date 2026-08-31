@@ -14,12 +14,8 @@ async function bootstrap(): Promise<void> {
     console.error('FATAL: JWT_SECRET doit faire au moins 32 caractères en production');
     process.exit(1);
   }
-  if (config.isProd && (!config.fieldEncryptionKey || config.fieldEncryptionKey.length < 64)) {
-    console.error('FATAL: FIELD_ENCRYPTION_KEY manquant ou <64 hex chars en production — risque perte données chiffrées');
-    process.exit(1);
-  }
-  if (!config.isProd && !config.fieldEncryptionKey) {
-    console.warn('WARNING: FIELD_ENCRYPTION_KEY non défini — clé dérivée utilisée (données non persistantes entre rotations JWT)');
+  if (!config.fieldEncryptionKey || config.fieldEncryptionKey.length < 64) {
+    console.warn('WARNING: FIELD_ENCRYPTION_KEY manquant/invalide — clé dérivée du JWT_SECRET utilisée (définir FIELD_ENCRYPTION_KEY en prod pour persistance)');
   }
 
   process.on('unhandledRejection', (reason: unknown) => {

@@ -13,6 +13,7 @@ export default function Register() {
   const [busy, setBusy] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [consent, setConsent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -27,6 +28,7 @@ export default function Register() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!consent) return setError('Veuillez accepter la politique de confidentialité');
     setBusy(true);
     setError(null);
     try {
@@ -39,6 +41,7 @@ export default function Register() {
         gender: form.gender || undefined,
         password: form.password,
         referralCode: referralCode || undefined,
+        consent: true,
       });
       await login(form.email, form.password);
       // Clear referral code from localStorage after successful registration
@@ -126,7 +129,11 @@ export default function Register() {
             <button type="button" onClick={() => { setReferralCode(''); localStorage.removeItem('sp_referral'); }} className="ml-2 text-xs text-stone hover:text-red-500">✕ Retirer</button>
           </div>
         )}
-        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Création…' : 'Créer mon compte'}</button>
+        <label className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed">
+          <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5" required />
+          <span>J’accepte la <Link to="/cga" className="font-semibold text-brand-700 hover:underline">politique de confidentialité</Link> et le traitement de mes données (RGPD). Conservation 10 ans, droit d’accès/suppression sur demande à support@santeplus.bj. <span className="text-red-600">*</span></span>
+        </label>
+        <button className="btn-primary w-full" disabled={busy || !consent}>{busy ? 'Création…' : 'Créer mon compte'}</button>
         <p className="mt-4 text-center text-sm text-slate-500">
           Déjà inscrit ? <Link to="/login" className="font-semibold text-brand-700 hover:underline">Se connecter</Link>
           <span className="mx-2 text-slate-300">·</span>

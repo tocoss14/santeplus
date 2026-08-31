@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /admin/
+Disallow: /entreprise/
+Disallow: /prestataire/
+Sitemap: https://santeplus.bj/sitemap.xml

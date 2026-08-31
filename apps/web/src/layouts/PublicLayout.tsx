@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth';
 import InstallPrompt from '../components/InstallPrompt';
+import CookieBanner from '../components/CookieBanner';
 
 export default function PublicLayout() {
   const { me } = useAuth();
@@ -64,6 +65,7 @@ export default function PublicLayout() {
         </div>
       </footer>
       <InstallPrompt />
+      <CookieBanner />
     </div>
   );
 }

@@ -63,6 +63,7 @@ const ProviderConsultations = lazy(() => import('./pages/provider/ProviderConsul
 const ProviderPrescriptions = lazy(() => import('./pages/provider/ProviderPrescriptions'));
 const ProviderDeliveries = lazy(() => import('./pages/provider/ProviderDeliveries'));
 const ProviderCareRecords = lazy(() => import('./pages/provider/ProviderCareRecords'));
+const HospitalEntente = lazy(() => import('./pages/provider/HospitalEntente'));
 const NewThirdParty = lazy(() => import('./pages/provider/NewThirdParty'));
 const TpList = lazy(() => import('./pages/provider/TpList'));
 const TpDetail = lazy(() => import('./pages/provider/TpDetail'));
@@ -157,6 +158,7 @@ export default function App() {
       <Route path="/prestataire" element={<Require roles={['PROVIDER', 'SUPER_ADMIN']}><AppLayout variant="provider" /></Require>}>
         <Route index element={<Lazy><ProviderDashboard /></Lazy>} />
         <Route path="verifier" element={<Lazy><VerifyCard /></Lazy>} />
+        <Route path="hospitalisation" element={<Lazy><HospitalEntente /></Lazy>} />
         <Route path="nouvelle" element={<Lazy><NewThirdParty /></Lazy>} />
         <Route path="activite" element={<Lazy><ProviderActivity /></Lazy>} />
         <Route path="consultations" element={<Lazy><ProviderConsultations /></Lazy>} />

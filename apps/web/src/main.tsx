@@ -5,6 +5,9 @@ import App from './App';
 import { AuthProvider } from './auth';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
+import { initSentry } from './lib/sentry';
+
+initSentry();
 
 // PWA auto-update
 if ('serviceWorker' in navigator) {

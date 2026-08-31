@@ -66,6 +66,7 @@ export class AuthService {
         gender: dto.gender ?? null,
         memberNumber: memberNumber(),
         referredById: referredById ?? null,
+        consentGivenAt: dto.consent ? new Date() : null,
       },
     });
 

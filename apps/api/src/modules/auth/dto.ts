@@ -11,6 +11,7 @@ export const registerSchema = z.object({
   birthDate: z.coerce.date().optional(),
   gender: z.enum(['M', 'F']).optional(),
   referralCode: z.string().min(2).max(20).optional(),
+  consent: z.boolean().optional(),
 });
 
 export const loginSchema = z.object({

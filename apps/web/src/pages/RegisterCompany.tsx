@@ -19,12 +19,14 @@ export default function RegisterCompany() {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [consent, setConsent] = useState(false);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f: any) => ({ ...f, [k]: e.target.value }));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!consent) return setError('Veuillez accepter la politique de confidentialité');
     setBusy(true);
     setError(null);
     try {
@@ -97,7 +99,12 @@ export default function RegisterCompany() {
           <input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} placeholder="••••••••" />
         </Field>
 
-        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Création…' : "Créer mon espace entreprise"}</button>
+        <label className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed">
+          <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5" required />
+          <span>J’accepte la <Link to="/cga" className="font-semibold text-brand-700 hover:underline">politique de confidentialité</Link> et le traitement des données entreprise (RGPD). <span className="text-red-600">*</span></span>
+        </label>
+
+        <button className="btn-primary w-full" disabled={busy || !consent}>{busy ? 'Création…' : "Créer mon espace entreprise"}</button>
 
         <p className="text-center text-sm text-slate-500">
           Déjà un espace ? <Link to="/login" className="font-semibold text-brand-700 hover:underline">Se connecter</Link>

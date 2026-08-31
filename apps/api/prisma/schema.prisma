@@ -459,6 +459,8 @@ model Act {
   code           String  @unique
   name           String
   categoryId     String
+  branchId       String?
+  branch         Branch? @relation(fields: [branchId], references: [id])
   referencePrice Int
   requiresPrescription Boolean @default(false)
   requiresPriorAuth    Boolean @default(false)
@@ -469,6 +471,7 @@ model Act {
   updatedAt      DateTime @updatedAt
 
   @@index([categoryId])
+  @@index([branchId])
   @@index([active])
 }
 
@@ -855,6 +858,7 @@ model Branch {
   active      Boolean @default(true)
   sortOrder   Int     @default(0)
   products    Product[]
+  acts        Act[]
   createdAt   DateTime @default(now())
 }
 

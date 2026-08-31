@@ -6,12 +6,20 @@ import { ErrorBanner, Field, Spinner } from '../../components/ui';
 export default function AdminActs() {
   const [items, setItems] = useState<any[] | null>(null);
   const [q, setQ] = useState('');
+  const [branch, setBranch] = useState('');
+  const [branches, setBranches] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, string>>({});
 
+  useEffect(() => { api.get<any[]>('/branches').then(setBranches).catch(() => {}); }, []);
+
   const load = async () => {
     try {
-      const data = await api.get<any[]>(`/admin/acts${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (branch) params.set('branchId', branch);
+      const qs = params.toString();
+      const data = await api.get<any[]>(`/admin/acts${qs ? `?${qs}` : ''}`);
       setItems(data);
     } catch (e: any) {
       setError(e?.message ?? 'Erreur chargement');
@@ -20,11 +28,11 @@ export default function AdminActs() {
   };
 
   useEffect(() => { void load(); }, []);
-  // reload on q debounce
+  // reload on q/branch debounce
   useEffect(() => {
     const t = setTimeout(() => { void load(); }, 300);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, branch]);
 
   async function saveThreshold(act: any) {
     const raw = editing[act.id] ?? (act.authThreshold != null ? String(act.authThreshold) : '');
@@ -44,8 +52,12 @@ export default function AdminActs() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold mr-auto">Actes & seuils d’autorisation</h1>
+        <select className="input w-auto" value={branch} onChange={e => setBranch(e.target.value)}>
+          <option value="">Toutes branches</option>
+          {branches.map((b: any) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
+        </select>
         <input className="input max-w-xs" placeholder="Rechercher code / nom" value={q} onChange={e => setQ(e.target.value)} />
       </div>
       <ErrorBanner message={error} />

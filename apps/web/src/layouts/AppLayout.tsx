@@ -54,6 +54,7 @@ const MENUS: Record<string, { items: Item[] }> = {
     items: [
       { to: '/prestataire', label: 'Tableau de bord', icon: '📊', end: true },
       { to: '/prestataire/verifier', label: 'Vérifier', icon: '🪪' },
+      { to: '/prestataire/hospitalisation', label: 'Hospitalisation', icon: '🏥' },
       { to: '/prestataire/prises', label: 'Prises en charge', icon: '➕' },
       { to: '/prestataire/activite', label: 'Activité', icon: '🩺' },
       { to: '/prestataire/etablissement', label: 'Établissement', icon: '🏥' },

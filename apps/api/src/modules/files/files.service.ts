@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Res } from '@nestjs/common';
+import { BadRequestException, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Query, Res } from '@nestjs/common';
 import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { Response } from 'express';
@@ -8,6 +8,7 @@ import { CurrentUser } from '../../common/decorators';
 import { PrismaService } from '../../common/prisma.module';
 import { config } from '../../config';
 import { sha256 } from '../../common/crypto';
+import { RequirePermissions } from '../../common/guards/permissions.guard';
 
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_SIZE = 8 * 1024 * 1024;
@@ -35,7 +36,7 @@ export class StorageService {
     return this.s3;
   }
 
-  async save(ownerId: string, file: Express.Multer.File): Promise<{ storagePath: string; mime: string; size: number; sha256: string }> {
+  async save(ownerId: string, file: Express.Multer.File, opts?: { documentType?: string; tags?: string[] }): Promise<{ storagePath: string; mime: string; size: number; sha256: string }> {
     if (!ALLOWED_MIMES.includes(file.mimetype)) throw new BadRequestException('Format non autorisé (JPEG, PNG, WebP, PDF)');
     if (file.size > MAX_SIZE) throw new BadRequestException('Fichier trop volumineux (max 8 Mo)');
     const hash = sha256(file.buffer);
@@ -86,13 +87,27 @@ export class StorageService {
   constructor(private prisma: PrismaService) {}
 }
 
-@Controller('files')
+@Controller()
 export class FilesController {
-  constructor(private storage: StorageService) {}
+  constructor(private storage: StorageService, private prisma: PrismaService) {}
 
-  @Get(':id/view')
+  @Get('files/:id/view')
   view(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Res() res: Response) {
     return this.storage.open(auth, id, res);
+  }
+
+  @Get('admin/documents')
+  @RequirePermissions('members.read')
+  async adminDocs(@Query('q') q?: string, @Query('documentType') documentType?: string, @Query('page') page = '1') {
+    const where: any = {};
+    if (q) where.OR = [{ storagePath: { contains: q } }, { tags: { contains: q } }];
+    if (documentType) where.documentType = documentType;
+    const take = 20;
+    const [items, total] = await Promise.all([
+      this.prisma.fileObject.findMany({ where, include: { owner: { select: { email: true } } }, orderBy: { createdAt: 'desc' }, skip: (Number(page) - 1) * take, take }),
+      this.prisma.fileObject.count({ where }),
+    ]);
+    return { items, total, page: Number(page), pages: Math.ceil(total / take) };
   }
 }
 

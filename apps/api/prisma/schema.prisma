@@ -53,6 +53,8 @@ model User {
   refreshTokens        RefreshToken[]
   careRecords          CareRecord[]     @relation("CareRecordPatient")
   distributorProfile   Distributor?     @relation("DistributorUser")
+  consentGivenAt DateTime?
+  consentIp      String?
 
   @@index([role])
   @@index([status])
@@ -400,11 +402,16 @@ model FileObject {
   sha256      String
   ownerId     String
   owner       User     @relation(fields: [ownerId], references: [id])
+  documentType String?
+  tags         String? @default("[]")
+  version      Int     @default(1)
+  previousVersionId String?
   createdAt   DateTime @default(now())
 
   claimDocs ClaimDocument[]
 
   @@index([ownerId])
+  @@index([documentType])
 }
 
 model Provider {

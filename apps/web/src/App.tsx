@@ -48,6 +48,9 @@ const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
 const AdminTechnicalResult = lazy(() => import('./pages/admin/AdminTechnicalResult'));
 const AdminDistributors = lazy(() => import('./pages/admin/AdminDistributors'));
 const AdminCommissions = lazy(() => import('./pages/admin/AdminCommissions'));
+const AdminAccounting = lazy(() => import('./pages/admin/AdminAccounting'));
+const AdminBranches = lazy(() => import('./pages/admin/AdminBranches'));
+const AdminDiseases = lazy(() => import('./pages/admin/AdminDiseases'));
 
 // Lazy — provider
 const RegisterProvider = lazy(() => import('./pages/RegisterProvider'));
@@ -142,6 +145,9 @@ export default function App() {
         <Route path="technical-result" element={<Lazy><AdminTechnicalResult /></Lazy>} />
         <Route path="distributors" element={<Lazy><AdminDistributors /></Lazy>} />
         <Route path="commissions" element={<Lazy><AdminCommissions /></Lazy>} />
+        <Route path="accounting" element={<Lazy><AdminAccounting /></Lazy>} />
+        <Route path="branches" element={<Lazy><AdminBranches /></Lazy>} />
+        <Route path="diseases" element={<Lazy><AdminDiseases /></Lazy>} />
         <Route path="profil" element={<Lazy><Profile /></Lazy>} />
         <Route path="notifications" element={<Lazy><Notifications /></Lazy>} />
       </Route>

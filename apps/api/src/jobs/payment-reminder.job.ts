@@ -20,15 +20,23 @@ export class PaymentReminderJob {
     private dispatch: NotificationDispatchService,
   ) {}
 
-  async run(now = new Date()): Promise<{ reminders: number; urgent: number }> {
+  async run(now = new Date()): Promise<{ reminders: number; urgent: number; suspended: number; terminated: number }> {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // 1) Marquer PENDING échues → OVERDUE
+    await this.prisma.contribution.updateMany({
+      where: { status: 'PENDING', dueDate: { lt: today } },
+      data: { status: 'OVERDUE' },
+    });
+
     const in3Days = new Date(today.getTime() + 3 * 86_400_000);
-    const tomorrow = new Date(today.getTime() + 1 * 86_400_000);
 
     let reminders = 0;
     let urgent = 0;
+    let suspended = 0;
+    let terminated = 0;
 
-    // Find pending contributions due in 1-3 days
+    // Find pending contributions due in 1-3 days (pré-échéance)
     const upcoming = await this.prisma.contribution.findMany({
       where: {
         status: 'PENDING',
@@ -46,7 +54,7 @@ export class PaymentReminderJob {
       },
     });
 
-    // Also find overdue contributions (for urgent reminders)
+    // Find overdue contributions (recouvrement gradué)
     const overdue = await this.prisma.contribution.findMany({
       where: {
         status: 'OVERDUE',
@@ -106,39 +114,75 @@ export class PaymentReminderJob {
       reminders++;
     }
 
-    // Send urgent reminders for overdue (suspension warning)
+    // Recouvrement gradué J+3 / J+7 / J+15 (suspension) / J+45 (résiliation)
     for (const c of overdue) {
-      if (!c.contract || c.contract.status !== 'ACTIVE') continue;
-
-      // Only send urgent reminder once
-      const existingUrgent = await this.prisma.notification.findFirst({
-        where: {
-          userId: c.contract.principalUserId,
-          topic: 'CONTRACT_SUSPENDED',
-          createdAt: { gte: new Date(today.getTime() - 2 * 86_400_000) },
-        },
-      });
-      if (existingUrgent) continue;
+      if (!c.contract) continue;
+      // Ne traiter que contrats actifs/suspendus
+      if (!['ACTIVE', 'SUSPENDED'].includes(c.contract.status)) continue;
 
       const daysOverdue = Math.ceil((today.getTime() - new Date(c.dueDate).getTime()) / 86_400_000);
-      if (daysOverdue < 40) continue; // Only warn at 40+ days (before 45-day suspension)
+      let stage: 'J3' | 'J7' | 'J15' | 'J45' | null = null;
+      if (daysOverdue === 3) stage = 'J3';
+      else if (daysOverdue === 7) stage = 'J7';
+      else if (daysOverdue === 15) stage = 'J15';
+      else if (daysOverdue === 45) stage = 'J45';
+      else if (daysOverdue > 40 && daysOverdue < 45) {
+        // Alerte critique J+40-44
+        stage = 'J15';
+      }
+      if (!stage) continue;
 
-      await this.dispatch.dispatchToUser(c.contract.principalUserId, {
-        topic: 'CONTRACT_SUSPENDED',
-        title: `⚠️ Alerte critique — contrat ${c.contract.number}`,
-        body: `Votre contrat ${c.contract.number} sera suspendu dans ${45 - daysOverdue} jours si la cotisation n'est pas réglée. Montant : ${new Intl.NumberFormat('fr-FR').format(c.amount)} FCFA.`,
-        meta: {
-          contractId: c.contract.id,
-          contributionId: c.id,
-          amount: c.amount,
-          dueDate: c.dueDate,
-          daysOverdue,
+      // Anti-spam: un seul message par stage
+      const metaContains = `${c.contract.number}:${stage}`;
+      const existing = await this.prisma.notification.findFirst({
+        where: {
+          userId: c.contract.principalUserId,
+          topic: { in: ['PAYMENT_REMINDER', 'CONTRACT_SUSPENDED', 'CONTRACT_TERMINATED'] },
+          body: { contains: metaContains },
         },
-      }).catch(() => {});
+      });
+      if (existing) continue;
 
-      urgent++;
+      const amountStr = new Intl.NumberFormat('fr-FR').format(c.amount);
+      const payUrl = `${process.env.APP_URL ?? 'https://santeplus.bj'}/app/contrat`;
+
+      if (stage === 'J3' || stage === 'J7') {
+        await this.dispatch.dispatchToUser(c.contract.principalUserId, {
+          topic: 'PAYMENT_REMINDER',
+          title: stage === 'J3' ? `Rappel J+3 — ${amountStr} FCFA` : `Relance J+7 — ${amountStr} FCFA`,
+          body: `Cotisation ${amountStr} FCFA contrat ${c.contract.number} en retard de ${daysOverdue} jours (${metaContains}). Payez sur ${payUrl}`,
+          meta: { contractId: c.contract.id, contributionId: c.id, stage, daysOverdue },
+        }).catch(() => {});
+        urgent++;
+      } else if (stage === 'J15') {
+        // Suspension
+        if (c.contract.status === 'ACTIVE') {
+          await this.prisma.contract.update({ where: { id: c.contract.id }, data: { status: 'SUSPENDED' } });
+          suspended++;
+        }
+        await this.dispatch.dispatchToUser(c.contract.principalUserId, {
+          topic: 'CONTRACT_SUSPENDED',
+          title: `Suspension J+15 — contrat ${c.contract.number}`,
+          body: `Contrat ${c.contract.number} suspendu après 15 jours d'impayé (${metaContains}). Régularisez pour réactiver.`,
+          meta: { contractId: c.contract.id, contributionId: c.id, stage, daysOverdue },
+        }).catch(() => {});
+        urgent++;
+      } else if (stage === 'J45') {
+        // Résiliation
+        if (['ACTIVE', 'SUSPENDED'].includes(c.contract.status)) {
+          await this.prisma.contract.update({ where: { id: c.contract.id }, data: { status: 'TERMINATED', endDate: today } });
+          terminated++;
+        }
+        await this.dispatch.dispatchToUser(c.contract.principalUserId, {
+          topic: 'CONTRACT_TERMINATED',
+          title: `Résiliation J+45 — contrat ${c.contract.number}`,
+          body: `Contrat ${c.contract.number} résilié après 45 jours d'impayé (${metaContains}). Contactez le support.`,
+          meta: { contractId: c.contract.id, contributionId: c.id, stage, daysOverdue },
+        }).catch(() => {});
+        urgent++;
+      }
     }
 
-    return { reminders, urgent };
+    return { reminders, urgent, suspended, terminated };
   }
 }

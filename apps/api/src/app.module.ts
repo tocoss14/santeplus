@@ -27,6 +27,7 @@ import { DistributorsModule } from './modules/distributors/distributors.controll
 import { CommissionsModule } from './modules/commissions/commissions.controller';
 import { AccountingModule } from './modules/accounting/accounting.controller';
 import { ReferentialModule } from './modules/referential/referential.controller';
+import { HospitalModule } from './modules/hospital/hospital.controller';
 import { CronService } from './jobs/cron.service';
 import { RenewalAlertJob } from './jobs/renewal-alert.job';
 import { FraudDetectionJob } from './jobs/fraud-detection.job';
@@ -60,6 +61,7 @@ import { PaymentReminderJob } from './jobs/payment-reminder.job';
     CommissionsModule,
     AccountingModule,
     ReferentialModule,
+    HospitalModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

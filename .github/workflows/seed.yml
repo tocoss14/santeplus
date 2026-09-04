@@ -1,0 +1,175 @@
+name: "🗄️ Database: Migrate & Seed"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      action:
+        description: "Database action"
+        required: true
+        default: migrate
+        type: choice
+        options:
+          - migrate        # Apply pending migrations only (safe)
+          - seed           # Migrate + seed (⚠️ destructive — wipes data)
+          - reset          # Drop + migrate + seed (⚠️⚠️ nuclear option — dev/staging only)
+
+  # Allow calling from other workflows
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      action:
+        required: false
+        type: string
+        default: migrate
+    secrets:
+      DATABASE_URL_STAGING:
+        required: false
+      DATABASE_URL_PRODUCTION:
+        required: false
+
+concurrency:
+  group: db-${{ inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Resolve DATABASE_URL from environment
+  # ──────────────────────────────────────────────
+  migrate:
+    name: "Migrate — ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve DATABASE_URL
+        id: db
+        run: |
+          ENV="${{ inputs.environment }}"
+          if [ "$ENV" = "production" ]; then
+            URL="${{ secrets.DATABASE_URL_PRODUCTION }}"
+          else
+            URL="${{ secrets.DATABASE_URL_STAGING }}"
+          fi
+          if [ -z "$URL" ]; then
+            echo "::error::DATABASE_URL not configured for $ENV"
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          # Mask in logs
+          echo "::add-mask::$URL"
+
+      - name: Run Prisma migrations
+        run: npx prisma migrate deploy
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.url }}
+
+      - name: Migration status
+        run: npx prisma migrate status
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.url }}
+
+  # ──────────────────────────────────────────────
+  # Seed (only on non-production or explicit trigger)
+  # ──────────────────────────────────────────────
+  seed:
+    name: "Seed — ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+    needs: migrate
+    if: >-
+      inputs.action == 'seed' ||
+      inputs.action == 'reset'
+
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve DATABASE_URL
+        id: db
+        run: |
+          ENV="${{ inputs.environment }}"
+          if [ "$ENV" = "production" ]; then
+            URL="${{ secrets.DATABASE_URL_PRODUCTION }}"
+          else
+            URL="${{ secrets.DATABASE_URL_STAGING }}"
+          fi
+          if [ -z "$URL" ]; then
+            echo "::error::DATABASE_URL not configured for $ENV"
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::$URL"
+
+      - name: "⚠️ Warn: destructive seed"
+        if: inputs.environment == 'production'
+        run: |
+          echo "::warning::You are seeding PRODUCTION. This will DELETE all existing data."
+          echo "Waiting 30 seconds — cancel now if this is a mistake..."
+          sleep 30
+
+      - name: Reset database (drop + migrate)
+        if: inputs.action == 'reset'
+        run: npx prisma migrate reset --force
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.url }}
+
+      - name: Run seed
+        run: npm run db:seed -w apps/api
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.url }}
+
+      - name: Verify seed
+        run: |
+          echo "Verifying database has data..."
+          npx tsx -e "
+            const { PrismaClient } = require('@prisma/client');
+            const p = new PrismaClient();
+            async function check() {
+              const users = await p.user.count();
+              const products = await p.product.count();
+              const providers = await p.provider.count();
+              const contracts = await p.contract.count();
+              console.log('Users:', users);
+              console.log('Products:', products);
+              console.log('Providers:', providers);
+              console.log('Contracts:', contracts);
+              if (users === 0) { console.error('ERROR: No users found after seed!'); process.exit(1); }
+              console.log('✅ Seed verified successfully');
+            }
+            check().catch(e => { console.error(e); process.exit(1); }).finally(() => p.\$disconnect());
+          "
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.url }}

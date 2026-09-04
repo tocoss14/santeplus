@@ -6,4 +6,6 @@ apps/api/prisma/dev.db-journal
 apps/api/uploads/
 .env
 .env.local
+.env.prod
+.env.staging
 coverage/

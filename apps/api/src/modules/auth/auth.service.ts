@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma.module';
 import { JwtService } from '../../common/guards/jwt.service';
@@ -183,7 +184,8 @@ export class AuthService {
   private issueTokens(id: string, role: string) {
     return {
       accessToken: this.jwt.sign({ sub: id, role, type: 'access' }),
-      refreshToken: this.jwt.sign({ sub: id, role, type: 'refresh' }),
+      // jti unique : deux emissions dans la meme seconde ne doivent jamais collisionner (RefreshToken.token unique)
+      refreshToken: this.jwt.sign({ sub: id, role, type: 'refresh', jti: randomUUID() }),
       tokenType: 'Bearer',
     };
   }

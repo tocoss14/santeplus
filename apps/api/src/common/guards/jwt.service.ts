@@ -6,6 +6,7 @@ export interface TokenPayload {
   sub: string;
   role: string;
   type: 'access' | 'refresh';
+  jti?: string;
 }
 
 @Injectable()

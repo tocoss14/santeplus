@@ -3,16 +3,24 @@
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Usage:
-#   cp .env.prod.example .env.prod    # Fill in secrets
+#   cp .env.prod.example .env.prod    # Fill in secrets (incl. IMAGE_OWNER)
+#
+# First deploy (empty server):
+#   1. Issue the initial TLS certificate (standalone mode binds port 80):
+#      docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm \
+#        --entrypoint certbot -p 80:80 certbot certonly --standalone \
+#        -d ${LETSENCRYPT_DOMAIN:-santeplus.bj} --email ${LETSENCRYPT_EMAIL} \
+#        --agree-tos --no-eff-email
+#   2. Start the stack, then apply migrations + seed:
+#      docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#      docker compose -f docker-compose.prod.yml --env-file .env.prod exec api \
+#        npx prisma migrate deploy && npx tsx prisma/seed.ts
+#
+# Subsequent deploys (pull images — no build on the server):
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod pull api web
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 #
-# First deploy (with empty DB):
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod exec api \
-#     npx prisma migrate deploy && npx tsx prisma/seed.ts
-#
-# Subsequent deploys:
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod pull
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+# The GitHub Actions deploy workflow (deploy.yml) automates all of the above.
 # ══════════════════════════════════════════════════════════════════════════════
 
 services:
@@ -25,11 +33,17 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+      certbot:
+        condition: service_started
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # Substituted into nginx.prod.conf (template) — see /etc/nginx/templates
+      DOMAIN: ${LETSENCRYPT_DOMAIN:-santeplus.bj}
     volumes:
-      - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # Mounted as a template: the nginx image envsubsts ${DOMAIN} at boot
+      - ./nginx.prod.conf:/etc/nginx/templates/default.conf.template:ro
       - certbot-webroot:/var/www/certbot:ro
       - certbot-certs:/etc/letsencrypt:ro
     networks:
@@ -48,6 +62,8 @@ services:
 
   # ── API (NestJS) ────────────────────────────────────────────────────────
   api:
+    # Pulled from GHCR on deploy; build kept as local fallback
+    image: ghcr.io/${IMAGE_OWNER:?Set IMAGE_OWNER in .env.prod}/santeplus-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -110,6 +126,8 @@ services:
 
   # ── Web (React SPA via nginx) ───────────────────────────────────────────
   web:
+    # Pulled from GHCR on deploy; build kept as local fallback
+    image: ghcr.io/${IMAGE_OWNER:?Set IMAGE_OWNER in .env.prod}/santeplus-web:${IMAGE_TAG:-latest}
     build:
       context: ./apps/web
       dockerfile: Dockerfile

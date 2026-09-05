@@ -1,2 +1,2 @@
-﻿-- GED versioning + RGPD consent (applied via db push)
+-- GED versioning + RGPD consent (applied via db push)
 SELECT 1;

@@ -1,2 +1,2 @@
-﻿-- Provider.photoUrl (applied via db push)
+-- Provider.photoUrl (applied via db push)
 SELECT 1;

@@ -133,16 +133,16 @@ const doc = new Document({
         alignment: AlignmentType.CENTER, spacing: { after: 200 },
         children: [new TextRun({ text: 'GUIDE DES INTERFACES & PROCÉDURES', font: BFONT, size: 26, bold: true, color: TEAL, characterSpacing: 40 })],
       }),
-      new Paragraph({
-        alignment: AlignmentType.CENTER, spacing: { after: 400 },
-        children: [new TextRun({ text: 'Parcours de soins  •  Prescriptions  •  Tiers payant  •  Gestion assurance', font: BFONT, size: 18, color: MUTED })],
+       new Paragraph({
+        alignment: AlignmentType.CENTER, spacing: { after: 200 },
+        children: [new TextRun({ text: 'Parcours de soins  •  Prescriptions  •  Tiers payant  •  Comptabilité OHADA  •  Référentiels  •  PWA', font: BFONT, size: 18, color: MUTED })],
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER, spacing: { after: 600 },
         shading: { type: ShadingType.CLEAR, fill: LIGHT },
         children: [new TextRun({ text: 'À l’attention de la Direction Générale, de la Direction Technique et des équipes métier\npour validation : ce qui est implémenté, comment ça marche, quoi ajuster', font: BFONT, size: 18, color: INK })],
       }),
-      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400 },         children: [new TextRun({ text: `Version 1.2  •  ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}  •  Ref. GUIDE-INTERFACES-002 — ajout vérification photo`, font: BFONT, size: 16, color: MUTED })] }),
+       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400 },         children: [new TextRun({ text: `Version 1.4  •  ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}  •  Ref. GUIDE-INTERFACES-004 — compta OHADA + branches/CIM10 + PEC hosp + GED/RGPD + PWA + photos`, font: BFONT, size: 16, color: MUTED })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Document confidentiel — usage interne', font: BFONT, size: 14, italics: true, color: MUTED })] }),
       new Paragraph({ children: [new PageBreak()] }),
 
@@ -369,8 +369,61 @@ const doc = new Document({
       h3('Sécurité'),
       p('RBAC granulaire (12 clés, ex. provider.prescribe), chiffrement nationalIdEnc (AES-256-GCM), QR = jeton opaque, cloisonnement par établissement (user.providerId), audit complet (AuditLog + CareRecordEvent).'),
 
-      // ── 12. NOTIFICATIONS & RECHERCHE ─────────────────────────────────
-      h1('12  —  Notifications & recherche'),
+      // ── 12. COMPTABILITÉ TECHNIQUE OHADA ────────────────────────────────
+      h1('12  —  Comptabilité technique OHADA'),
+      p('Chaque prime encaissée et chaque sinistre payé génère une écriture en partie double, exportable FEC/CSV Sage.'),
+      table(['Compte OHADA', 'Libellé', 'Journal', 'Quand'],
+        [
+          ['702100', 'Primes émises — Santé', 'BQ Banque', 'Paiement SUCCEEDED (prime)'],
+          ['706100', 'Frais d’adhésion', 'BQ Banque', 'Paiement SUCCEEDED (adhésion 3 000/pers.)'],
+          ['603100', 'Sinistres payés', 'OD Op. diverses', 'Claim mark-paid (APPROVED→PAID)'],
+          ['395000', 'Provisions sinistres à payer', 'OD', 'Provision auto (à venir)'],
+          ['512000', 'Banque', 'BQ', 'Contrepartie primes/sinistres'],
+          ['411100', 'Assurés — créances', 'OD', 'Échéances impayées'],
+          ['401100', 'Prestataires — dettes', 'OD', 'Sinistres à régler'],
+        ], [1800, 2800, 1500, 2900]),
+      p('Écritures : BQ 512 Débit / 702 Crédit (prime) ; BQ 512 Débit / 706 Crédit (adhésion) ; OD 603 Débit / 401 Crédit (sinistre). Période = YYYY-MM.'),
+      table(['Écran', 'Route', 'Filtres', 'Export'],
+        [
+          ['Journal', '/admin/accounting/entries', 'from/to, journal BQ/OD, compte, période, page', 'CSV FEC'],
+          ['Grand livre', '/admin/accounting/summary', 'from/to → solde débit-crédit par compte', 'CSV'],
+          ['Plan comptable', '/admin/accounting/chart', '—', '—'],
+        ], [2200, 2800, 2800, 2200]),
+      note('Génération auto : recordPremium() sur Payment SUCCEEDED, recordSinistre() sur Claim PAID. Compta non bloquante (try/catch).'),
+      h3('Export'),
+      p('GET /admin/accounting/export?from=2026-01-01&to=2026-12-31&format=csv → header date,journal,account,code,label,debit,credit,reference,period. FEC JSON si format=fec.'),
+
+      // ── 13. RÉFÉRENTIELS ───────────────────────────────────────────────────
+      h1('13  —  Référentiels : Branches, Maladies (CIM-10), Panier de soins'),
+      table(['Référentiel', 'Modèle', 'Seed', 'Usage'],
+        [
+          ['Branche', 'Branch code MAL/PREV/MAT', 'MAL Maladie, PREV Prévoyance, MAT Maternité', 'Product.branchId → filtre offres'],
+          ['Maladie', 'Disease code CIM-10 B54…N39', '10 maladies (paludisme, HTA, diabète…)', 'Claim.diseaseId, /diseases?q=palud'],
+          ['Acte / Panier', 'Act code CONS-001… + branchId', '14 actes + Medication 8', 'AdminActs filtre par branche, requiresPrescription/PriorAuth'],
+        ], [2000, 2400, 2800, 1800]),
+      p('Routes : GET /branches (public), POST /admin/branches (referential.manage) ; GET /diseases?q=&category=&page=, POST /admin/diseases. Act.branchId lie le panier à la branche.'),
+      note('Seed OHADA : 3 branches, 10 maladies, 14 actes, plan 7 comptes. Extensible sans code via /admin.'),
+
+      // ── 14. HOSPITALISATION & PEC + GED/RGPD/PWA ────────────────────────
+      h1('14  —  Hospitalisation — Entente préalable & GED / RGPD / PWA'),
+      h2('14.1  Entente hospitalière'),
+      p('PEC dédiée HOSPITAL (distinct du tiers payant officine) : diagnostic, CIM10, montant estimé, type MEDECINE/CHIRURGIE/MATERNITE/SOINS_INTENSIFS, jours prévus.'),
+      table(['Étape', 'Acteur', 'Route', 'Statut'],
+        [
+          ['Demande', 'Prestataire (provider.thirdparty)', 'POST /hospital/entente', 'AUTH_REQUIRED'],
+          ['Validation', 'Gestionnaire (claims.decide)', 'POST /admin/claims/:id/authorize', 'AUTHORIZED → confirmable'],
+          ['Facturation', 'Prestataire', 'Claim mark-paid → Facture auto FAC-YYYY-ref', 'PAID + GED INVOICE'],
+        ], [1800, 2600, 2800, 1800]),
+      p('Écran : /prestataire/hospitalisation — formulaire + liste ententes (filtre status, paginé).'),
+      h2('14.2  GED versionnée'),
+      p('FileObject documentType/tags/version/previousVersionId. Upload via StorageService (local/S3), sha256, 8 Mo max. Admin : GET /admin/documents?q=&documentType=&page= — version incrémentée si même type+owner.'),
+      h2('14.3  RGPD'),
+      p('Consentement : checkbox Register/RegisterCompany → User.consentGivenAt + consentIp. CookieBanner (localStorage cookie-consent). Rétention : SystemConfig retention.enabled true, 3650j careRecord/invoice, 1095j audit, job RetentionJob quotidien 03:00. Chiffrement AES-256-GCM nationalIdEnc, QR jeton opaque.'),
+      h2('14.4  PWA'),
+      p('VitePWA 1.3.0 : manifest SantéPlus (theme #1D6A4C, icons 192/512), workbox precache 78 entrées, NetworkFirst /api (5s), CacheFirst fonts. InstallPrompt (beforeinstallprompt + iOS hint) + offline.html. Build 68k index + 164k vendor + 383k charts (lazy).'),
+
+      // ── 15. NOTIFICATIONS & RECHERCHE ─────────────────────────────────
+      h1('15  —  Notifications & recherche'),
       table(['Canal', 'Quand', 'Exemple'],
         [
           ['In-app (toujours)', 'Chaque événement', 'Ordonnance créée · Délivrance enregistrée · Autorisation accordée'],
@@ -379,8 +432,8 @@ const doc = new Document({
         ], COL3),
       p('Recherche globale par assuré / n° contrat / ordonnance / prise en charge / facture — résultats filtrés par permission.', { muted: true }),
 
-      // ── 13. PARCOURS DE RÉFÉRENCE ─────────────────────────────────────
-      h1('13  —  Parcours complet de référence (§43) — scénario validé'),
+      // ── 16. PARCOURS DE RÉFÉRENCE ─────────────────────────────────────
+      h1('16  —  Parcours complet de référence (§43) — scénario validé'),
       p('Ce scénario est exécuté automatiquement à chaque seed et rejouable via l’API/Postman :', { muted: true, italic: true }),
       ...[
         '1. Consultation — Jean consulte le Dr Kouassi (motif : fièvre, toux)', 
@@ -403,8 +456,8 @@ const doc = new Document({
           ['Autorisation préalable manquante', 'Statut AUTH_REQUIRED → bloque la confirmation', 'En attente de validation du gestionnaire'],
         ], [2800, 2200, 4000]),
 
-      // ── 14. GRILLE DE VALIDATION ─────────────────────────────────────
-      h1('14  —  Grille de validation — à compléter'),
+      // ── 17. GRILLE DE VALIDATION ─────────────────────────────────────
+      h1('17  —  Grille de validation — à compléter'),
       p('Cochez, corrigez ou commentez directement dans ce document (mode Révision). Chaque ligne devient une demande de modification priorisée.', { muted: true, italic: true }),
       (() => {
         const rows = [
@@ -449,17 +502,19 @@ const doc = new Document({
           ['provider.staff', '✓', '—', '—', '✓ (admin étab.)', '✓ (admin étab.)', '—'],
           ['products.manage', '✓', '✓', '—', '—', '—', '—'],
           ['claims.decide', '✓', '✓', '—', '—', '—', '—'],
+          ['accounting.view', '✓', '✓', '—', '—', '—', '—'],
+          ['referential.manage', '✓', '✓', '—', '—', '—', '—'],
         ],
         [2600, 1100, 1100, 1100, 1100, 1100, 1100],
       ),
-      p('La matrice complète (12 clés) est éditable dans /admin/roles sans redéploiement.', { muted: true }),
+      p('La matrice complète (14 clés) est éditable dans /admin/roles sans redéploiement.', { muted: true }),
     ],
     }],
   });
 
   Packer.toBuffer(doc).then(buffer => {
-    const out = 'SantePlus-Guide-des-interfaces-v1.2.docx';
+    const out = 'SantePlus-Guide-des-interfaces-v1.4.docx';
     fs.writeFileSync(out, buffer);
     console.log('OK ->', out, `(${(buffer.length / 1024).toFixed(1)} Ko)`);
-    try { fs.writeFileSync('SantePlus-Guide-des-interfaces.docx', buffer); console.log('OK -> SantePlus-Guide-des-interfaces.docx'); } catch(e) { console.log('Note: docx verrouille, v1.2 genere'); }
+    try { fs.writeFileSync('SantePlus-Guide-des-interfaces.docx', buffer); console.log('OK -> SantePlus-Guide-des-interfaces.docx'); } catch(e) { console.log('Note: docx verrouille, v1.4 genere'); }
   });

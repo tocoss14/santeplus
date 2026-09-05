@@ -21,8 +21,8 @@ test.describe('Prestataire: verify QR', () => {
 
     // Verify via provider
     const verifyRes = await auth.post('/api/provider/verify', { data: { cardToken } });
-    // 200 si trouvé, sinon 404
-    expect([200, 404].includes(verifyRes.status())).toBeTruthy();
+    // 200/201 si trouvé (Nest POST -> 201 par défaut), sinon 404
+    expect([200, 201, 404].includes(verifyRes.status())).toBeTruthy();
     if (verifyRes.ok()) {
       const data = await verifyRes.json();
       expect(data.status).toBeDefined();

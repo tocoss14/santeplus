@@ -58,10 +58,10 @@ jobs:
         include:
           - name: api
             context: .
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            image: ghcr.io/${{ github.repository_owner }}/santeplus-api
           - name: web
             context: ./apps/web
-            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_WEB }}
+            image: ghcr.io/${{ github.repository_owner }}/santeplus-web
 
     steps:
       - uses: actions/checkout@v5

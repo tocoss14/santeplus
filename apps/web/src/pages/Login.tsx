@@ -51,13 +51,6 @@ export default function Login() {
           🏥 Prestataire ? <Link to="/inscription-prestataire" className="font-semibold text-brand-600 hover:underline">S'inscrire en tant que prestataire</Link>
         </p>
       </form>
-      <div className="mt-6 card-p bg-slate-50 border-dashed text-xs text-slate-500">
-        <p className="font-semibold text-slate-600">Comptes de démonstration (Demo1234!) :</p>
-        <p className="mt-1.5 leading-relaxed">
-          jean@demo.bj (assuré) · entreprise@santeplus.bj (entreprise)<br />
-          admin@santeplus.bj (admin) · gestionnaire@santeplus.bj · prestataire@santeplus.bj
-        </p>
-      </div>
     </div>
   );
 }

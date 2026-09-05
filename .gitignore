@@ -8,4 +8,5 @@ apps/api/uploads/
 .env.local
 .env.prod
 .env.staging
+COMPTES_DEMO.md
 coverage/

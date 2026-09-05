@@ -63,11 +63,11 @@ async function main() {
     prisma.accountingEntry.deleteMany(),
     prisma.account.deleteMany(),
     prisma.journal.deleteMany(),
+    prisma.act.deleteMany(),
     prisma.branch.deleteMany(),
     prisma.disease.deleteMany(),
     prisma.user.deleteMany(),
     prisma.company.deleteMany(),
-    prisma.act.deleteMany(),
     prisma.rolePermission.deleteMany(),
     prisma.systemConfig.deleteMany(),
   ]);

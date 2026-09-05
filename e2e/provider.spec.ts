@@ -25,7 +25,7 @@ test.describe('Prestataire: verify QR', () => {
     expect([200, 201, 404].includes(verifyRes.status())).toBeTruthy();
     if (verifyRes.ok()) {
       const data = await verifyRes.json();
-      expect(data.status).toBeDefined();
+      expect(data.contract?.number).toBeTruthy();
     }
     await ctx.dispose();
     await auth.dispose();

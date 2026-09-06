@@ -136,10 +136,12 @@ jobs:
           RUNSITE_SERVICE_ID: ${{ secrets.RUNSITE_SERVICE_ID }}
         run: |
           echo "Triggering Runsite deployment..."
-          curl -s -X POST \
-            "https://api.runsite.app/v1/services/${{ secrets.RUNSITE_SERVICE_ID }}/deploy" \
+          # --fail : un endpoint/clé invalide doit faire échouer le job (pas de 404 silencieux)
+          curl --fail-with-body -s -X POST \
+            "https://api.runsite.app/api/web-services/${{ secrets.RUNSITE_SERVICE_ID }}/deploy" \
             -H "Authorization: Bearer $RUNSITE_API_KEY" \
-            -H "Content-Type: application/json"
+            -H "Content-Type: application/json" \
+            --data '{"branch":"master"}'
 
       - name: Deploy via SSH
         if: vars.DEPLOY_TARGET == 'ssh'

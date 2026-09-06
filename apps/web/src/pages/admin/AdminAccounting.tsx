@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, API_BASE, getToken } from '../../api';
+import { api, API_BASE } from '../../api';
 import { fcfa, fmtDate } from '../../format';
 import { Spinner } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -34,12 +34,12 @@ export default function AdminAccounting() {
   }, [from, to]);
 
   const exportCsv = () => {
-    const token = getToken();
     const qs = new URLSearchParams();
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
     qs.set('format', 'csv');
-    const url = `${API_BASE}/api/admin/accounting/export?${qs.toString()}&token=${token ?? ''}`;
+    // Auth par cookies httpOnly — envoyés automatiquement par le navigateur.
+    const url = `${API_BASE}/api/admin/accounting/export?${qs.toString()}`;
     window.open(url, '_blank');
   };
 

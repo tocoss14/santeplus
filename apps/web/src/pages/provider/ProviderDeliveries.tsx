@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { api, getToken } from '../../api';
+import { api } from '../../api';
+import { useAuth } from '../../auth';
 import { fcfa, fmtDate, fmtDateTime } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
 import OfflineBanner from '../../components/OfflineBanner';
@@ -14,6 +15,9 @@ import { cacheGuarantees, getCachedGuarantees } from '../../lib/offlineCache';
 // reste en direct via NewThirdParty.
 
 export default function ProviderDeliveries() {
+  const { me } = useAuth();
+  // Identifiant de session NON SECRET pour la file offline (jamais un token).
+  const sessionId = me?.memberNumber ?? me?.id ?? 'offline';
   const [prescriptionInput, setPrescriptionInput] = useState('');
   const [prescription, setPrescription] = useState<any | null>(null);
   const [lines, setLines] = useState<any[]>([]);
@@ -105,9 +109,8 @@ export default function ProviderDeliveries() {
       const payload = JSON.stringify(dto);
       // If offline, enqueue directly
       if (!navigator.onLine) {
-        const token = getToken() ?? 'offline';
-        const hash = await computeHash(dto, token);
-        await enqueueDelivery(dto, hash, token);
+        const hash = await computeHash(dto, sessionId);
+        await enqueueDelivery(dto, hash, sessionId);
         await refreshQueue();
         setMessage(`Mode hors ligne — délivrance mise en file d’attente (${queueCount + 1} en attente). Elle sera synchronisée automatiquement au retour en ligne. Aucune donnée perdue.`);
         setPrescription(null);
@@ -134,9 +137,8 @@ export default function ProviderDeliveries() {
         // network error → enqueue instead of POST
         const isNetworkError = e?.status === 0 || e?.message?.toLowerCase().includes('network') || e?.message?.toLowerCase().includes('fetch') || !navigator.onLine;
         if (isNetworkError) {
-          const token = getToken() ?? 'offline';
-          const hash = await computeHash(dto, token);
-          await enqueueDelivery(dto, hash, token);
+          const hash = await computeHash(dto, sessionId);
+          await enqueueDelivery(dto, hash, sessionId);
           await refreshQueue();
           setMessage(`Connexion indisponible — délivrance mise en file d’attente (${queueCount + 1} en attente). Synchronisation automatique au retour en ligne.`);
           setPrescription(null);

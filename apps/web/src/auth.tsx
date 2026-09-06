@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { api, getToken, setToken } from './api';
+import { api } from './api';
 
 export interface Me {
   id: string;
@@ -35,16 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async (): Promise<Me | null> => {
-    if (!getToken()) {
-      setMe(null);
-      return null;
-    }
     try {
+      // Auth par cookies httpOnly — la couche api renouvelle silencieusement si besoin.
       const user = await api.get<Me>('/auth/me');
       setMe(user);
       return user;
     } catch {
-      setToken(null);
       setMe(null);
       return null;
     }
@@ -55,8 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post<{ accessToken: string; user: Me }>('/auth/login', { email, password });
-    setToken(res.accessToken);
+    // Le serveur pose les cookies httpOnly — aucune persistance côté client.
+    const res = await api.post<{ user: Me }>('/auth/login', { email, password });
     const full = await refresh();
     return full ?? res.user;
   }, [refresh]);
@@ -65,9 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await api.post('/auth/register', dto);
   }, []);
 
-  const logout = useCallback(() => {
-    setToken(null);
-    setMe(null);
+  const logout = useCallback(async () => {
+    // Révocation serveur (best effort) puis état local.
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      /* déjà déconnecté côté serveur */
+    } finally {
+      setMe(null);
+    }
   }, []);
 
   return <Ctx.Provider value={{ me, loading, refresh, login, register, logout }}>{children}</Ctx.Provider>;

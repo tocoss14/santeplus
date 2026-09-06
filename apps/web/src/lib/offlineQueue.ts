@@ -1,8 +1,11 @@
 // IndexedDB queue (plain indexedDB, no external dep) for offline deliveries.
 // Interface: enqueueDelivery(payload, hash), syncQueue(): Promise<{synced, conflicts}>, getQueue(), clearQueue()
-// Hash = SHA-256(payload + sessionToken) hex. Store: { id, payload, hash, timestamp, sessionKey }.
+// Hash = SHA-256(payload + sessionId) hex — sessionId = identifiant NON SECRET
+// (memberNumber) servant uniquement à détecter la corruption locale.
+// L'authentification du rejeu repose sur les cookies httpOnly, jamais sur ce hash.
+// Store: { id, payload, hash, timestamp, sessionKey }.
 
-import { API_BASE, TOKEN_KEY } from '../api';
+import { API_BASE } from '../api';
 
 export interface QueuedDelivery {
   id: string;
@@ -73,10 +76,11 @@ async function withStore<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore
   });
 }
 
-// Hash = SHA-256( JSON.stringify(payload) + sessionToken ) hex
-export async function computeHash(payload: any, sessionToken: string): Promise<string> {
+// Hash = SHA-256( JSON.stringify(payload) + sessionId ) hex
+// sessionId : identifiant non secret (ex. memberNumber) — jamais un token.
+export async function computeHash(payload: any, sessionId: string): Promise<string> {
   const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
-  const data = payloadStr + (sessionToken ?? '');
+  const data = payloadStr + (sessionId ?? '');
   // Prefer Web Crypto
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     const enc = new TextEncoder().encode(data);
@@ -97,7 +101,7 @@ export async function computeHash(payload: any, sessionToken: string): Promise<s
 }
 
 export async function enqueueDelivery(payload: any, hash: string, sessionKey?: string): Promise<string> {
-  const token = sessionKey ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null) ?? 'offline';
+  const token = sessionKey ?? 'offline';
   const id = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const entry: QueuedDelivery = { id, payload, hash, timestamp: Date.now(), sessionKey: token };
   if (useMemory || !hasIndexedDB()) {
@@ -117,10 +121,9 @@ export async function enqueueDelivery(payload: any, hash: string, sessionKey?: s
 }
 
 // Helper to compute and enqueue in one call
-export async function enqueueDeliveryWithHash(payload: any, sessionToken?: string): Promise<string> {
-  const token = sessionToken ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null) ?? 'offline';
-  const hash = await computeHash(payload, token);
-  return enqueueDelivery(payload, hash, token);
+export async function enqueueDeliveryWithHash(payload: any, sessionId = 'offline'): Promise<string> {
+  const hash = await computeHash(payload, sessionId);
+  return enqueueDelivery(payload, hash, sessionId);
 }
 
 export async function getQueue(): Promise<QueuedDelivery[]> {
@@ -173,15 +176,15 @@ export function _getMemoryQueue(): QueuedDelivery[] {
 export async function syncQueue(): Promise<{ synced: number; conflicts: Array<{ id: string; reason: string; status: string }> }> {
   const queue = await getQueue();
   if (queue.length === 0) return { synced: 0, conflicts: [] };
-  const token = typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+  // Auth par cookies httpOnly — envoyés automatiquement (même cross-origin).
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
   const body = {
     items: queue.map(q => ({ payload: q.payload, hash: q.hash, timestamp: q.timestamp, sessionKey: q.sessionKey, id: q.id })),
   };
   const res = await fetch(`${API_BASE}/api/offline/sync`, {
     method: 'POST',
     headers,
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   const text = await res.text();

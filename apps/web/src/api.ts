@@ -1,15 +1,4 @@
-export const TOKEN_KEY = 'sp_access';
-
 export const API_BASE = ((import.meta as any).env?.VITE_API_URL ?? 'https://santeplus.runsite.app').replace(/\/$/, '');
-
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string | null) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
-}
 
 export class ApiError extends Error {
   status: number;
@@ -21,16 +10,40 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Renouvellement silencieux : un seul vol en cours partagé entre les requêtes
+// concurrentes (anti-rafale), une seule tentative par requête (anti-boucle).
+let refreshPromise: Promise<boolean> | null = null;
+function silentRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+      .then(r => r.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
-  const token = getToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
   if (options.body && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-  const res = await fetch(`${API_BASE}/api${path}`, { ...options, headers });
+  // Auth par cookies httpOnly (sp_access) — envoyés automatiquement (même cross-origin).
+  const res = await fetch(`${API_BASE}/api${path}`, { ...options, headers, credentials: 'include' });
+  // 401 → une tentative de refresh silencieux puis un seul rejeu (hors /auth/*).
+  if (res.status === 401 && retry && !path.startsWith('/auth/')) {
+    const ok = await silentRefresh();
+    if (ok) return request<T>(path, options, false);
+  }
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   let data: any = null;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { api, API_BASE, fileUrl, getToken } from '../../api';
+import { api, API_BASE, fileUrl } from '../../api';
 import { fmtDate } from '../../format';
 import { Spinner, StatusBadge } from '../../components/ui';
 
@@ -76,7 +76,7 @@ export default function DigitalCard() {
 
       {contractId && (
         <a
-          href={`${API_BASE}/api/contracts/${contractId}/card-pdf?token=${getToken() ?? ''}`}
+          href={`${API_BASE}/api/contracts/${contractId}/card-pdf`}
           target="_blank"
           rel="noreferrer"
           className="btn-primary w-full text-center block"

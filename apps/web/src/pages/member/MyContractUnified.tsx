@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link } from 'react-router-dom';
-import { api, API_BASE, getToken } from '../../api';
+import { api, API_BASE } from '../../api';
 import { fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
 
@@ -183,7 +183,7 @@ function ContractTab({ detail }: { detail: any }) {
           {/* PDF */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <a
-              href={`${API_BASE}/api/contracts/${detail.id}/certificate?token=${getToken() ?? ''}`}
+              href={`${API_BASE}/api/contracts/${detail.id}/certificate`}
               target="_blank"
               rel="noreferrer"
               className="btn-outline w-full text-center"
@@ -191,7 +191,7 @@ function ContractTab({ detail }: { detail: any }) {
               📄 Certificat d'adhésion (PDF)
             </a>
             <a
-              href={`${API_BASE}/api/contracts/${detail.id}/card-pdf?token=${getToken() ?? ''}`}
+              href={`${API_BASE}/api/contracts/${detail.id}/card-pdf`}
               target="_blank"
               rel="noreferrer"
               className="btn-outline w-full text-center"

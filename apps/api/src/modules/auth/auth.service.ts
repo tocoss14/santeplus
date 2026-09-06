@@ -165,6 +165,11 @@ export class AuthService {
       where: { id: userId },
       data: { passwordHash: await bcrypt.hash(dto.newPassword, 10) },
     });
+    // Changement de mot de passe : invalider toutes les sessions existantes
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
     return { ok: true };
   }
 

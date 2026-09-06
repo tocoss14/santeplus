@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { Request, Response, NextFunction } from 'express';
 import * as helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { config } from './config';
@@ -40,6 +41,8 @@ async function bootstrap(): Promise<void> {
 
     // Trust proxy (Fly.io, Render) pour que rateLimit voie la vraie IP
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
+    // Cookies httpOnly (sp_access / sp_refresh) — requis avant les routes auth
+    app.use(cookieParser());
 
     // CORS AVANT helmet — sinon helmet bloque les preflight OPTIONS
     app.enableCors({

@@ -129,22 +129,6 @@ jobs:
           npm install -g clever-tools
           clever deploy --alias ${{ vars.CC_APP_ALIAS }} --force
 
-      - name: Probe Runsite API (diagnostic temporaire)
-        if: vars.DEPLOY_TARGET == 'runsite'
-        continue-on-error: true
-        env:
-          RUNSITE_API_KEY: ${{ secrets.RUNSITE_API_KEY }}
-          RUNSITE_SERVICE_ID: ${{ secrets.RUNSITE_SERVICE_ID }}
-        run: |
-          echo "--- GET /api/projects (validite cle) ---"
-          curl -s -o /dev/null -w "HTTP:%{http_code}\n" \
-            "https://api.runsite.app/api/projects" \
-            -H "Authorization: Bearer $RUNSITE_API_KEY"
-          echo "--- GET /api/web-services/ID (validite ID) ---"
-          curl -s -o /dev/null -w "HTTP:%{http_code}\n" \
-            "https://api.runsite.app/api/web-services/${{ secrets.RUNSITE_SERVICE_ID }}" \
-            -H "Authorization: Bearer $RUNSITE_API_KEY"
-
       - name: Deploy to Runsite
         if: vars.DEPLOY_TARGET == 'runsite'
         env:

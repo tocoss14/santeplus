@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { uid, registerMember, login, authContext } from './helpers';
+import { uid, apiContext, loginAs } from './helpers';
 
 test.describe('Entreprise: register-entreprise → import salariés', () => {
   test('import CSV salariés', async () => {
     const adminEmail = `ent_${uid()}@test.bj`;
     // Register company via /companies/register (pas /auth/register)
-    const { request } = await import('@playwright/test');
-    const ctx0 = await request.newContext({ baseURL: process.env.API_URL ?? 'http://127.0.0.1:4000' });
+    const ctx0 = await apiContext();
     const compRes = await ctx0.post('/api/companies/register', {
       data: {
         companyName: 'Test SARL ' + uid(),
@@ -19,8 +18,7 @@ test.describe('Entreprise: register-entreprise → import salariés', () => {
     expect(compRes.ok()).toBeTruthy();
     await ctx0.dispose();
 
-    const token = await login(adminEmail);
-    const ctx = await authContext(token);
+    const ctx = await loginAs(adminEmail);
 
     // Souscrire contrat collectif (1 salarié pour test adhesion cap)
     const prodRes = await ctx.get('/api/products?clientType=COMPANY');

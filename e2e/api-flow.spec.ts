@@ -1,14 +1,19 @@
 import { test, expect } from '@playwright/test';
-import { API_URL, uid, registerMember, login, authContext } from './helpers';
+import { uid, registerMember, loginAs, cookieNames } from './helpers';
 
 test.describe('Parcours particulier: register → quote → subscribe → pay → carte', () => {
   const email = `e2e_${uid()}@test.bj`;
 
   test('flow complet', async () => {
-    // 1. Register
+    // 1. Register + login cookie
     await registerMember(email);
-    const token = await login(email);
-    const ctx = await authContext(token);
+    const ctx = await loginAs(email);
+    // Cookies httpOnly posés par le serveur
+    const names = await cookieNames(ctx);
+    expect(names).toContain('sp_access');
+    expect(names).toContain('sp_refresh');
+    const access = (await ctx.storageState()).cookies.find(c => c.name === 'sp_access');
+    expect(access?.httpOnly).toBe(true);
 
     // 2. Quote
     const productsRes = await ctx.get('/api/products?clientType=INDIVIDUAL');

@@ -1,20 +1,21 @@
-import { test, expect } from '@playwright/test';
-import { request } from '@playwright/test';
-import { API_URL } from './helpers';
+import { test, expect, type APIRequestContext } from '@playwright/test';
+import { apiContext, loginAs } from './helpers';
 
 test.describe('Prestataire: verify QR', () => {
   test('verify cardToken demo', async () => {
-    const ctx = await request.newContext({ baseURL: API_URL });
+    const ctx = await apiContext();
     // Login prestataire demo
     const loginRes = await ctx.post('/api/auth/login', { data: { email: 'prestataire@santeplus.bj', password: 'Demo1234!' } });
-    if (!loginRes.ok()) test.skip();
-    const { accessToken } = await loginRes.json();
-    const auth = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { Authorization: `Bearer ${accessToken}` } });
+    if (!loginRes.ok()) {
+      await ctx.dispose();
+      test.skip();
+      return;
+    }
+    await ctx.dispose();
+    const auth: APIRequestContext = await loginAs('prestataire@santeplus.bj', 'Demo1234!');
 
     // Get a contract cardToken via jean@demo.bj
-    const jeanLogin = await ctx.post('/api/auth/login', { data: { email: 'jean@demo.bj', password: 'Demo1234!' } });
-    const jeanToken = (await jeanLogin.json()).accessToken;
-    const jeanCtx = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { Authorization: `Bearer ${jeanToken}` } });
+    const jeanCtx = await loginAs('jean@demo.bj', 'Demo1234!');
     const contracts = await (await jeanCtx.get('/api/contracts/mine')).json();
     const cardToken = contracts[0]?.cardToken;
     expect(cardToken).toBeTruthy();
@@ -27,7 +28,6 @@ test.describe('Prestataire: verify QR', () => {
       const data = await verifyRes.json();
       expect(data.contract?.number).toBeTruthy();
     }
-    await ctx.dispose();
     await auth.dispose();
     await jeanCtx.dispose();
   });

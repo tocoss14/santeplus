@@ -135,6 +135,7 @@ jobs:
         if: inputs.environment == 'production'
         run: |
           echo "::warning::You are seeding PRODUCTION. This will DELETE all existing data."
+          echo "::warning::After the seed, the API will REFUSE to start until the demo accounts (Demo1234!) are deleted or their passwords changed (or ALLOW_DEMO_ACCOUNTS_IN_PROD=true)."
           echo "Waiting 30 seconds — cancel now if this is a mistake..."
           sleep 30
 
@@ -149,6 +150,11 @@ jobs:
         run: npm run db:seed -w apps/api
         env:
           DATABASE_URL: ${{ steps.db.outputs.url }}
+          # Le seed crée des comptes de démo avec identifiants connus : seed.ts refuse de
+          # s'exécuter en NODE_ENV=production sauf ALLOW_SEED_IN_PROD=true. Ce workflow est
+          # le canal explicite (workflow_dispatch + alerte 30s + protection d'environnement).
+          NODE_ENV: ${{ inputs.environment == 'production' && 'production' || 'development' }}
+          ALLOW_SEED_IN_PROD: ${{ inputs.environment == 'production' && 'true' || 'false' }}
 
       - name: Verify seed
         run: |

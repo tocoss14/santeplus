@@ -25,8 +25,13 @@ USER_COUNT=$(node -e "
 echo "User count: ${USER_COUNT}"
 
 if [ "$USER_COUNT" = "0" ]; then
-  echo "Database is empty — running seed..."
-  npx tsx prisma/seed.ts && echo "Seed completed." || echo "Seed failed — continuing without seed data."
+  if [ "$NODE_ENV" = "production" ]; then
+    echo "Database is empty but NODE_ENV=production — SKIPPING auto-seed (destructive demo seed with known credentials must not run automatically in production)."
+    echo "To seed production deliberately, run the 'Database: Migrate & Seed' workflow (action=seed) or set ALLOW_SEED_IN_PROD=true."
+  else
+    echo "Database is empty — running seed..."
+    npx tsx prisma/seed.ts && echo "Seed completed." || echo "Seed failed — continuing without seed data."
+  fi
 else
   echo "Database has ${USER_COUNT} users — skipping seed."
 fi

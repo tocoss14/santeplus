@@ -28,6 +28,15 @@ function date(year: number, month: number, day: number): Date {
 }
 
 async function main() {
+  // SÉCURITÉ : ce seed est DESTRUCTEUR (supprime toutes les données) et crée des
+  // comptes de démonstration avec des identifiants connus (ex: admin@santeplus.bj).
+  // Interdit en production sauf override explicite via ALLOW_SEED_IN_PROD=true.
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd && process.env.ALLOW_SEED_IN_PROD !== 'true') {
+    console.error('REFUS: prisma/seed.ts est destructeur et crée des comptes de démo avec mots de passe connus.');
+    console.error('Exécution interdite en production. Pour forcer : ALLOW_SEED_IN_PROD=true (via le workflow seed.yml).');
+    process.exit(1);
+  }
   console.log('Suppression des donnÃ©es existantesâ€¦');
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),

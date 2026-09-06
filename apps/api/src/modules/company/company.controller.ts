@@ -362,6 +362,8 @@ export class CompanyService {
     void auth;
     const target = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!target) throw new NotFoundException('Salarié introuvable');
+    // Seuls les salariés (MEMBER) peuvent être sortis — pas les administrateurs d'entreprise
+    if (target.role !== 'MEMBER') throw new BadRequestException('Seuls les salariés peuvent être sortis');
     await this.prisma.$transaction(async tx => {
       await tx.user.update({ where: { id: userId }, data: { status: 'SUSPENDED' } });
       const contracts = await tx.contract.findMany({ where: { principalUserId: userId, companyId: target.companyId, status: 'ACTIVE', kind: 'INDIVIDUAL' } });
@@ -480,6 +482,7 @@ export class CompanyController {
   }
 
   @Patch('company/me/employees/:id')
+  @RequirePermissions('company.employees.manage')
   async suspendEmployee(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
     const company = await this.companies.requireCompany(auth);
     const target = await this.prisma.user.findUnique({ where: { id } });

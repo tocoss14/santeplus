@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { config } from './config';
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 async function bootstrap(): Promise<void> {
   // Validation critique avant démarrage
@@ -16,6 +17,11 @@ async function bootstrap(): Promise<void> {
   }
   if (!config.fieldEncryptionKey || config.fieldEncryptionKey.length < 64) {
     console.warn('WARNING: FIELD_ENCRYPTION_KEY manquant/invalide — clé dérivée du JWT_SECRET utilisée (définir FIELD_ENCRYPTION_KEY en prod pour persistance)');
+  }
+
+  // Garde production : aucun compte ne doit utiliser le mot de passe de démonstration connu
+  if (config.isProd && process.env.ALLOW_DEMO_ACCOUNTS_IN_PROD !== 'true') {
+    await guardKnownDemoAccounts();
   }
 
   process.on('unhandledRejection', (reason: unknown) => {
@@ -82,8 +88,14 @@ async function bootstrap(): Promise<void> {
     console.log(`API ready on http://localhost:${config.port}/api`);
     console.log(`Environment: ${config.isProd ? 'production' : 'development'}`);
 
-    // Auto-seed: si la table User est vide, lancer le seed
-    await autoSeed();
+    // Auto-seed: si la table User est vide, lancer le seed.
+    // JAMAIS en production : le seed est destructeur et crée des comptes de démo
+    // avec des identifiants connus. Utiliser le workflow seed.yml pour un seed explicite.
+    if (config.isProd) {
+      console.log('Auto-seed disabled in production (destructive demo seed with known credentials). Use the seed.yml workflow for explicit seeding.');
+    } else {
+      await autoSeed();
+    }
   } catch (error) {
     console.error('Failed to start application:', error);
     process.exit(1);
@@ -91,6 +103,48 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap();
+
+/**
+ * Garde production : refuse de démarrer si des comptes utilisent encore le mot de
+ * passe de démonstration connu (Demo1234!, codé en dur dans prisma/seed.ts).
+ * Périmètre volontairement borné (rôles privilégiés + emails de démo) pour rester
+ * instantané même sur une base de production avec de nombreux utilisateurs.
+ * Override d'urgence : ALLOW_DEMO_ACCOUNTS_IN_PROD=true (déconseillé).
+ */
+async function guardKnownDemoAccounts(): Promise<void> {
+  let check: PrismaClient | null = null;
+  try {
+    check = new PrismaClient();
+    const users = await check.user.findMany({
+      where: {
+        OR: [
+          { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT', 'COMPANY_ADMIN', 'PROVIDER'] } },
+          { email: { contains: '@demo.bj' } },
+          { email: { in: ['admin@santeplus.bj', 'gestionnaire@santeplus.bj', 'support@santeplus.bj', 'entreprise@santeplus.bj', 'prestataire@santeplus.bj', 'caisse@santeplus.bj'] } },
+        ],
+      },
+      select: { email: true, passwordHash: true },
+    });
+    const demoAccounts = new Set<string>();
+    for (const u of users) {
+      if (!u.passwordHash || !u.passwordHash.startsWith('$2')) continue;
+      try {
+        if (await bcrypt.compare('Demo1234!', u.passwordHash)) demoAccounts.add(u.email);
+      } catch { /* hash illisible — ignoré */ }
+    }
+    if (demoAccounts.size > 0) {
+      console.error(`FATAL: ${demoAccounts.size} compte(s) utilisent encore le mot de passe de démonstration connu (Demo1234!).`);
+      console.error(`Comptes concernés : ${[...demoAccounts].join(', ')}`);
+      console.error('Changez leur mot de passe ou supprimez-les avant de démarrer en production.');
+      console.error('Pour forcer le démarrage (urgence uniquement) : ALLOW_DEMO_ACCOUNTS_IN_PROD=true');
+      process.exit(1);
+    }
+  } catch (err: any) {
+    console.warn('WARNING: vérification des comptes de démonstration impossible — démarrage sans garde :', err?.message ?? err);
+  } finally {
+    await check?.$disconnect().catch(() => {});
+  }
+}
 
 /** Auto-seed : vérifie si la base est vide et lance le seed */
 async function autoSeed(): Promise<void> {

@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, SetMetadata, UnauthorizedExc
 import { Reflector } from '@nestjs/core';
 import { JwtService } from './jwt.service';
 import { PrismaService } from '../prisma.module';
+import { ACCESS_COOKIE } from '../../modules/auth/cookies';
 
 export interface AuthUser {
   id: string;
@@ -31,6 +32,11 @@ export class JwtAuthGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest();
     const header: string | undefined = req.headers['authorization'];
     let rawToken: string | undefined = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+
+    // Repli cookie httpOnly (web migré) — le header Bearer reste prioritaire (transition)
+    if (!rawToken && typeof (req.cookies as any)?.[ACCESS_COOKIE] === 'string') {
+      rawToken = (req.cookies as any)[ACCESS_COOKIE] as string;
+    }
 
     if (!rawToken && typeof req.query?.token === 'string' && /certificate|attestation/.test(req.originalUrl ?? '')) {
       rawToken = req.query.token as string;

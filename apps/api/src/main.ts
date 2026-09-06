@@ -44,6 +44,33 @@ async function bootstrap(): Promise<void> {
     // Cookies httpOnly (sp_access / sp_refresh) — requis avant les routes auth
     app.use(cookieParser());
 
+    // Anti-CSRF : les mutations authentifiées par COOKIE exigent une Origin/Referer autorisée.
+    // - Requêtes Bearer : insensibles au CSRF (pas de cookies) → passent.
+    // - Webhooks serveur-à-serveur : pas d'Origin navigateur → exclus.
+    // - Sans cookies : rien à protéger → passent (le guard renverra 401 si besoin).
+    const csrfSafeMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
+    const csrfSkippedPrefixes = ['/api/payments/webhook/'];
+    const csrfAllowedHosts = new Set(
+      [...config.webOrigin.split(','), ...config.appUrl.split(',')]
+        .map(s => s.trim()).filter(Boolean)
+        .map(o => { try { return new URL(o).host.toLowerCase(); } catch { return ''; } })
+        .filter(Boolean),
+    );
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (csrfSafeMethods.has(req.method)) return next();
+      const authHeader = req.headers['authorization'];
+      if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) return next();
+      if (csrfSkippedPrefixes.some(p => (req.originalUrl ?? '').startsWith(p))) return next();
+      const cookies = (req as any).cookies;
+      if (!cookies || Object.keys(cookies).length === 0) return next();
+      const originHeader = (req.headers['origin'] ?? req.headers['referer']) as string | undefined;
+      let originHost = '';
+      try { originHost = originHeader ? new URL(originHeader).host.toLowerCase() : ''; } catch { originHost = ''; }
+      const reqHost = (req.get('host') ?? '').toLowerCase();
+      if (originHost && (csrfAllowedHosts.has(originHost) || originHost === reqHost)) return next();
+      res.status(403).json({ statusCode: 403, message: 'Origine non autorisée' });
+    });
+
     // CORS AVANT helmet — sinon helmet bloque les preflight OPTIONS
     app.enableCors({
       origin: [

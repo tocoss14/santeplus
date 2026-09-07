@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { encryptMedical } from '../src/common/crypto';
 
 const prisma = new PrismaClient();
 
@@ -781,8 +782,9 @@ async function main() {
       providerId: dossierProvider!.id,
       practitionerName: 'Dr Kouassi',
       specialty: 'Medecine generale',
-      motif: 'Fievre, toux et fatigue depuis 3 jours',
-      diagnostic: 'Paludisme probable - bilan demande',
+      // Champs médicaux : uniquement chiffrés (AES-256-GCM), jamais en clair
+      motifEnc: encryptMedical('Fievre, toux et fatigue depuis 3 jours'),
+      diagnosticEnc: encryptMedical('Paludisme probable - bilan demande'),
     },
   });
   const demoPrescription = await prisma.prescription.create({
@@ -846,7 +848,7 @@ async function main() {
   });
   await prisma.careRecordEvent.createMany({
     data: [
-      { careRecordId: demoCareRecord.id, type: 'CONSULTATION_CREATED', title: `Consultation ${demoConsultation.reference}`, detail: demoConsultation.motif, actorUserId: providerUser.id, actorRole: 'PROVIDER' },
+      { careRecordId: demoCareRecord.id, type: 'CONSULTATION_CREATED', title: `Consultation ${demoConsultation.reference}`, detail: undefined, actorUserId: providerUser.id, actorRole: 'PROVIDER' },
       { careRecordId: demoCareRecord.id, type: 'PRESCRIPTION_CREATED', title: `Ordonnance ${demoPrescription.number}`, detail: '3 produits prescrits', actorUserId: providerUser.id, actorRole: 'PROVIDER' },
       { careRecordId: demoCareRecord.id, type: 'DELIVERY_CREATED', title: `Delivrance ${demoDelivery.reference} — 2 produit(s)`, detail: 'Couvert 4725 FCFA', actorUserId: providerUser.id, actorRole: 'PROVIDER' },
     ],

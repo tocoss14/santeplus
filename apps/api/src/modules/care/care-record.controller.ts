@@ -120,9 +120,8 @@ export class CareRecordController {
           if (dec !== null) dossier.prescription.note = dec;
         }
       } else {
-        if (dossier.prescription.note != null || dossier.prescription.noteEnc != null) {
-          dossier.prescription.note = MEDICAL_MASKED;
-        }
+        // masque même si absent pour ne pas révéler l'existence d'un contenu
+        dossier.prescription.note = MEDICAL_MASKED;
       }
       if ('noteEnc' in dossier.prescription) delete dossier.prescription.noteEnc;
     }

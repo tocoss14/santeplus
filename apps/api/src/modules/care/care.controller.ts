@@ -18,27 +18,23 @@ import { encryptMedical, decryptField, canAccessMedical, MEDICAL_MASKED } from '
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
 
 function decryptConsultationForReader(c: any, requester: AuthUser): any {
+  // Source de vérité : colonnes chiffrées uniquement (pas de clair en base)
   const can = canAccessMedical(requester, c.patientUserId, c.providerId);
   if (can) {
     if (c.motifEnc) {
       const dec = decryptField(c.motifEnc);
       if (dec !== null) c.motif = dec;
     }
-    if (c.diagnosticEnc !== undefined) {
-      if (c.diagnosticEnc) {
-        const dec = decryptField(c.diagnosticEnc);
-        if (dec !== null) c.diagnostic = dec;
-      } else if (c.diagnosticEnc === null) {
-        // keep diagnostic as is (may be null) if no enc; already plain
-      }
+    if (c.diagnosticEnc) {
+      const dec = decryptField(c.diagnosticEnc);
+      if (dec !== null) c.diagnostic = dec;
     }
+    if (c.motif === undefined) c.motif = null;
+    if (c.diagnostic === undefined) c.diagnostic = null;
   } else {
+    // masque même si absent pour ne pas révéler l'existence d'un contenu
     c.motif = MEDICAL_MASKED;
-    if (c.diagnostic != null || c.diagnosticEnc != null) {
-      c.diagnostic = MEDICAL_MASKED;
-    } else {
-      c.diagnostic = MEDICAL_MASKED;
-    }
+    c.diagnostic = MEDICAL_MASKED;
   }
   // Do not expose enc columns to client
   if ('motifEnc' in c) delete c.motifEnc;
@@ -54,10 +50,9 @@ function decryptPrescriptionForReader(p: any, requester: AuthUser): any {
       const dec = decryptField(p.noteEnc);
       if (dec !== null) p.note = dec;
     }
+    if (p.note === undefined) p.note = null;
   } else {
-    if (p.note != null || p.noteEnc != null) {
-      p.note = MEDICAL_MASKED;
-    }
+    p.note = MEDICAL_MASKED;
   }
   if ('noteEnc' in p) delete p.noteEnc;
   return p;
@@ -181,9 +176,8 @@ export class CareController {
         practitionerUserId: auth.id,
         practitionerName: dto.practitioner || `${practitionerUser?.firstName} ${practitionerUser?.lastName}`,
         specialty: dto.specialty,
-        motif: dto.motif,
+        // Champs médicaux : uniquement chiffrés (AES-256-GCM), jamais en clair
         motifEnc: encryptMedical(dto.motif),
-        diagnostic: dto.diagnostic,
         diagnosticEnc: dto.diagnostic ? encryptMedical(dto.diagnostic) : null,
       },
     });
@@ -229,8 +223,9 @@ export class CareController {
     });
     await this.care.addEvent(dossierId, {
       type: 'CONSULTATION_CREATED',
-      title: `Consultation ${consultation.reference} — ${consultation.motif}`,
-      detail: consultation.diagnostic ?? undefined,
+      // Pas de contenu médical dans le titre/détail (événements stockés en clair)
+      title: `Consultation ${consultation.reference}`,
+      detail: undefined,
       actorUserId: auth.id, actorRole: auth.role,
     });
 
@@ -242,8 +237,9 @@ export class CareController {
   async listConsultations(@CurrentUser() auth: AuthUser, @Query('q') q?: string) {
     const { establishment } = await this.care.requireEstablishment(auth);
     const where: any = { providerId: establishment.id };
+    // Recherche possible sur référence/patient uniquement (le motif est chiffré, non cherchable)
     if (q) where.OR = [
-      { motif: { contains: q } }, { reference: { contains: q } },
+      { reference: { contains: q } },
       { patientUser: { is: { OR: [{ firstName: { contains: q } }, { lastName: { contains: q } }] } } },
     ];
     const items = await this.prisma.consultation.findMany({
@@ -334,7 +330,7 @@ export class CareController {
         validFrom: now,
         validUntil: until,
         renewalsAllowed: dto.renewalsAllowed,
-        note: dto.note,
+        // Note médicale : uniquement chiffrée (AES-256-GCM), jamais en clair
         noteEnc: dto.note ? encryptMedical(dto.note) : null,
         status: 'ACTIVE',
         lines: {
@@ -365,7 +361,7 @@ export class CareController {
     await this.care.addEvent(dossierId2, {
       type: 'PRESCRIPTION_CREATED',
       title: `Ordonnance ${pres.number} — ${pres.lines.length} produit(s)`,
-      detail: pres.note ?? undefined,
+      detail: undefined,
       actorUserId: auth.id, actorRole: auth.role,
     });
 
@@ -398,7 +394,7 @@ export class CareController {
         patientUser: { select: { firstName: true, lastName: true, memberNumber: true } },
         lines: true,
         deliveries: { include: { lines: true } },
-        consultation: { select: { reference: true, motif: true, motifEnc: true, diagnostic: true, diagnosticEnc: true } },
+        consultation: { select: { reference: true, motifEnc: true, diagnosticEnc: true } },
       },
     });
     if (!p) throw new NotFoundException();

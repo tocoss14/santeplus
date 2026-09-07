@@ -136,6 +136,8 @@ model Product {
   insurerPartner   InsurerPartner? @relation(fields: [insurerPartnerId], references: [id])
   branchId String?
   branch   Branch? @relation(fields: [branchId], references: [id])
+  // Config CTS (JSON) : taux gestion, seuils, stop-loss, taux report, mode renouvellement
+  ctsConfig String @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -152,6 +154,8 @@ model ProductGuarantee {
   guaranteeId     String
   // Plafond annuel fixe (si null, calculé dynamiquement)
   annualLimit     Int?
+  // Plafond foyer/famille (si null, pas de cumul foyer — voir moteur CTS)
+  familyLimit     Int?
   // Taux de couverture fixe (si null, choisi par l'assuré entre minRate et maxRate)
   rate            Int?
   // Taux minimum autorisé pour cette garantie (flexible)
@@ -215,6 +219,8 @@ model Contract {
   cardToken String   @unique
   adhesionFee     Int       @default(0)
   adhesionPaidAt  DateTime?
+  // Surcharges CTS spécifiques au contrat (nullable — sinon Product.ctsConfig)
+  ctsOverride String?
 
   beneficiaries Beneficiary[]
   contributions Contribution[]
@@ -223,6 +229,12 @@ model Contract {
   distributorId String?
   distributor   Distributor? @relation(fields: [distributorId], references: [id])
   commissions   Commission[]
+  technicalAccount TechnicalAccount?
+  ctsJournals   CtsJournal[]
+  fundCalls     FundCall[]
+  ctsAlerts     CtsAlert[]
+  closure       ContractClosure?
+  fraudCases    FraudCase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -450,6 +462,7 @@ model Provider {
   prescriptions Prescription[] @relation("PrescriptionProvider")
   deliveries Delivery[]
   careRecords CareRecord[]
+  fraudCases FraudCase[]
 
   @@index([city])
   @@index([type])
@@ -506,9 +519,8 @@ model Consultation {
   practitionerUserId String?
   practitionerName  String
   specialty         String?
-  motif             String
+  // Champs médicaux : UNIQUEMENT chiffrés (AES-256-GCM) — pas de doublon en clair
   motifEnc          String?
-  diagnostic        String?
   diagnosticEnc     String?
   careDate          DateTime @default(now())
   claimId           String? @unique
@@ -542,7 +554,7 @@ model Prescription {
   validUntil        DateTime
   renewalsAllowed   Int      @default(0)
   renewalsUsed      Int      @default(0)
-  note              String?
+  // Note médicale : UNIQUEMENT chiffrée (AES-256-GCM) — pas de doublon en clair
   noteEnc           String?
   claims            Claim[]  @relation("ClaimPrescription")
   careRecord        CareRecord?
@@ -871,4 +883,130 @@ model Disease {
   active    Boolean @default(true)
   createdAt DateTime @default(now())
   claims    Claim[]
+}
+
+// ── COMPTE TECHNIQUE SANTÉ (CTS) — pilotage par contrat ──
+// Pilotage technique distinct de la compta OHADA (réglementaire).
+// Cumuls persistés recalculés après chaque événement financier (§40.17).
+
+model TechnicalAccount {
+  id              String   @id @default(cuid())
+  contractId      String   @unique
+  contract        Contract @relation(fields: [contractId], references: [id])
+  primeSubscribed Int      @default(0)
+  primeBilled     Int      @default(0)
+  primeCollected  Int      @default(0)
+  primeUnpaid     Int      @default(0)
+  managementFees  Int      @default(0)
+  benefitBudget   Int      @default(0)
+  consumed        Int      @default(0)
+  committed       Int      @default(0)
+  available       Int      @default(0)
+  consumptionRatio Float   @default(0)
+  provisionalResult Int    @default(0)
+  fundCallsTotal  Int      @default(0)
+  renewalCredit   Int      @default(0)
+  deficit         Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Journal CTS immuable : jamais d'update/delete, uniquement des
+// contre-écritures (§40.4, §40.15).
+model CtsJournal {
+  id            String   @id @default(cuid())
+  date          DateTime @default(now())
+  contractId    String
+  contract      Contract @relation(fields: [contractId], references: [id])
+  beneficiaryId String?
+  providerId    String?
+  amount        Int
+  // PRIME | FRAIS | BUDGET | ENGAGEMENT | CONSOMMATION | ANNULATION |
+  // REMBOURSEMENT | APPEL_FONDS | PAIEMENT | CREDIT_RENOUVELLEMENT | STOP_LOSS | AJUSTEMENT
+  type          String
+  reference     String?
+  oldBalance    Int
+  newBalance    Int
+  actorUserId   String?
+  meta          String   @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([contractId])
+  @@index([type])
+}
+
+model FundCall {
+  id            String   @id @default(cuid())
+  contractId    String
+  contract      Contract @relation(fields: [contractId], references: [id])
+  targetAmount  Int
+  minimum       Int      @default(0)
+  recommended   Int      @default(0)
+  chosenAmount  Int      @default(0)
+  // DRAFT | SENT | PAID | CANCELLED
+  status        String   @default("DRAFT")
+  dueDate       DateTime?
+  invoiceNumber String?
+  paymentId     String?
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([contractId])
+  @@index([status])
+}
+
+model CtsAlert {
+  id         String   @id @default(cuid())
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
+  // CONSOMMATION | CONSOMMATION_ELEVEE | SEUIL | CRITIQUE | EPUISEMENT |
+  // APPEL_FONDS | RENOUVELLEMENT | ANOMALIE | FACTURE | PAIEMENT
+  type       String
+  severity   String   @default("INFO")
+  // OPEN | ACKED | RESOLVED
+  status     String   @default("OPEN")
+  payload    String   @default("{}")
+  createdAt  DateTime @default(now())
+  resolvedAt DateTime?
+
+  @@index([contractId])
+  @@index([status])
+}
+
+model ContractClosure {
+  id            String   @id @default(cuid())
+  contractId    String   @unique
+  contract      Contract @relation(fields: [contractId], references: [id])
+  finalConsumed Int      @default(0)
+  finalCommitted Int     @default(0)
+  surplus       Int      @default(0)
+  carryRate     Int      @default(70)
+  renewalCredit Int      @default(0)
+  // DEDUCT | BUDGET_BOOST
+  mode          String   @default("DEDUCT")
+  // DRAFT | CONFIRMED
+  status        String   @default("DRAFT")
+  closedAt      DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([status])
+}
+
+// Dossier d'instruction fraude (léger) — les détections restent dans les jobs.
+model FraudCase {
+  id             String    @id @default(cuid())
+  contractId     String?
+  contract       Contract? @relation(fields: [contractId], references: [id])
+  providerId     String?
+  provider       Provider? @relation(fields: [providerId], references: [id])
+  kind           String
+  // OPEN | REVIEWING | CONFIRMED | DISMISSED
+  status         String    @default("OPEN")
+  linkedAuditIds String    @default("[]")
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
 }

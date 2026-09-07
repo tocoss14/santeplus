@@ -74,7 +74,7 @@ describe('crypto medical encryption', () => {
 });
 
 describe('CareController encryption integration', () => {
-  it('POST /provider/consultations encrypts motif/diagnostic to Enc columns (dual-write)', async () => {
+  it('POST /provider/consultations writes ONLY encrypted columns (no plaintext at rest)', async () => {
     const { CareController } = await import('../src/modules/care/care.controller');
     expect(CareController).toBeDefined();
 
@@ -124,11 +124,13 @@ describe('CareController encryption integration', () => {
     await (controller as any).createConsultation(authUser, { memberNumber: 'MEM-A00001', motif, diagnostic, practitioner: 'Dr Test' });
 
     expect(createdData).not.toBeNull();
-    expect(createdData.motif).toBe(motif); // plain for backward compat
-    expect(createdData.diagnostic).toBe(diagnostic);
+    // Aucun doublon en clair : le motif/diagnostic ne doivent PAS être stockés
+    expect(createdData.motif).toBeUndefined();
+    expect(createdData.diagnostic).toBeUndefined();
     expect(createdData.motifEnc).toBeDefined();
     expect(createdData.diagnosticEnc).toBeDefined();
     expect(createdData.motifEnc.split('.').length).toBe(3);
+    expect(createdData.motifEnc).not.toBe(motif);
     expect(decryptField(createdData.motifEnc)).toBe(motif);
     expect(decryptField(createdData.diagnosticEnc)).toBe(diagnostic);
   });

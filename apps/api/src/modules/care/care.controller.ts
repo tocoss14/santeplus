@@ -186,7 +186,8 @@ export class CareController {
       const act = await this.prisma.act.findUnique({ where: { id: dto.actId } });
       if (!act) throw new BadRequestException('Acte inconnu');
       const estimation = await this.claims.buildEstimation(contract as any, consultation.careDate,
-        [{ categoryId: act.categoryId, amountRequested: dto.amount }]);
+        [{ categoryId: act.categoryId, amountRequested: dto.amount }],
+        { beneficiaryId, claimantUserId: patientUserId });
       const claim = await this.prisma.claim.create({
         data: {
           reference: ref('SIN'),
@@ -564,7 +565,8 @@ export class CareController {
     });
     const totalRequested = deliveredLines.reduce((a: number, d: any) => a + d.amount, 0);
     const items = deliveredLines.map((d: any) => ({ categoryId: d.line.categoryId, amountRequested: d.amount }));
-    const estimation = await this.claims.buildEstimation(patientContract as any, new Date(), items);
+    const estimation = await this.claims.buildEstimation(patientContract as any, new Date(), items,
+      { beneficiaryId: (pres as any).beneficiaryId ?? null, claimantUserId: pres.patientUserId });
     const productThreshold: number | null =
       (await this.prisma.product.findUnique({ where: { id: (patientContract as any).productId }, select: { thirdPartyAuthThreshold: true } }))?.thirdPartyAuthThreshold ?? null;
     const thresholds: number[] = [];

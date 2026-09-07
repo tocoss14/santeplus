@@ -371,6 +371,8 @@ export interface CoverageRule {
   categoryId: string;
   categoryName?: string;
   annualLimit: number | null;
+  /** Plafond foyer cumulé sur le contrat, toutes personnes confondues (§23). null = pas de cumul foyer. */
+  familyLimit?: number | null;
   rate: number;
   deductibleType: 'NONE' | 'FIXED' | 'PERCENT';
   deductibleValue: number;
@@ -388,6 +390,14 @@ export interface ClaimCtx {
   excludedCategories: string[];
   rules: CoverageRule[];
   usedPerCategory: Record<string, number>;
+  /**
+   * Cumul par personne (patient) et par catégorie. Fourni uniquement quand le
+   * produit utilise familyLimit : annualLimit s'applique alors par personne
+   * (au lieu des sommes contrat), familyLimit au foyer (sommes contrat de
+   * usedPerCategory). Absent = comportement historique (annualLimit sur les
+   * sommes contrat).
+   */
+  usedPersonPerCategory?: Record<string, number>;
   /** Plafond agrégé annuel sur toutes les catégories confondues (0 = pas de plafond) */
   globalAnnualCap?: number;
   /** Dépense totale déjà consommée sur l'année (toutes catégories) */
@@ -417,7 +427,7 @@ export interface EstimationItem {
   amountApproved: number;
   /** Montant restant à la charge de l'assuré (franchise + copay + dépassement) */
   outOfPocket: number;
-  reason?: 'EXCLUDED' | 'CAP_REACHED' | 'CONTRACT_INACTIVE' | 'OUT_OF_PERIOD' | 'WAITING_PERIOD' | 'GLOBAL_CAP_REACHED' | 'FEE_SCHEDULE_EXCEEDED';
+  reason?: 'EXCLUDED' | 'CAP_REACHED' | 'FAMILY_CAP_REACHED' | 'CONTRACT_INACTIVE' | 'OUT_OF_PERIOD' | 'WAITING_PERIOD' | 'GLOBAL_CAP_REACHED' | 'FEE_SCHEDULE_EXCEEDED';
 }
 
 export interface EstimationResult {
@@ -533,7 +543,11 @@ export function estimateClaim(
       }
     }
     const used = ctx.usedPerCategory[item.categoryId] ?? 0;
-    const remaining = rule.annualLimit == null ? Infinity : Math.max(0, rule.annualLimit - used);
+    // Assiette du plafond annuel : sommes personne si le contexte personne est
+    // fourni (nouveau modèle foyer), sinon sommes contrat (historique).
+    const personUsed = ctx.usedPersonPerCategory?.[item.categoryId];
+    const capBase = personUsed ?? used;
+    const remaining = rule.annualLimit == null ? Infinity : Math.max(0, rule.annualLimit - capBase);
     if (remaining <= 0) {
       return {
         ...item,
@@ -544,6 +558,20 @@ export function estimateClaim(
         amountApproved: 0,
         outOfPocket: item.amountRequested,
         reason: 'CAP_REACHED',
+      };
+    }
+    // Plafond foyer (§23) : cumul contrat toutes personnes confondues.
+    const familyRemaining = rule.familyLimit == null ? Infinity : Math.max(0, rule.familyLimit - used);
+    if (familyRemaining <= 0) {
+      return {
+        ...item,
+        amountEligible: 0,
+        rateApplied: rule.rate,
+        deductibleApplied: 0,
+        copayApplied: 0,
+        amountApproved: 0,
+        outOfPocket: item.amountRequested,
+        reason: 'FAMILY_CAP_REACHED',
       };
     }
     // Plafond agrégé annuel (stop-loss global)
@@ -570,7 +598,7 @@ export function estimateClaim(
       effectiveAmount = rule.maxUnitPrice;
     }
 
-    const eligible = Math.min(effectiveAmount, remaining);
+    const eligible = Math.min(effectiveAmount, remaining, familyRemaining);
     let deductible = 0;
     if (rule.deductibleType === 'FIXED') deductible = Math.min(rule.deductibleValue, eligible);
     else if (rule.deductibleType === 'PERCENT')

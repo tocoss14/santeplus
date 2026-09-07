@@ -1,14 +1,32 @@
-import { BadRequestException, Body, Controller, Get, Injectable, Module, Param, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';
 import { AuditInterceptor } from '../../common/audit.interceptor';
-import { Public } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators';
+import { AuthUser, Public } from '../../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { FilesModule, StorageService } from '../files/files.service';
 import { ref, memberNumber } from '../../common/utils';
+
+/** Types de pièces acceptées pour l'inscription prestataire (§25). */
+export const PROVIDER_DOC_TYPES: [string, ...string[]] = ['RCCM', 'AGREMENT', 'ID_PRO', 'RIB', 'AUTRE'];
+
+export interface ProviderDocEntry {
+  fileId: string;
+  docType: string;
+  fileName: string;
+  mime: string;
+  size: number;
+  uploadedAt: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  reviewNote?: string | null;
+}
 
 // ─── Inscription publique ──────────────────────────────────────────────────
 
@@ -48,7 +66,17 @@ export class ProviderRegistrationService {
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
+    private storage: StorageService,
   ) {}
+
+  private parseDocs(raw: string | null | undefined): ProviderDocEntry[] {
+    try {
+      const v = JSON.parse(raw ?? '[]');
+      return Array.isArray(v) ? v : [];
+    } catch {
+      return [];
+    }
+  }
 
   /**
    * Inscription publique d'un prestataire.
@@ -289,6 +317,129 @@ export class ProviderRegistrationService {
     });
   }
 
+  /**
+   * Dépôt de pièces d'inscription (GED prestataire, §25).
+   * Appel public : le déclarant n'a pas encore de compte, l'email de contact
+   * déclaré à l'inscription fait office de preuve (comparaison insensible à la casse).
+   * Les fichiers sont versionnés comme FileObject sans propriétaire (ownerId null,
+   * documentType=PROVIDER_DOC) et référencés dans Provider.registrationDocs.
+   * Tout nouveau dépôt repasse le dossier en PENDING_REGISTRATION (à réviser).
+   */
+  async uploadRegistrationDocuments(
+    providerId: string,
+    contactEmail: string,
+    docType: string,
+    files: Express.Multer.File[] | undefined,
+  ) {
+    const provider = await this.prisma.provider.findUnique({ where: { id: providerId } });
+    if (!provider) throw new NotFoundException('Prestataire introuvable');
+    if ((provider.contactEmail ?? '').toLowerCase() !== (contactEmail ?? '').toLowerCase() || !contactEmail) {
+      throw new ForbiddenException("L'email de contact ne correspond pas à l'inscription");
+    }
+    if (!['PENDING_REGISTRATION', 'DOCUMENTS_REVIEWED'].includes(provider.registrationStatus)) {
+      throw new BadRequestException(`Statut ${provider.registrationStatus} : dépôt de pièces impossible`);
+    }
+    if (!files || files.length === 0) throw new BadRequestException('Aucun fichier reçu');
+    if (!PROVIDER_DOC_TYPES.includes(docType)) {
+      throw new BadRequestException(`Type de document invalide (attendu : ${PROVIDER_DOC_TYPES.join(', ')})`);
+    }
+
+    const entries = this.parseDocs(provider.registrationDocs);
+    for (const f of files) {
+      // ownerId '' : save() ne persiste que les octets ; aucun compte pré-inscription.
+      const saved = await this.storage.save('', f);
+      const fileObj = await this.prisma.fileObject.create({
+        data: {
+          storagePath: saved.storagePath,
+          mime: saved.mime,
+          size: saved.size,
+          sha256: saved.sha256,
+          ownerId: null,
+          documentType: 'PROVIDER_DOC',
+          tags: JSON.stringify([provider.id, docType]),
+        },
+      });
+      entries.push({
+        fileId: fileObj.id,
+        docType,
+        fileName: f.originalname,
+        mime: saved.mime,
+        size: saved.size,
+        uploadedAt: new Date().toISOString(),
+        status: 'PENDING',
+        reviewedAt: null,
+        reviewedBy: null,
+        reviewNote: null,
+      });
+    }
+    await this.prisma.provider.update({
+      where: { id: providerId },
+      data: { registrationDocs: JSON.stringify(entries), registrationStatus: 'PENDING_REGISTRATION' },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'PROVIDER_DOC_UPLOADED',
+        entityType: 'provider',
+        entityId: providerId,
+        status: 'OK',
+        meta: JSON.stringify({ docType, count: files.length }),
+      },
+    });
+    return { ok: true, files: entries.slice(-files.length) };
+  }
+
+  /**
+   * Revue d'une pièce par un gestionnaire. Quand toutes les pièces sont
+   * ACCEPTED (et au moins une), le dossier passe DOCUMENTS_REVIEWED
+   * (approuvable). Sinon il reste PENDING_REGISTRATION.
+   */
+  async reviewDocument(
+    providerId: string,
+    fileId: string,
+    decision: 'ACCEPTED' | 'REJECTED',
+    reviewerId: string,
+    note?: string,
+  ) {
+    const provider = await this.prisma.provider.findUnique({ where: { id: providerId } });
+    if (!provider) throw new NotFoundException('Prestataire introuvable');
+    const entries = this.parseDocs(provider.registrationDocs);
+    const entry = entries.find(e => e.fileId === fileId);
+    if (!entry) throw new NotFoundException('Pièce introuvable pour ce prestataire');
+    entry.status = decision;
+    entry.reviewedAt = new Date().toISOString();
+    entry.reviewedBy = reviewerId;
+    entry.reviewNote = note ?? null;
+    const allAccepted = entries.length > 0 && entries.every(e => e.status === 'ACCEPTED');
+    const registrationStatus = allAccepted ? 'DOCUMENTS_REVIEWED' : 'PENDING_REGISTRATION';
+    await this.prisma.provider.update({
+      where: { id: providerId },
+      data: { registrationDocs: JSON.stringify(entries), registrationStatus },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'PROVIDER_DOC_REVIEWED',
+        entityType: 'provider',
+        entityId: providerId,
+        userId: reviewerId,
+        status: 'OK',
+        meta: JSON.stringify({ fileId, decision }),
+      },
+    });
+    return { ok: true, registrationStatus };
+  }
+
+  /**
+   * Pièces d'un dossier pour revue admin.
+   */
+  async listDocuments(providerId: string) {
+    const provider = await this.prisma.provider.findUnique({
+      where: { id: providerId },
+      select: { id: true, name: true, registrationStatus: true, registrationDocs: true },
+    });
+    if (!provider) throw new NotFoundException('Prestataire introuvable');
+    return { provider: { id: provider.id, name: provider.name, registrationStatus: provider.registrationStatus }, documents: this.parseDocs(provider.registrationDocs) };
+  }
+
   private generateTempPassword(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let password = '';
@@ -335,12 +486,50 @@ export class ProviderRegistrationController {
   }
 
   /**
+   * POST /providers/register/:id/documents — Dépôt public de pièces (multipart).
+   * Champs : contactEmail (doit matcher l'inscription), docType, documents[] (max 5).
+   */
+  @Public()
+  @Post('providers/register/:id/documents')
+  @UseInterceptors(FilesInterceptor('documents', 5))
+  async uploadDocs(
+    @Param('id') id: string,
+    @Body(new ZodPipe(z.object({ contactEmail: z.string().email(), docType: z.enum(PROVIDER_DOC_TYPES) }))) dto: any,
+    @UploadedFiles() files: Express.Multer.File[] | undefined,
+  ) {
+    return this.reg.uploadRegistrationDocuments(id, dto.contactEmail, dto.docType, files);
+  }
+
+  /**
    * GET /admin/providers/registrations — Inscriptions en attente
    */
   @Get('admin/providers/registrations')
   @RequirePermissions('providers.manage')
   listPending() {
     return this.reg.listPendingRegistrations();
+  }
+
+  /**
+   * GET /admin/providers/:id/documents — Pièces d'un dossier pour revue
+   */
+  @Get('admin/providers/:id/documents')
+  @RequirePermissions('providers.manage')
+  documents(@Param('id') id: string) {
+    return this.reg.listDocuments(id);
+  }
+
+  /**
+   * POST /admin/providers/:id/documents/review — Revue d'une pièce.
+   * Toutes ACCEPTED → DOCUMENTS_REVIEWED (approuvable), sinon PENDING_REGISTRATION.
+   */
+  @Post('admin/providers/:id/documents/review')
+  @RequirePermissions('providers.manage')
+  review(
+    @CurrentUser() auth: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodPipe(z.object({ fileId: z.string().min(5), decision: z.enum(['ACCEPTED', 'REJECTED']), note: z.string().max(500).optional() }))) dto: any,
+  ) {
+    return this.reg.reviewDocument(id, dto.fileId, dto.decision, auth.id, dto.note);
   }
 
   /**
@@ -365,5 +554,6 @@ export class ProviderRegistrationController {
 @Module({
   controllers: [ProviderRegistrationController],
   providers: [ProviderRegistrationService],
+  imports: [FilesModule],
 })
 export class ProviderRegistrationModule {}

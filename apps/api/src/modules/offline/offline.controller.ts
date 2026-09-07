@@ -173,7 +173,8 @@ export class OfflineController {
         });
         const totalRequested = deliveredLines.reduce((a: number, d: any) => a + d.amount, 0);
         const itemsForEstimation = deliveredLines.map((d: any) => ({ categoryId: d.line.categoryId, amountRequested: d.amount }));
-        const estimation = await this.claims.buildEstimation(patientContract as any, new Date(), itemsForEstimation);
+        const estimation = await this.claims.buildEstimation(patientContract as any, new Date(), itemsForEstimation,
+          { beneficiaryId: (pres as any).beneficiaryId ?? null, claimantUserId: pres.patientUserId });
         const productThreshold: number | null =
           (await this.prisma.product.findUnique({ where: { id: (patientContract as any).productId }, select: { thirdPartyAuthThreshold: true } }))?.thirdPartyAuthThreshold ?? null;
         const thresholds: number[] = [];

@@ -469,7 +469,8 @@ export class ProviderPortalController {
       // le tiers payant direct reste autorisé (legacy conservé uniquement
       // pour requiresPrescription == false).
     }
-    const estimation = await this.claims.buildEstimation(contract as any, careDate, items);
+    const estimation = await this.claims.buildEstimation(contract as any, careDate, items,
+      { beneficiaryId, claimantUserId: (contract as any).principalUserId });
     // Per-item threshold resolution: most restrictive of product vs act applies per item
     const productThreshold: number | null =
       (await this.prisma.product.findUnique({ where: { id: (contract as any).productId ?? (contract as any).product?.id }, select: { thirdPartyAuthThreshold: true } }))?.thirdPartyAuthThreshold ?? null;
@@ -725,7 +726,8 @@ export class ProviderPortalController {
       include: { product: { include: { guarantees: { include: { guarantee: true } }, exclusions: true } } },
     });
     const estimation = await this.claims.buildEstimation(contract as any, claim.careDate,
-      fresh!.items.map(i => ({ categoryId: i.categoryLabel, amountRequested: i.amountRequested })));
+      fresh!.items.map(i => ({ categoryId: i.categoryLabel, amountRequested: i.amountRequested })),
+      { beneficiaryId: claim.beneficiaryId, claimantUserId: claim.claimantUserId });
     const newApproved = estimation.totals.approved;
 
     if (newApproved > authorizedTotal * 1.1) {

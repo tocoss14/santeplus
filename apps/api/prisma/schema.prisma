@@ -412,8 +412,9 @@ model FileObject {
   mime        String
   size        Int
   sha256      String
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
+  // Nullable : documents pré-compte (ex. pièces d'inscription prestataire)
+  ownerId     String?
+  owner       User?    @relation(fields: [ownerId], references: [id])
   documentType String?
   tags         String? @default("[]")
   version      Int     @default(1)

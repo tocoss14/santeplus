@@ -10,6 +10,7 @@ import { PrismaService } from '../../common/prisma.module';
 import { ref } from '../../common/utils';
 import { sha256 } from '../../common/crypto';
 import { estimateClaim, CoverageRule, EstimationResult, CLAIM_STATUSES_CONSUMING_CAPS } from '../../domain/engine';
+import { assertClaimTransition, type ClaimAction } from '../../domain/claim-machine';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { StorageService, FilesModule } from '../files/files.service';
 import { AccountingModule, AccountingService } from '../accounting/accounting.controller';
@@ -24,11 +25,17 @@ export class ClaimsService {
     private dispatch: NotificationDispatchService,
   ) {}
 
-  async buildEstimation(contract: any, careDate: Date, items: { categoryId: string; label?: string; amountRequested: number }[]): Promise<EstimationResult> {
+  async buildEstimation(
+    contract: any,
+    careDate: Date,
+    items: { categoryId: string; label?: string; amountRequested: number }[],
+    person?: { beneficiaryId?: string | null; claimantUserId?: string },
+  ): Promise<EstimationResult> {
     const rules: CoverageRule[] = contract.product.guarantees.map((pg: any) => ({
       categoryId: pg.guarantee.category,
       categoryName: pg.guarantee.name,
       annualLimit: pg.annualLimit,
+      familyLimit: pg.familyLimit ?? null,
       rate: pg.rate,
       deductibleType: pg.deductibleType,
       deductibleValue: pg.deductibleValue,
@@ -50,6 +57,29 @@ export class ClaimsService {
     });
     const usedPerCategory: Record<string, number> = {};
     for (const pi of priorItems) usedPerCategory[pi.categoryLabel] = (usedPerCategory[pi.categoryLabel] ?? 0) + (pi.amountEligible ?? 0);
+
+    // Cumul par personne (nouveau modèle foyer) : calculé uniquement si le
+    // produit utilise familyLimit, sinon comportement historique inchangé.
+    let usedPersonPerCategory: Record<string, number> | undefined;
+    const principalId: string | undefined = person?.claimantUserId ?? contract.principalUserId;
+    if (rules.some(r => r.familyLimit != null) && principalId) {
+      const personItems = await this.prisma.claimItem.findMany({
+        where: {
+          claim: {
+            contractId: contract.id,
+            status: { in: CAPS_CONSUMING },
+            ...(yearStart ? { careDate: { gte: yearStart } } : {}),
+            ...(person?.beneficiaryId
+              ? { beneficiaryId: person.beneficiaryId }
+              : { beneficiaryId: null, claimantUserId: principalId }),
+          },
+          amountEligible: { not: null },
+        },
+        select: { categoryLabel: true, amountEligible: true },
+      });
+      usedPersonPerCategory = {};
+      for (const pi of personItems) usedPersonPerCategory[pi.categoryLabel] = (usedPersonPerCategory[pi.categoryLabel] ?? 0) + (pi.amountEligible ?? 0);
+    }
 
     const duplicateSuspect = await this.detectDuplicate(contract.claimantUserId ?? contract.principalUserId, contract.id, careDate, items);
     // Calculer la dépense globale totale (toutes catégories)
@@ -107,6 +137,7 @@ export class ClaimsService {
         excludedCategories,
         rules,
         usedPerCategory,
+        usedPersonPerCategory,
         globalAnnualCap: globalAnnualCap > 0 ? globalAnnualCap : undefined,
         usedGlobal,
         categoryWaitingPeriods: Object.keys(categoryWaitingPeriods).length > 0 ? categoryWaitingPeriods : undefined,
@@ -227,7 +258,8 @@ export class ClaimsController {
       const b = await this.prisma.beneficiary.findFirst({ where: { id: dto.beneficiaryId, contractId: contract.id, status: 'COVERED' } });
       if (!b) throw new BadRequestException('Ayant droit non couvert');
     }
-    const estimation = await this.claims.buildEstimation(contract, dto.careDate, dto.items);
+    const estimation = await this.claims.buildEstimation(contract, dto.careDate, dto.items,
+      { beneficiaryId: dto.beneficiaryId ?? null, claimantUserId: auth.id });
     const totalRequested = dto.items.reduce((a: number, i: any) => a + i.amountRequested, 0);
 
     const docTypes: string[] = Array.isArray(dto.docTypes) && dto.docTypes.length
@@ -295,11 +327,16 @@ export class ClaimsController {
   @Post('claims/:id/submit')
   async submit(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
     const claim = await this.ownClaim(auth, id);
-    if (!['DRAFT', 'INFO_REQUESTED'].includes(claim.status)) throw new BadRequestException('Demande dÃ©jÃ  soumise');
+    try {
+      assertClaimTransition(claim.status, 'SUBMIT');
+    } catch {
+      throw new BadRequestException('Demande dÃ©jÃ  soumise');
+    }
     const docs = await this.prisma.claimDocument.count({ where: { claimId: claim.id, docType: 'INVOICE' } });
     if (!docs) throw new BadRequestException('Une facture est requise pour soumettre la demande');
     const contract = await this.loadContractForClaim(claim);
-    const estimation = await this.claims.buildEstimation(contract, claim.careDate, claim.items.map(i => ({ categoryId: i.categoryLabel, amountRequested: i.amountRequested })));
+    const estimation = await this.claims.buildEstimation(contract, claim.careDate, claim.items.map(i => ({ categoryId: i.categoryLabel, amountRequested: i.amountRequested })),
+      { beneficiaryId: claim.beneficiaryId, claimantUserId: claim.claimantUserId });
     const updated = await this.prisma.claim.update({
       where: { id: claim.id },
       data: {
@@ -411,7 +448,7 @@ export class ClaimsController {
   @Post('admin/claims/:id/request-info')
   @RequirePermissions('claims.viewAll')
   async requestInfo(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ note: z.string().min(3).max(1000) }))) dto: any) {
-    const claim = await this.decisionGuard(id, ['SUBMITTED', 'UNDER_REVIEW']);
+    const claim = await this.decisionGuard(id, 'REQUEST_INFO');
     await this.prisma.claim.update({ where: { id }, data: { status: 'INFO_REQUESTED', decisionNote: dto.note } });
     await this.notifyClaimant(claim.claimantUserId, claim.reference, `Documents complÃ©mentaires requis`, dto.note);
     return { ok: true };
@@ -420,7 +457,7 @@ export class ClaimsController {
   @Post('admin/claims/:id/under-review')
   @RequirePermissions('claims.viewAll')
   async underReview(@Param('id') id: string) {
-    await this.decisionGuard(id, ['SUBMITTED', 'INFO_REQUESTED']);
+    await this.decisionGuard(id, 'UNDER_REVIEW');
     await this.prisma.claim.update({ where: { id }, data: { status: 'UNDER_REVIEW' } });
     return { ok: true };
   }
@@ -428,7 +465,7 @@ export class ClaimsController {
   @Post('admin/claims/:id/approve')
   @RequirePermissions('claims.decide')
   async approve(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(approveSchema)) dto: any) {
-    const claim = await this.decisionGuard(id, ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED']);
+    const claim = await this.decisionGuard(id, 'APPROVE');
     let overridesMap = new Map<string, any>();
     if (dto.overrides) overridesMap = new Map(dto.overrides.map((o: any) => [o.itemId, o]));
     const full = await this.prisma.claim.findUnique({ where: { id }, include: { items: true } });
@@ -506,16 +543,27 @@ export class ClaimsController {
   @Post('admin/claims/:id/reject')
   @RequirePermissions('claims.decide')
   async reject(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ reason: z.string().min(3).max(1000) }))) dto: any) {
-    const claim = await this.decisionGuard(id, ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED']);
+    const claim = await this.decisionGuard(id, 'REJECT');
     await this.prisma.claim.update({ where: { id }, data: { status: 'REJECTED', decisionNote: dto.reason, decidedById: auth.id, decidedAt: new Date(), totalApproved: 0 } });
     await this.notifyClaimant(claim.claimantUserId, claim.reference, 'Demande refusÃ©e', dto.reason);
+    return { ok: true };
+  }
+
+  @Post('admin/claims/:id/cancel')
+  @RequirePermissions('claims.decide')
+  async cancel(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ reason: z.string().min(3).max(1000) }))) dto: any) {
+    // Annulation sans contre-écriture : uniquement depuis des états qui ne
+    // consomment pas les plafonds (§40.4). Au-delà, phase CTS 10/11.
+    const claim = await this.decisionGuard(id, 'CANCEL');
+    await this.prisma.claim.update({ where: { id }, data: { status: 'CANCELLED', decisionNote: dto.reason, decidedById: auth.id, decidedAt: new Date() } });
+    await this.notifyClaimant(claim.claimantUserId, claim.reference, 'Demande annulée', dto.reason);
     return { ok: true };
   }
 
   @Post('admin/claims/:id/mark-paid')
   @RequirePermissions('payments.manage')
   async markPaid(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ paidRef: z.string().min(2).max(60).optional() }))) dto: any) {
-    const claim = await this.decisionGuard(id, ['APPROVED', 'PARTIALLY_APPROVED']);
+    const claim = await this.decisionGuard(id, 'MARK_PAID');
     const updated = await this.prisma.claim.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), paidRef: dto.paidRef ?? null, decidedById: claim.decidedById ?? auth.id, decidedAt: claim.decidedAt ?? new Date() } });
     await this.notifyClaimant(claim.claimantUserId, claim.reference, 'Remboursement payÃ©', `Le paiement de ${claim.totalApproved} FCFA a Ã©tÃ© effectuÃ©.`);
     try { await this.accounting?.recordSinistre({ ...claim, ...updated }); } catch {}
@@ -586,11 +634,14 @@ export class ClaimsController {
     });
   }
 
-  private async decisionGuard(id: string, from: string[]) {
+  private async decisionGuard(id: string, action: ClaimAction) {
     const claim = await this.prisma.claim.findUnique({ where: { id } });
     if (!claim) throw new NotFoundException('Demande introuvable');
-    if (!from.includes(claim.status))
+    try {
+      assertClaimTransition(claim.status, action);
+    } catch {
       throw new BadRequestException(`Action impossible depuis le statut ${claim.status}`);
+    }
     return claim;
   }
 

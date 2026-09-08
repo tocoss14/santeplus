@@ -12,6 +12,7 @@ import { getProvider, getProviders } from './providers';
 import { extractCinetpayReference, extractFedapayTransactionId } from '../../domain/payment-mapping';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { AccountingService, AccountingModule } from '../accounting/accounting.controller';
+import { CtsModule, CtsService } from '../cts/cts.service';
 
 const initiateSchema = z.object({
   contractId: z.string().min(5),
@@ -30,6 +31,7 @@ export class PaymentsService {
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
     @Optional() private accounting?: AccountingService,
+    @Optional() private cts?: CtsService,
   ) {}
 
   methods() {
@@ -158,6 +160,15 @@ export class PaymentsService {
         `Référence ${payment.reference}. Merci pour votre paiement.`);
       // Compta technique
       try { await this.accounting?.recordPremium(succeeded); } catch {}
+      // CTS : prime encaissée recalculée depuis les paiements (non bloquant, idempotent)
+      try {
+        if (succeeded.contractId) {
+          await this.cts?.recordPrimeCollected(succeeded.contractId, {
+            reference: `Payment:${succeeded.id}`,
+            actorUserId: succeeded.userId,
+          });
+        }
+      } catch {}
     }
     return { ok: true, status: succeeded.status };
   }
@@ -303,5 +314,5 @@ export class PaymentsController {
   }
 }
 
-@Module({ imports: [AccountingModule], controllers: [PaymentsController], providers: [PaymentsService] })
+@Module({ imports: [AccountingModule, CtsModule], controllers: [PaymentsController], providers: [PaymentsService] })
 export class PaymentsModule {}

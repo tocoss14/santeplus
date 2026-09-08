@@ -15,6 +15,7 @@ import { NotificationDispatchService } from '../../common/notifications/dispatch
 import { StorageService, FilesModule } from '../files/files.service';
 import { AccountingModule, AccountingService } from '../accounting/accounting.controller';
 import { PdfService } from '../contracts/pdf.service';
+import { CtsModule, CtsService } from '../cts/cts.service';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
 
@@ -211,6 +212,7 @@ export class ClaimsController {
     private storage: StorageService,
     @Optional() private accounting?: AccountingService,
     @Optional() private pdf?: PdfService,
+    @Optional() private cts?: CtsService,
   ) {}
 
   private async attachInvoice(claimId: string) {
@@ -434,6 +436,12 @@ export class ClaimsController {
       where: { id },
       data: { status: 'AUTHORIZED', decisionNote: dto.note ?? null, decidedById: auth.id, decidedAt: new Date(), authorizedAmount } as any,
     });
+    // CTS : engagement idempotent (non bloquant)
+    try {
+      await this.cts?.recordEngagement((claim as any).contractId, id, authorizedAmount, {
+        beneficiaryId: (claim as any).beneficiaryId, providerId: (claim as any).providerId, actorUserId: auth.id,
+      });
+    } catch {}
     if (claim.providerUserId) {
       await this.dispatch.dispatchToUser(claim.providerUserId, {
         topic: 'THIRDPARTY_AUTHORIZED',
@@ -532,6 +540,12 @@ export class ClaimsController {
       where: { id },
       data: { status: reduced ? 'PARTIALLY_APPROVED' : 'APPROVED', totalApproved, decisionNote: dto.note, decidedById: auth.id, decidedAt: new Date() },
     });
+    // CTS : engagement idempotent (non bloquant)
+    try {
+      await this.cts?.recordEngagement(claim.contractId, id, totalApproved, {
+        beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
+      });
+    } catch {}
     await this.notifyClaimant(claim.claimantUserId, claim.reference,
       reduced ? 'Demande partiellement approuvée' : 'Demande approuvée',
       `Montant approuvé : ${totalApproved} FCFA. ${dto.note ?? ''}`);
@@ -567,6 +581,12 @@ export class ClaimsController {
     const updated = await this.prisma.claim.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), paidRef: dto.paidRef ?? null, decidedById: claim.decidedById ?? auth.id, decidedAt: claim.decidedAt ?? new Date() } });
     await this.notifyClaimant(claim.claimantUserId, claim.reference, 'Remboursement payÃ©', `Le paiement de ${claim.totalApproved} FCFA a Ã©tÃ© effectuÃ©.`);
     try { await this.accounting?.recordSinistre({ ...claim, ...updated }); } catch {}
+    // CTS : consommation (libère l'engagement), idempotent (non bloquant)
+    try {
+      await this.cts?.recordConsumption(claim.contractId, id, (updated as any).totalApproved ?? claim.totalApproved ?? 0, {
+        beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
+      });
+    } catch {}
     try { if (claim.providerId) await this.attachInvoice(id); } catch {}
     return { ok: true };
   }
@@ -670,7 +690,7 @@ export class ClaimsController {
 @Module({
   controllers: [ClaimsController],
   providers: [ClaimsService, PdfService],
-  imports: [FilesModule, AccountingModule],
+  imports: [FilesModule, AccountingModule, CtsModule],
   exports: [ClaimsService],
 })
 export class ClaimsModule {}

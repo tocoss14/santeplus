@@ -5,6 +5,7 @@ import { AuthUser } from '../../common/guards/jwt-auth.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { SubscriptionService } from './subscription.service';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { CtsModule } from '../cts/cts.service';
 
 const beneficiaryDraftSchema = z.object({
   firstName: z.string().min(2).max(60),
@@ -63,6 +64,7 @@ export class SubscriptionController {
 @Module({
   controllers: [SubscriptionController],
   providers: [SubscriptionService, NotificationDispatchService],
+  imports: [CtsModule],
   exports: [SubscriptionService],
 })
 export class SubscriptionModule {}

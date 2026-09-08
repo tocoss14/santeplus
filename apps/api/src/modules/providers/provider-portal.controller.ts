@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Query, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Optional, Param, Patch, Post, Query, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuditInterceptor } from '../../common/audit.interceptor';
@@ -10,6 +10,7 @@ import { PrismaService } from '../../common/prisma.module';
 import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization, resolveThreshold } from '../../domain/engine';
 import { ClaimsModule, ClaimsService } from '../claims/claims.controller';
 import { FilesModule } from '../files/files.service';
+import { CtsModule, CtsService } from '../cts/cts.service';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { StorageService } from '../files/files.service';
 import { ref } from '../../common/utils';
@@ -137,6 +138,7 @@ export class ProviderPortalController {
     private storage: StorageService,
     private dispatch: NotificationDispatchService,
     private portal: ProviderPortalService,
+    @Optional() private cts?: CtsService,
   ) {}
 
   @Get('me')
@@ -681,6 +683,8 @@ export class ProviderPortalController {
     if (!['PENDING_CONFIRMATION', 'AUTHORIZED', 'AUTHORIZED_EMERGENCY'].includes(claim.status)) throw new BadRequestException(`Statut ${claim.status} non confirmable`);
     if (Date.now() - new Date(claim.createdAt).getTime() > TP_TTL_MS) {
       await this.prisma.claim.update({ where: { id }, data: { status: 'CANCELLED' } });
+      // CTS : contre-écriture de l'engagement éventuel (non bloquant)
+      try { await this.cts?.recordReversal(claim.contractId, id, 'TTL_EXPIRED', { actorUserId: auth.id }); } catch {}
       throw new BadRequestException('Session expirée (> 30 min). Recalculez la prise en charge.');
     }
     await this.prisma.claim.update({
@@ -692,6 +696,12 @@ export class ProviderPortalController {
         totalApproved: claim.items.reduce((a, i) => a + (i.amountApproved ?? 0), 0),
       },
     });
+    // CTS : engagement idempotent (non bloquant)
+    try {
+      await this.cts?.recordEngagement(claim.contractId, id, claim.items.reduce((a, i) => a + (i.amountApproved ?? 0), 0), {
+        beneficiaryId: (claim as any).beneficiaryId, providerId: establishment.id, actorUserId: auth.id,
+      });
+    } catch {}
     await this.notifyConfirmed(establishment.name, claim);
     return { ok: true, status: 'CONFIRMED', reference: claim.reference };
   }
@@ -741,6 +751,8 @@ export class ProviderPortalController {
           items: {},
         },
       });
+      // CTS : contre-écriture de l'engagement confirmé (non bloquant)
+      try { await this.cts?.recordReversal(claim.contractId, id, 'REALIZE_OVER_THRESHOLD', { actorUserId: auth.id }); } catch {}
       for (let idx = 0; idx < fresh!.items.length; idx++) {
         const e = estimation.items[idx];
         if (!e) continue;
@@ -901,6 +913,6 @@ export class ProviderPortalController {
 @Module({
   controllers: [ProviderPortalController],
   providers: [ProviderPortalService],
-  imports: [ClaimsModule, FilesModule],
+  imports: [ClaimsModule, FilesModule, CtsModule],
 })
 export class ProviderPortalModule {}

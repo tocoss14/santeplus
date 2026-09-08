@@ -1,8 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.module';
 import { computeQuote, computeFlexibleQuote, buildSchedule, Frequency, QuotePerson, SelectedGuarantee } from '../../domain/engine';
 import { ref, memberNumber, secureToken, startOfDay } from '../../common/utils';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { CtsService } from '../cts/cts.service';
 import { contractActivatedEmail, smsTemplates } from '../../common/notifications/email-templates';
 
 export interface BeneficiaryDraft {
@@ -21,6 +22,7 @@ export class SubscriptionService {
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
+    @Optional() private cts?: CtsService,
   ) {}
 
   private async adhesionConfig(): Promise<{ perPerson: number; enterpriseCap: number }> {
@@ -198,6 +200,12 @@ export class SubscriptionService {
       return created;
     });
 
+    // CTS : prime souscrite + facturée (non bloquant, idempotent)
+    try {
+      await this.cts?.recordPrimeSubscribed(contract.id, quote.totalAnnual, { actorUserId: userId });
+      await this.cts?.recordPrimeBilled(contract.id, { actorUserId: userId });
+    } catch {}
+
     // Auto-generate NEW_BUSINESS commission for distributor
     if (distributor && distributor.status === 'ACTIVE') {
       const monthlyPremium = Math.round(quote.totalAnnual / 12);
@@ -321,6 +329,12 @@ export class SubscriptionService {
       });
       return created;
     });
+
+    // CTS : prime souscrite + facturée (non bloquant, idempotent)
+    try {
+      await this.cts?.recordPrimeSubscribed(contract.id, total, { actorUserId: admin.id });
+      await this.cts?.recordPrimeBilled(contract.id, { actorUserId: admin.id });
+    } catch {}
 
     return { contractId: contract.id, number: contract.number, quote: { ...quote, adhesionFee, adhesionPerPerson: perPerson, adhesionCap: enterpriseCap }, contributions: schedule, firstPayment: { ...schedule[0], adhesionFee, totalFirstPayment: schedule[0].amount + adhesionFee }, adhesion: { perPerson, personsCount: employeesCount, adhesionFee, enterpriseCap } };
   }

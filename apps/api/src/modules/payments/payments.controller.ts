@@ -18,6 +18,7 @@ const initiateSchema = z.object({
   contractId: z.string().min(5),
   method: z.string().min(2).max(30),
   customerPhone: z.string().optional(),
+  fundCallId: z.string().min(5).optional(),
 });
 
 const mockConfirmSchema = z.object({
@@ -46,15 +47,31 @@ export class PaymentsService {
     if (!provider || !config.payProviders.includes(provider.code))
       throw new BadRequestException('Moyen de paiement indisponible');
 
-    const contribution = await this.prisma.contribution.findFirst({
-      where: { contractId: contract.id, status: { in: ['PENDING', 'OVERDUE'] } },
-      orderBy: { sequence: 'asc' },
-    });
-    if (!contribution) throw new BadRequestException('Aucune cotisation en attente sur ce contrat');
+    // Appel de fonds (§16) : montant choisi exact, sans cotisation ni adhésion.
+    // Cotisation : première échéance en attente (+ adhésion éventuelle).
+    let totalAmount: number;
+    const baseMeta: Record<string, unknown> = {};
+    if (dto.fundCallId) {
+      const fc = await this.prisma.fundCall.findUnique({ where: { id: dto.fundCallId } });
+      if (!fc || fc.contractId !== contract.id)
+        throw new BadRequestException('Appel de fonds invalide pour ce contrat');
+      if (fc.status !== 'SENT') throw new BadRequestException(`Appel de fonds ${fc.status} — non payable`);
+      if (!(fc.chosenAmount > 0)) throw new BadRequestException('Montant choisi invalide');
+      totalAmount = fc.chosenAmount;
+      baseMeta.fundCallId = fc.id;
+    } else {
+      const contribution = await this.prisma.contribution.findFirst({
+        where: { contractId: contract.id, status: { in: ['PENDING', 'OVERDUE'] } },
+        orderBy: { sequence: 'asc' },
+      });
+      if (!contribution) throw new BadRequestException('Aucune cotisation en attente sur ce contrat');
 
-    const needsAdhesion = (contract as any).adhesionFee > 0 && !(contract as any).adhesionPaidAt;
-    const adhesionPart = needsAdhesion ? (contract as any).adhesionFee : 0;
-    const totalAmount = contribution.amount + adhesionPart;
+      const needsAdhesion = (contract as any).adhesionFee > 0 && !(contract as any).adhesionPaidAt;
+      const adhesionPart = needsAdhesion ? (contract as any).adhesionFee : 0;
+      totalAmount = contribution.amount + adhesionPart;
+      baseMeta.contributionId = contribution.id;
+      baseMeta.adhesionFee = adhesionPart;
+    }
     const payment = await this.prisma.payment.create({
       data: {
         reference: ref('PAY'),
@@ -63,7 +80,7 @@ export class PaymentsService {
         amount: totalAmount,
         method: provider.code,
         status: 'PENDING',
-        meta: JSON.stringify({ contributionId: contribution.id, adhesionFee: adhesionPart }),
+        meta: JSON.stringify(baseMeta),
       },
     });
     const initiation = await provider.initiate({ reference: payment.reference, amount: payment.amount, method: provider.code, customerPhone: dto.customerPhone });
@@ -74,7 +91,7 @@ export class PaymentsService {
         data: {
           ...(providerTxId ? { externalRef: String(providerTxId) } : {}),
           meta: JSON.stringify({
-            contributionId: contribution.id,
+            ...baseMeta,
             ...(providerTxId ? { providerTransactionId: String(providerTxId) } : {}),
             ...(initiation.instructions?.providerToken ? { providerToken: String(initiation.instructions.providerToken) } : {}),
           }),
@@ -169,6 +186,36 @@ export class PaymentsService {
           });
         }
       } catch {}
+      // CTS : appel de fonds (§17) — l'encaissement est validé, jamais de
+      // réactivation administrative sans ce paiement vérifié.
+      if (meta.fundCallId && succeeded.contractId) {
+        try {
+          const r = await this.cts?.recordFundPayment(
+            succeeded.contractId,
+            meta.fundCallId,
+            { id: succeeded.id, amount: succeeded.amount, reference: succeeded.reference },
+            succeeded.userId,
+          );
+          if (r?.reactivated) {
+            await this.notify(contract.principalUserId, 'CONTRACT_REACTIVATED',
+              `Contrat ${contract.number} réactivé`,
+              `Votre appel de fonds a été réglé. Votre contrat est de nouveau actif.`);
+          }
+        } catch (e: any) {
+          // Anomalie : argent reçu mais non imputable — alerter, ne pas bloquer.
+          try {
+            const managers = await this.prisma.user.findMany({
+              where: { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER'] }, status: 'ACTIVE' },
+              select: { id: true },
+            });
+            for (const m of managers) {
+              await this.notify(m.id, 'APPEL_FONDS',
+                `Anomalie appel de fonds — ${contract.number}`,
+                `Paiement ${succeeded.reference} : ${e?.message ?? 'imputation impossible'}.`);
+            }
+          } catch {}
+        }
+      }
     }
     return { ok: true, status: succeeded.status };
   }

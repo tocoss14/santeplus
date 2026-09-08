@@ -1,5 +1,13 @@
-import { Injectable, Module, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Injectable, Module, NotFoundException, Param, Post } from '@nestjs/common';
+import { z } from 'zod';
+import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
+import { CurrentUser } from '../../common/decorators';
+import { AuthUser } from '../../common/guards/jwt-auth.guard';
+import { RequirePermissions } from '../../common/guards/permissions.guard';
+import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
+import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { ref } from '../../common/utils';
 import {
   available,
   band,
@@ -8,6 +16,7 @@ import {
   deficit,
   managementFees,
   parseCtsConfig,
+  proposeFundCall as engineProposeFundCall,
   provisionalResult,
   type CtsBand,
   type CtsConfig,
@@ -50,7 +59,10 @@ export interface CtsEntryInput {
 
 @Injectable()
 export class CtsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private dispatch: NotificationDispatchService,
+  ) {}
 
   private async loadConfig(contractId: string): Promise<CtsConfig> {
     const c = await this.prisma.contract.findUnique({
@@ -95,6 +107,13 @@ export class CtsService {
 
   async getAccount(contractId: string) {
     return this.prisma.technicalAccount.findUnique({ where: { contractId } });
+  }
+
+  /** Vue d'ensemble pour pilotage (P17) : compte + bande courante. */
+  async getOverview(contractId: string) {
+    const account = await this.ensureAccount(contractId);
+    const bandNow = await this.evaluateBands(contractId);
+    return { account, band: bandNow };
   }
 
   /**
@@ -244,20 +263,46 @@ export class CtsService {
    */
   async recordPrimeCollected(contractId: string, opts: CtsMutationOpts = {}) {
     const acc = await this.ensureAccount(contractId);
+    const collected = await this.primeCollectedFromPayments(contractId);
+    if (collected === acc.primeCollected) {
+      return { account: acc, band: await this.evaluateBands(contractId), changed: false as const };
+    }
+    const cfg = await this.loadConfig(contractId);
+    const updated = await this.applyCollection(acc, cfg, collected, {
+      type: 'PRIME',
+      amount: collected - acc.primeCollected,
+      reference: opts.reference,
+      actorUserId: opts.actorUserId,
+      meta: { kind: 'collected', recomputed: true, ...(opts.meta ?? {}) },
+    });
+    return { account: updated, band: await this.evaluateBands(contractId), changed: true as const };
+  }
+
+  private async primeCollectedFromPayments(contractId: string): Promise<number> {
     const payments = await this.prisma.payment.findMany({
       where: { contractId, status: 'SUCCEEDED' },
       select: { amount: true, meta: true },
     });
     let collected = 0;
     for (const p of payments) {
-      let adhesion = 0;
-      try { adhesion = Number(JSON.parse((p as any).meta || '{}').adhesionFee ?? 0) || 0; } catch { adhesion = 0; }
-      collected += Math.max(0, p.amount - adhesion);
+      let m: any = {};
+      try { m = JSON.parse((p as any).meta || '{}'); } catch { m = {}; }
+      if (!m.contributionId) continue; // cotisations seules (hors appels manuels)
+      collected += Math.max(0, p.amount - (Number(m.adhesionFee) || 0));
     }
-    if (collected === acc.primeCollected) {
-      return { account: acc, band: await this.evaluateBands(contractId), changed: false as const };
-    }
-    const cfg = await this.loadConfig(contractId);
+    return collected;
+  }
+
+  /**
+   * Crédite un encaissement au CTS (cotisation ou appel de fonds) : chaîne
+   * PRIME/PAIEMENT + FRAIS + BUDGET avec balances. Source unique du crédit.
+   */
+  private async applyCollection(
+    acc: any,
+    cfg: CtsConfig,
+    collected: number,
+    entry: { type: 'PRIME' | 'PAIEMENT'; amount: number; reference?: string; actorUserId?: string; meta?: Record<string, unknown> },
+  ) {
     const oldAvail = acc.available;
     const newFees = managementFees(collected, cfg.managementRate);
     const newBudget = benefitBudget(collected, newFees);
@@ -269,26 +314,25 @@ export class CtsService {
       data: { primeCollected: collected, ...d },
     });
     await this.entry({
-      contractId, type: 'PRIME', amount: collected - acc.primeCollected,
-      reference: opts.reference, beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
-      actorUserId: opts.actorUserId, meta: { kind: 'collected', recomputed: true, ...(opts.meta ?? {}) },
+      contractId: acc.contractId, type: entry.type, amount: entry.amount,
+      reference: entry.reference, actorUserId: entry.actorUserId, meta: entry.meta ?? {},
       oldBalance: oldAvail, newBalance: updated.available,
     });
     if (feesDelta > 0) {
       await this.entry({
-        contractId, type: 'FRAIS', amount: feesDelta,
-        reference: opts.reference, actorUserId: opts.actorUserId,
+        contractId: acc.contractId, type: 'FRAIS', amount: feesDelta,
+        reference: entry.reference, actorUserId: entry.actorUserId,
         meta: { rate: cfg.managementRate }, oldBalance: updated.available, newBalance: updated.available,
       });
     }
     if (budgetDelta !== 0) {
       await this.entry({
-        contractId, type: 'BUDGET', amount: budgetDelta,
-        reference: opts.reference, actorUserId: opts.actorUserId,
+        contractId: acc.contractId, type: 'BUDGET', amount: budgetDelta,
+        reference: entry.reference, actorUserId: entry.actorUserId,
         meta: {}, oldBalance: updated.available, newBalance: updated.available,
       });
     }
-    return { account: updated, band: await this.evaluateBands(contractId), changed: true as const };
+    return updated;
   }
 
   /** Engagement idempotent par sinistre (référence Claim:<id>). */
@@ -372,6 +416,134 @@ export class CtsService {
     return { account: updated, band: await this.evaluateBands(contractId), reversed: outstanding };
   }
 
+  /**
+   * Propose un appel de fonds (§16) : APPEL = CIBLE − DISPONIBLE.
+   * Cible par défaut = reconstitution complète du budget.
+   */
+  async proposeFundCall(
+    contractId: string,
+    input: { target?: number; minimum?: number; chosenAmount?: number; dueDate?: Date | string },
+    actorUserId?: string,
+  ) {
+    const acc = await this.ensureAccount(contractId);
+    const target = input.target ?? acc.benefitBudget;
+    if (!(target > 0)) throw new BadRequestException('Cible de reconstitution invalide');
+    const proposal = engineProposeFundCall(target, acc.available, input.minimum ?? 0);
+    const chosen = input.chosenAmount ?? proposal.recommended;
+    if (!(chosen > 0)) throw new BadRequestException('Montant choisi invalide (appel sans objet)');
+    const created = await this.prisma.fundCall.create({
+      data: {
+        contractId,
+        targetAmount: target,
+        minimum: proposal.minimum,
+        recommended: proposal.recommended,
+        chosenAmount: chosen,
+        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+        status: 'DRAFT',
+      },
+    });
+    void actorUserId;
+    return { fundCall: created, proposal };
+  }
+
+  /** Envoie l'appel (facture APF-*, échéance +30j par défaut, notification, alerte). */
+  async sendFundCall(id: string) {
+    const fc = await this.prisma.fundCall.findUnique({
+      where: { id },
+      include: { contract: { select: { principalUserId: true, number: true } } },
+    });
+    if (!fc) throw new NotFoundException('Appel de fonds introuvable');
+    if (fc.status !== 'DRAFT') throw new BadRequestException(`Appel ${fc.status} — envoi impossible`);
+    const invoiceNumber = ref('APF');
+    const dueDate = (fc as any).dueDate ?? new Date(Date.now() + 30 * 86400000);
+    const updated = await this.prisma.fundCall.update({
+      where: { id },
+      data: { status: 'SENT', invoiceNumber, dueDate },
+    });
+    const principalId = (fc as any).contract?.principalUserId;
+    if (principalId) {
+      await this.dispatch.dispatchToUser(principalId, {
+        topic: 'APPEL_FONDS',
+        title: `Appel de fonds — contrat ${(fc as any).contract?.number ?? ''}`,
+        body: `Montant choisi : ${fc.chosenAmount} FCFA à régler avant le ${dueDate.toLocaleDateString('fr-FR')} (réf. ${invoiceNumber}).`,
+        meta: { fundCallId: id, contractId: fc.contractId },
+      }).catch(() => {});
+    }
+    await this.prisma.ctsAlert.create({
+      data: {
+        contractId: fc.contractId, type: 'APPEL_FONDS', severity: 'WARNING', status: 'OPEN',
+        payload: JSON.stringify({ fundCallId: id, chosenAmount: fc.chosenAmount }),
+      },
+    });
+    return updated;
+  }
+
+  /** Annule un appel non payé (DRAFT/SENT). Jamais après paiement. */
+  async cancelFundCall(id: string) {
+    const fc = await this.prisma.fundCall.findUnique({ where: { id } });
+    if (!fc) throw new NotFoundException('Appel de fonds introuvable');
+    if (!['DRAFT', 'SENT'].includes(fc.status)) throw new BadRequestException(`Appel ${fc.status} — annulation impossible`);
+    return this.prisma.fundCall.update({ where: { id }, data: { status: 'CANCELLED' } });
+  }
+
+  async listFundCalls(contractId: string) {
+    return this.prisma.fundCall.findMany({ where: { contractId }, orderBy: { createdAt: 'desc' } });
+  }
+
+  /**
+   * Encaissement d'un appel de fonds (§17) : appelé UNIQUEMENT depuis un
+   * paiement vérifié (jamais de réactivation administrative sans paiement).
+   * Crédite le CTS, solde les alertes APPEL_FONDS, réactive si les conditions
+   * sont remplies (SUSPENDU + aucune échéance OVERDUE + disponible > 0).
+   */
+  async recordFundPayment(
+    contractId: string,
+    fundCallId: string,
+    payment: { id: string; amount: number; reference: string },
+    actorUserId?: string,
+  ) {
+    const fc = await this.prisma.fundCall.findUnique({ where: { id: fundCallId } });
+    if (!fc || fc.contractId !== contractId) throw new BadRequestException('Appel de fonds invalide pour ce contrat');
+    if (fc.status === 'PAID') return { fundCall: fc, reactivated: false, already: true as const };
+    if (fc.status !== 'SENT') throw new BadRequestException(`Appel de fonds ${fc.status} — non payable`);
+    if (payment.amount !== fc.chosenAmount) throw new BadRequestException('Montant différent du montant choisi');
+    const acc = await this.ensureAccount(contractId);
+    const cfg = await this.loadConfig(contractId);
+    const updated = await this.applyCollection(acc, cfg, acc.primeCollected + payment.amount, {
+      type: 'PAIEMENT',
+      amount: payment.amount,
+      reference: `Payment:${payment.id}`,
+      actorUserId,
+      meta: { kind: 'fundcall', fundCallId },
+    });
+    const withTotal = await this.prisma.technicalAccount.update({
+      where: { id: updated.id },
+      data: { fundCallsTotal: updated.fundCallsTotal + payment.amount },
+    });
+    const paid = await this.prisma.fundCall.update({
+      where: { id: fc.id },
+      data: { status: 'PAID', paidAt: new Date(), paymentId: payment.id },
+    });
+    await this.prisma.ctsAlert.updateMany({
+      where: { contractId, type: 'APPEL_FONDS', status: 'OPEN' },
+      data: { status: 'RESOLVED', resolvedAt: new Date() },
+    });
+    const bandNow = await this.evaluateBands(contractId);
+    const reactivated = await this.maybeReactivate(contractId);
+    return { fundCall: paid, account: withTotal, band: bandNow, reactivated };
+  }
+
+  private async maybeReactivate(contractId: string): Promise<boolean> {
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId }, select: { status: true } });
+    if (!contract || contract.status !== 'SUSPENDED') return false;
+    const overdue = await this.prisma.contribution.count({ where: { contractId, status: 'OVERDUE' } });
+    if (overdue > 0) return false;
+    const acc = await this.getAccount(contractId);
+    if (!acc || acc.available <= 0) return false;
+    await this.prisma.contract.update({ where: { id: contractId }, data: { status: 'ACTIVE' } });
+    return true;
+  }
+
   /** Bandes + alertes : crée sur dégradation (dédupliquée), résout au retour NORMAL. */
   async evaluateBands(contractId: string) {
     const acc = await this.ensureAccount(contractId);
@@ -419,7 +591,55 @@ export class CtsService {
   }
 }
 
+const proposeFundCallSchema = z.object({
+  target: z.number().int().min(0).optional(),
+  minimum: z.number().int().min(0).optional(),
+  chosenAmount: z.number().int().min(0).optional(),
+  dueDate: z.coerce.date().optional(),
+});
+
+@Controller()
+@UseInterceptors(AuditInterceptor)
+export class CtsController {
+  constructor(private cts: CtsService) {}
+
+  @Get('admin/contracts/:id/cts')
+  @RequirePermissions('cts.view')
+  overview(@Param('id') id: string) {
+    return this.cts.getOverview(id);
+  }
+
+  @Get('admin/contracts/:id/fund-calls')
+  @RequirePermissions('cts.view')
+  fundCalls(@Param('id') id: string) {
+    return this.cts.listFundCalls(id);
+  }
+
+  @Post('admin/contracts/:id/fund-calls')
+  @RequirePermissions('cts.manage')
+  propose(
+    @Param('id') id: string,
+    @Body(new ZodPipe(proposeFundCallSchema)) dto: any,
+    @CurrentUser() auth: AuthUser,
+  ) {
+    return this.cts.proposeFundCall(id, dto, auth.id);
+  }
+
+  @Post('admin/fund-calls/:id/send')
+  @RequirePermissions('cts.manage')
+  send(@Param('id') id: string) {
+    return this.cts.sendFundCall(id);
+  }
+
+  @Post('admin/fund-calls/:id/cancel')
+  @RequirePermissions('cts.manage')
+  cancel(@Param('id') id: string) {
+    return this.cts.cancelFundCall(id);
+  }
+}
+
 @Module({
+  controllers: [CtsController],
   providers: [CtsService],
   exports: [CtsService],
 })

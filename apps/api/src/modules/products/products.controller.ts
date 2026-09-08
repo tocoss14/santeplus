@@ -14,6 +14,21 @@ const beneficiaryRulesSchema = z.object({
   maxBeneficiaries: z.number().int().min(0).max(15).default(6),
 });
 
+/** Config CTS par produit (§7-8, §14, §19-20, §22) : seuils strictement ordonnés. */
+export const ctsConfigSchema = z.object({
+  managementRate: z.number().min(0).max(100).default(20),
+  warnRatio: z.number().min(0).max(100).default(50),
+  alertRatio: z.number().min(0).max(100).default(30),
+  criticalRatio: z.number().min(0).max(100).default(10),
+  carryRate: z.number().min(0).max(100).default(70),
+  renewalMode: z.enum(['DEDUCT', 'BUDGET_BOOST']).default('DEDUCT'),
+  stopLoss: z.object({ threshold: z.number().int().min(0), cap: z.number().int().min(0) }).nullable().optional(),
+}).superRefine((c, ctx) => {
+  if (!(c.warnRatio > c.alertRatio && c.alertRatio > c.criticalRatio)) {
+    ctx.addIssue({ code: 'custom', message: 'Seuils CTS incohérents : warnRatio > alertRatio > criticalRatio requis' });
+  }
+});
+
 const productBaseSchema = z
   .object({    code: z.string().min(2).max(20).regex(/^[A-Z0-9_-]+$/),
     name: z.string().min(2).max(80),
@@ -33,11 +48,13 @@ const productBaseSchema = z
     thirdPartyAuthThreshold: z.number().int().min(0).nullable().optional(),
     insurerPartnerId: z.string().optional().nullable(),
     beneficiaryRules: beneficiaryRulesSchema.default(beneficiaryRulesSchema.parse({})),
+    ctsConfig: ctsConfigSchema.optional(),
     guarantees: z
       .array(
         z.object({
           guaranteeId: z.string(),
           annualLimit: z.number().int().nullable(),
+          familyLimit: z.number().int().min(0).nullable().optional(),
           rate: z.number().int().min(0).max(100).nullable().optional(),
           minRate: z.number().int().min(0).max(100).default(50),
           maxRate: z.number().int().min(0).max(100).default(95),
@@ -112,12 +129,13 @@ export class ProductsService {
 
   async create(dto: any) {
     await this.assertCodeFree(dto.code);
-    const { guarantees, exclusions, frequencyFactors, beneficiaryRules, ...rest } = dto;
+    const { guarantees, exclusions, frequencyFactors, beneficiaryRules, ctsConfig, ...rest } = dto;
     return this.prisma.$transaction(async tx => {
       const product = await tx.product.create({
         data: {
           ...rest,
           ...(beneficiaryRules ? { beneficiaryRules: typeof beneficiaryRules === 'string' ? beneficiaryRules : JSON.stringify(beneficiaryRules) } : {}),
+          ...(ctsConfig ? { ctsConfig: typeof ctsConfig === 'string' ? ctsConfig : JSON.stringify(ctsConfig) } : {}),
           frequencyFactors: JSON.stringify(frequencyFactors ?? { ANNUAL: 1, QUARTERLY: 1.03, MONTHLY: 1.06 }),
         },
       });
@@ -133,7 +151,7 @@ export class ProductsService {
 
   async update(id: string, dto: any) {
     await this.getForAdmin(id);
-    const { guarantees, exclusions, frequencyFactors, beneficiaryRules, code, ...rest } = dto;
+    const { guarantees, exclusions, frequencyFactors, beneficiaryRules, ctsConfig, code, ...rest } = dto;
     return this.prisma.$transaction(async tx => {
       if (code && code !== (await tx.product.findUnique({ where: { id } }))!.code) await this.assertCodeFree(code);
       const product = await tx.product.update({
@@ -142,6 +160,7 @@ export class ProductsService {
           ...rest,
           ...(code ? { code } : {}),
           ...(beneficiaryRules ? { beneficiaryRules: typeof beneficiaryRules === 'string' ? beneficiaryRules : JSON.stringify(beneficiaryRules) } : {}),
+          ...(ctsConfig ? { ctsConfig: typeof ctsConfig === 'string' ? ctsConfig : JSON.stringify(ctsConfig) } : {}),
           ...(frequencyFactors ? { frequencyFactors: JSON.stringify(frequencyFactors) } : {}),
         },
       });

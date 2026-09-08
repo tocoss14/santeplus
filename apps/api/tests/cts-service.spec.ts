@@ -105,11 +105,21 @@ function makePrisma(db: Db) {
 }
 
 function makeService(db: Db) {
-  return new CtsService(makePrisma(db));
+  const dispatch: any = { dispatchToUser: vi.fn(async () => ({})), dispatchToMany: vi.fn(async () => ({})) };
+  const svc = new CtsService(makePrisma(db), dispatch);
+  (svc as any).__dispatch = dispatch;
+  return svc;
 }
 
-function seedCotisation(db: Db, amount: number) {
-  db.payments.push({ contractId: 'c1', status: 'SUCCEEDED', amount, meta: '{}' });
+function dispatched(svc: any) {
+  return (svc as any).__dispatch;
+}
+
+function seedCotisation(db: Db, amount: number, adhesionFee = 0) {
+  db.payments.push({
+    contractId: 'c1', status: 'SUCCEEDED', amount,
+    meta: JSON.stringify({ contributionId: 'contrib-1', adhesionFee }),
+  });
 }
 
 describe('backfill (ensureAccount)', () => {

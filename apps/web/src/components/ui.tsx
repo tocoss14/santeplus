@@ -4,8 +4,8 @@ export function Badge({ children, tone }: { children: React.ReactNode; tone?: st
   return <span className={`badge ${tone ?? 'bg-slate-100 text-slate-700'}`}>{children}</span>;
 }
 
-export function StatusBadge({ status }: { status: string }) {
-  return <span className={`badge ${statusStyle(status)}`}>{statusLabel(status)}</span>;
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
+  return <span className={`badge ${statusStyle(status)}`}>{label ?? statusLabel(status)}</span>;
 }
 
 export function Spinner() {

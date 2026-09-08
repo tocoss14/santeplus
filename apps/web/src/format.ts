@@ -10,12 +10,13 @@ export const fmtDateTime = (d: string | Date | null | undefined): string =>
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Brouillon',
   SUBMITTED: 'Soumise',
-  UNDER_REVIEW: 'En cours d’analyse',
+  UNDER_REVIEW: 'En contrôle',
   INFO_REQUESTED: 'Infos requises',
-  APPROVED: 'Approuvée',
-  PARTIALLY_APPROVED: 'Partiellement approuvée',
-  REJECTED: 'Refusée',
+  APPROVED: 'Validée',
+  PARTIALLY_APPROVED: 'Partiellement validée',
+  REJECTED: 'Rejetée',
   PAID: 'Payée',
+  ENGAGED: 'Engagée',
   ACTIVE: 'Actif',
   PENDING_PAYMENT: 'Paiement en attente',
   EXPIRED: 'Expiré',
@@ -30,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING_CONFIRMATION: 'À confirmer (cabinet)',
   AUTH_REQUIRED: 'Autorisation préalable requise',
   AUTHORIZED: 'Autorisé — à confirmer',
+  AUTHORIZED_EMERGENCY: 'Autorisée (urgence)',
   CONFIRMED: 'Confirmé',
   CANCELLED: 'Annulée',
 };
@@ -51,6 +53,8 @@ const STATUS_STYLES: Record<string, string> = {
   PENDING: 'bg-amber-100 text-amber-800',
   INFO_REQUESTED: 'bg-orange-100 text-orange-800',
   PARTIALLY_APPROVED: 'bg-teal-100 text-teal-800',
+  AUTHORIZED_EMERGENCY: 'bg-teal-100 text-teal-800',
+  ENGAGED: 'bg-violet-100 text-violet-800',
   SUSPENDED: 'bg-red-100 text-red-700',
   REJECTED: 'bg-red-100 text-red-700',
   FAILED: 'bg-red-100 text-red-700',
@@ -62,6 +66,23 @@ const STATUS_STYLES: Record<string, string> = {
 
 export const statusLabel = (s: string): string => STATUS_LABELS[s] ?? s;
 export const statusStyle = (s: string): string => STATUS_STYLES[s] ?? 'bg-slate-100 text-slate-600';
+
+/**
+ * Statuts d'ordonnance, libellés §5 (techniques inchangés côté API).
+ * Note : CRÉÉE n'a pas d'état technique distinct — l'émission par un
+ * prescripteur habilité vaut création + validation (visible en timeline).
+ */
+export const PRESCRIPTION_STATUS_LABELS: Record<string, string> = {
+  CREATED: 'Créée',
+  ACTIVE: 'Validée',
+  PARTIALLY_EXECUTED: 'Partiellement utilisée',
+  EXECUTED: 'Utilisée',
+  EXPIRED: 'Expirée',
+  CANCELLED: 'Annulée',
+};
+
+export const prescriptionStatusLabel = (s: string): string =>
+  PRESCRIPTION_STATUS_LABELS[s] ?? statusLabel(s);
 
 export const CATEGORY_LABELS: Record<string, string> = {
   HOSPITALIZATION: 'Hospitalisation',

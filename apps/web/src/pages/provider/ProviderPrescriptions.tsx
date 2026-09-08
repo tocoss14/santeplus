@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../../api';
-import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
+import { fcfa, fmtDate, prescriptionStatusLabel } from '../../format';
 import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
 import { printDocument, escapeHtml } from '../../print';
 
@@ -97,7 +97,7 @@ export default function ProviderPrescriptions() {
                   <td className="td text-xs">{p.lines.length} produit(s)</td>
                   <td className="td text-xs">{fmtDate(p.validFrom)} → {fmtDate(p.validUntil)}</td>
                   <td className="td text-xs">{p.renewalsUsed}/{p.renewalsAllowed}</td>
-                  <td className="td"><StatusBadge status={p.status} /></td>
+                  <td className="td"><StatusBadge status={p.status} label={prescriptionStatusLabel(p.status)} /></td>
                 </tr>
               ))}
               {items.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-400">Aucune ordonnance</td></tr>}

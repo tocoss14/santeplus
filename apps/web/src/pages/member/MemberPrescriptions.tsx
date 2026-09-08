@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../../api';
-import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle, CATEGORY_LABELS } from '../../format';
+import { fcfa, fmtDate, fmtDateTime, prescriptionStatusLabel, CATEGORY_LABELS } from '../../format';
 import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
 import { printDocument, escapeHtml } from '../../print';
 
@@ -39,7 +39,7 @@ export default function MemberPrescriptions() {
             <li key={p.id} className="card-p cursor-pointer hover:border-brand-300" onClick={() => setDetail(p)}>
               <div className="flex flex-wrap items-center gap-2" onClick={() => setDetail(p)}>
                 <span className="font-semibold">{p.number}</span>
-                <StatusBadge status={p.status} />
+                <StatusBadge status={p.status} label={prescriptionStatusLabel(p.status)} />
                 <span className="ml-auto text-xs text-slate-400">{fmtDate(p.validFrom)} → {fmtDate(p.validUntil)}</span>
               </div>
               <p className="text-xs text-slate-500">{p.prescriberName} · {p.provider?.name ?? ''}</p>

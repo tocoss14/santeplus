@@ -25,7 +25,7 @@ const CONTRACT_INCLUDE = {
 export class ContractsService {
   constructor(
     private prisma: PrismaService,
-    @Optional() private cts?: CtsService,
+    @Optional() public cts?: CtsService,
   ) {}
 
   async canAccess(auth: AuthUser, contractId: string): Promise<any> {
@@ -226,12 +226,19 @@ export class ContractsController {
     return { ok: true };
   }
 
-  @Post('admin/contracts/:id/activate')
+@Post('admin/contracts/:id/activate')
   @RequirePermissions('contracts.manage')
   async activate(@Param('id') id: string, @Body(new ZodPipe(adminActionSchema)) dto: any) {
     const c = await this.prisma.contract.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Contrat introuvable');
-    if (c.status !== 'SUSPENDED') throw new BadRequestException('Seul un contrat suspendu peut Ãªtre rÃ©activÃ© ici');
+    if (c.status !== 'SUSPENDED') throw new BadRequestException('Seul un contrat suspendu peut être réactivé ici');
+    
+    // Vérification CTS avant réactivation (§17.7) : bande NORMAL/SURVEILLANCE et pas d'appel fonds OVERDUE
+    const ctsCheck = await this.contracts.cts?.maybeReactivate?.(id);
+    if (ctsCheck && ctsCheck.ok === false) {
+      throw new BadRequestException(`Réactivation bloquée : ${ctsCheck.reason}`);
+    }
+    
     await this.prisma.contract.update({ where: { id }, data: { status: 'ACTIVE' } });
     return { ok: true };
   }

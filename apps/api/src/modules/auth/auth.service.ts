@@ -142,9 +142,9 @@ export class AuthService {
 
     const tokens = this.issueTokens(payload.sub, payload.role);
 
-    // Enregistrer le nouveau refresh token
+    // Enregistrer le nouveau refresh token (30 jours pour aligner JWT + cookie)
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + 30);
     await this.prisma.refreshToken.create({
       data: {
         token: tokens.refreshToken,
@@ -197,7 +197,7 @@ export class AuthService {
 
   private async storeRefreshToken(token: string, userId: string) {
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + 30);
     await this.prisma.refreshToken.create({
       data: { token, userId, expiresAt },
     });

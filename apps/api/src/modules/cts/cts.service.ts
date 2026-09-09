@@ -798,18 +798,24 @@ export class CtsService {
     });
     const bandNow = await this.evaluateBands(contractId);
     const reactivated = await this.maybeReactivate(contractId);
-    return { fundCall: paid, account: withTotal, band: bandNow, reactivated };
+    return { fundCall: paid, account: withTotal, band: bandNow, reactivated: reactivated.ok };
   }
 
-  private async maybeReactivate(contractId: string): Promise<boolean> {
+  /**
+   * Vérifie si une réactivation administrative est possible (P16) :
+   * contrat SUSPENDED + aucune échéance OVERDUE + disponible > 0.
+   * Utilisé par l'admin activate + le paiement d'appel de fonds.
+   * Retourne { ok: true } si réactivation effectuée, { ok: false, reason } si bloquée.
+   */
+  async maybeReactivate(contractId: string): Promise<{ ok: boolean; reason?: string }> {
     const contract = await this.prisma.contract.findUnique({ where: { id: contractId }, select: { status: true } });
-    if (!contract || contract.status !== 'SUSPENDED') return false;
+    if (!contract || contract.status !== 'SUSPENDED') return { ok: false, reason: 'Contrat non suspendu' };
     const overdue = await this.prisma.contribution.count({ where: { contractId, status: 'OVERDUE' } });
-    if (overdue > 0) return false;
+    if (overdue > 0) return { ok: false, reason: `${overdue} échéance(s) en retard — paiement requis` };
     const acc = await this.getAccount(contractId);
-    if (!acc || acc.available <= 0) return false;
+    if (!acc || acc.available <= 0) return { ok: false, reason: 'Disponible CTS ≤ 0 — appel de fonds nécessaire' };
     await this.prisma.contract.update({ where: { id: contractId }, data: { status: 'ACTIVE' } });
-    return true;
+    return { ok: true };
   }
 
   /**

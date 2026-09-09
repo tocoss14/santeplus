@@ -11,6 +11,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'contracts.viewAll', 'contracts.manage', 'claims.viewAll', 'claims.decide',
     'payments.viewAll', 'payments.manage', 'stats.admin', 'cts.view', 'cts.manage',
     'billing.view', 'billing.manage',
+    'analytics.view',
   ],
   SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
   COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],

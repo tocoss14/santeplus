@@ -44,6 +44,8 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/admin/technical-result', label: 'Résultat technique', icon: '📊' },
       { to: '/admin/accounting', label: 'Comptabilité', icon: '📒' },
       { to: '/admin/cts', label: 'Comptes techniques', icon: '📉' },
+      { to: '/admin/fraud', label: 'Fraude', icon: '🕵️' },
+      { to: '/admin/audit', label: 'Audit', icon: '📜' },
       { to: '/admin/branches', label: 'Branches', icon: '🏷️' },
       { to: '/admin/diseases', label: 'Maladies', icon: '🩺' },
       { to: '/admin/distributors', label: 'Distributeurs', icon: '🤝' },

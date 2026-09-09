@@ -44,7 +44,6 @@ const AdminPayments = lazy(() => import('./pages/admin/AdminPayments'));
 const AdminProviders = lazy(() => import('./pages/admin/AdminProviders'));
 const AdminPartners = lazy(() => import('./pages/admin/AdminPartners'));
 const AdminRoles = lazy(() => import('./pages/admin/AdminRoles'));
-const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
 const AdminTechnicalResult = lazy(() => import('./pages/admin/AdminTechnicalResult'));
 const AdminDistributors = lazy(() => import('./pages/admin/AdminDistributors'));
 const AdminCommissions = lazy(() => import('./pages/admin/AdminCommissions'));
@@ -52,6 +51,8 @@ const AdminAccounting = lazy(() => import('./pages/admin/AdminAccounting'));
 const AdminBranches = lazy(() => import('./pages/admin/AdminBranches'));
 const AdminDiseases = lazy(() => import('./pages/admin/AdminDiseases'));
 const AdminCts = lazy(() => import('./pages/admin/AdminCts'));
+const AdminFraud = lazy(() => import('./pages/admin/AdminFraud'));
+const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
 const Simulateur = lazy(() => import('./pages/Simulateur'));
 
 // Lazy — provider
@@ -151,6 +152,8 @@ export default function App() {
         <Route path="commissions" element={<Lazy><AdminCommissions /></Lazy>} />
         <Route path="accounting" element={<Lazy><AdminAccounting /></Lazy>} />
         <Route path="cts" element={<Lazy><AdminCts /></Lazy>} />
+        <Route path="fraud" element={<Lazy><AdminFraud /></Lazy>} />
+        <Route path="audit" element={<Lazy><AdminAudit /></Lazy>} />
         <Route path="branches" element={<Lazy><AdminBranches /></Lazy>} />
         <Route path="diseases" element={<Lazy><AdminDiseases /></Lazy>} />
         <Route path="profil" element={<Lazy><Profile /></Lazy>} />

@@ -900,6 +900,8 @@ model TechnicalAccount {
   primeUnpaid     Int      @default(0)
   managementFees  Int      @default(0)
   benefitBudget   Int      @default(0)
+  // Boost de budget issu d'un crédit de renouvellement (mode BUDGET_BOOST)
+  budgetBoost     Int      @default(0)
   consumed        Int      @default(0)
   committed       Int      @default(0)
   available       Int      @default(0)

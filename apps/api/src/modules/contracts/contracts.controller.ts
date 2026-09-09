@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Query, Res } from '@nestjs/common';
+﻿import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Optional, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
@@ -10,6 +10,7 @@ import { PrismaService } from '../../common/prisma.module';
 import { addDays, addYears, memberNumber, ref, secureToken, startOfDay } from '../../common/utils';
 import { PdfService } from './pdf.service';
 import { CLAIM_STATUSES_CONSUMING_CAPS } from '../../domain/engine';
+import { CtsModule, CtsService } from '../cts/cts.service';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
 
@@ -22,7 +23,10 @@ const CONTRACT_INCLUDE = {
 
 @Injectable()
 export class ContractsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private cts?: CtsService,
+  ) {}
 
   async canAccess(auth: AuthUser, contractId: string): Promise<any> {
     const contract = await this.prisma.contract.findUnique({ where: { id: contractId }, include: CONTRACT_INCLUDE });
@@ -77,7 +81,10 @@ export class ContractsService {
       });
       await tx.contract.update({ where: { id: contract.id }, data: { endDate: addYears(baseDate, 1), status: contract.status === 'EXPIRED' ? 'PENDING_PAYMENT' : contract.status } });
     });
-    return { ok: true, message: 'Ã‰chÃ©ancier de renouvellement crÃ©Ã©. RÃ©glez la cotisation pour activer.' };
+    // CTS : application du crédit de renouvellement confirmé, s'il existe (non bloquant)
+    let renewalApplied: unknown = { applied: false as const };
+    try { renewalApplied = await this.cts?.applyRenewalCredit(contract.id); } catch {}
+    return { ok: true, message: 'Ã‰chÃ©ancier de renouvellement crÃ©Ã©. RÃ©glez la cotisation pour activer.', renewalApplied };
   }
 
   async activateOnPayment(contractId: string) {
@@ -362,6 +369,7 @@ export class BeneficiariesController {
 @Module({
   controllers: [ContractsController, BeneficiariesController],
   providers: [ContractsService, PdfService],
+  imports: [CtsModule],
   exports: [ContractsService],
 })
 export class ContractsModule {}

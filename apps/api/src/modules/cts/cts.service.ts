@@ -12,6 +12,8 @@ import {
   available,
   band,
   benefitBudget,
+  checkStopLoss,
+  closeOut,
   consumptionRatio,
   deficit,
   managementFees,
@@ -73,19 +75,28 @@ export class CtsService {
     return parseCtsConfig((c.product as any)?.ctsConfig, c.ctsOverride);
   }
 
-  private derived(acc: { primeCollected: number; consumed: number; committed: number; primeBilled: number }, cfg: CtsConfig) {
+  private derived(
+    acc: { primeCollected: number; consumed: number; committed: number; primeBilled: number; budgetBoost?: number },
+    cfg: CtsConfig,
+  ) {
     const fees = managementFees(acc.primeCollected, cfg.managementRate);
     const budget = benefitBudget(acc.primeCollected, fees);
-    const avail = available(budget, acc.consumed, acc.committed);
+    const boost = Math.max(0, (acc as any).budgetBoost ?? 0);
+    const effectiveBudget = budget + boost;
+    const avail = available(effectiveBudget, acc.consumed, acc.committed);
     return {
       managementFees: fees,
       benefitBudget: budget,
       available: avail,
-      consumptionRatio: consumptionRatio(acc.consumed, acc.committed, budget),
+      consumptionRatio: consumptionRatio(acc.consumed, acc.committed, effectiveBudget),
       provisionalResult: provisionalResult(acc.primeCollected, fees, acc.consumed, acc.committed),
       primeUnpaid: Math.max(0, acc.primeBilled - acc.primeCollected),
-      deficit: deficit(acc.consumed, acc.committed, budget),
+      deficit: deficit(acc.consumed, acc.committed, effectiveBudget),
     };
+  }
+
+  private effectiveBudget(acc: { benefitBudget: number; budgetBoost?: number }): number {
+    return acc.benefitBudget + Math.max(0, (acc as any).budgetBoost ?? 0);
   }
 
   private entry(input: CtsEntryInput) {
@@ -355,6 +366,7 @@ export class CtsService {
       actorUserId: opts.actorUserId, meta: opts.meta ?? {},
       oldBalance: oldAvail, newBalance: updated.available,
     });
+    await this.checkStopLossAndAlert(contractId, cfg, updated.consumed, updated.committed);
     return { account: updated, band: await this.evaluateBands(contractId), deduped: false as const };
   }
 
@@ -380,6 +392,7 @@ export class CtsService {
       actorUserId: opts.actorUserId, meta: { released, ...(opts.meta ?? {}) },
       oldBalance: oldAvail, newBalance: updated.available,
     });
+    await this.checkStopLossAndAlert(contractId, cfg, updated.consumed, updated.committed);
     return { account: updated, band: await this.evaluateBands(contractId), deduped: false as const };
   }
 
@@ -490,6 +503,10 @@ export class CtsService {
     return this.prisma.fundCall.findMany({ where: { contractId }, orderBy: { createdAt: 'desc' } });
   }
 
+  async getClosure(contractId: string) {
+    return this.prisma.contractClosure.findUnique({ where: { contractId } });
+  }
+
   /**
    * Encaissement d'un appel de fonds (§17) : appelé UNIQUEMENT depuis un
    * paiement vérifié (jamais de réactivation administrative sans paiement).
@@ -544,6 +561,174 @@ export class CtsService {
     return true;
   }
 
+  /**
+   * Clôture (P15, §19) : réservée aux contrats terminés (EXPIRED/TERMINATED).
+   * Recalcule depuis le compte (jamais depuis des paramètres) ; un DRAFT
+   * existant est recomputé, un CONFIRMED bloque (clôture définitive).
+   */
+  async closeContract(contractId: string, actorUserId?: string) {
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId }, select: { status: true } });
+    if (!contract) throw new NotFoundException('Contrat introuvable');
+    if (!['EXPIRED', 'TERMINATED'].includes(contract.status)) {
+      throw new BadRequestException('Clôture réservée aux contrats terminés (EXPIRED/TERMINATED)');
+    }
+    const done = await this.prisma.contractClosure.findUnique({ where: { contractId } });
+    if (done && done.status === 'CONFIRMED') throw new BadRequestException('Contrat déjà clôturé');
+    const acc = await this.ensureAccount(contractId);
+    const cfg = await this.loadConfig(contractId);
+    const c = closeOut(acc.consumed, acc.committed, this.effectiveBudget(acc), cfg.carryRate);
+    const data = {
+      finalConsumed: acc.consumed,
+      finalCommitted: acc.committed,
+      surplus: c.surplus,
+      carryRate: cfg.carryRate,
+      renewalCredit: c.renewalCredit,
+      mode: cfg.renewalMode,
+    };
+    if (done) {
+      return this.prisma.contractClosure.update({ where: { id: done.id }, data });
+    }
+    void actorUserId;
+    return this.prisma.contractClosure.create({ data: { contractId, status: 'DRAFT', ...data } });
+  }
+
+  /**
+   * Confirme la clôture : fige le crédit et l'enregistre au journal
+   * (CREDIT_RENOUVELLEMENT). Le crédit n'est PAS une somme retirable (§19).
+   */
+  async confirmClosure(id: string) {
+    const closure = await this.prisma.contractClosure.findUnique({ where: { id } });
+    if (!closure) throw new NotFoundException('Clôture introuvable');
+    if (closure.status !== 'DRAFT') throw new BadRequestException(`Clôture ${closure.status} — confirmation impossible`);
+    const confirmed = await this.prisma.contractClosure.update({
+      where: { id },
+      data: { status: 'CONFIRMED', closedAt: new Date() },
+    });
+    const acc = await this.ensureAccount(closure.contractId);
+    const updated = await this.prisma.technicalAccount.update({
+      where: { id: acc.id },
+      data: { renewalCredit: acc.renewalCredit + closure.renewalCredit },
+    });
+    await this.entry({
+      contractId: closure.contractId,
+      type: 'CREDIT_RENOUVELLEMENT',
+      amount: closure.renewalCredit,
+      reference: `Closure:${closure.id}`,
+      meta: { mode: closure.mode, surplus: closure.surplus },
+      oldBalance: acc.available,
+      newBalance: updated.available,
+    });
+    return confirmed;
+  }
+
+  /**
+   * Applique un crédit confirmé au renouvellement (§20) : DEDUCT réduit la
+   * nouvelle échéance (plancher 0, reliquat documenté), BUDGET_BOOST augmente
+   * le boost persistant. Idempotent par écriture (une seule application).
+   */
+  async applyRenewalCredit(contractId: string) {
+    const closure = await this.prisma.contractClosure.findUnique({ where: { contractId } });
+    if (!closure || closure.status !== 'CONFIRMED' || !(closure.renewalCredit > 0)) {
+      return { applied: false as const };
+    }
+    const existing = await this.prisma.ctsJournal.findFirst({
+      where: { contractId, type: 'CREDIT_RENOUVELLEMENT', reference: `Closure:${closure.id}:applied` },
+    });
+    if (existing) return { applied: false as const, already: true as const };
+    const acc = await this.ensureAccount(contractId);
+    if (closure.mode === 'BUDGET_BOOST') {
+      const updated = await this.prisma.technicalAccount.update({
+        where: { id: acc.id },
+        data: { budgetBoost: (acc.budgetBoost ?? 0) + closure.renewalCredit },
+      });
+      const d = this.derived(
+        {
+          primeCollected: updated.primeCollected, primeBilled: updated.primeBilled,
+          consumed: updated.consumed, committed: updated.committed, budgetBoost: updated.budgetBoost,
+        },
+        await this.loadConfig(contractId),
+      );
+      const recalculated = await this.prisma.technicalAccount.update({ where: { id: acc.id }, data: { ...d } });
+      await this.entry({
+        contractId, type: 'CREDIT_RENOUVELLEMENT', amount: closure.renewalCredit,
+        reference: `Closure:${closure.id}:applied`, meta: { mode: 'BUDGET_BOOST' },
+        oldBalance: acc.available, newBalance: recalculated.available,
+      });
+      await this.evaluateBands(contractId);
+      return { applied: true as const, mode: closure.mode, budgetBoost: recalculated.budgetBoost };
+    }
+    // DEDUCT : escompte sur la plus récente échéance impayée (échéancier du renouvellement).
+    const due = await this.prisma.contribution.findFirst({
+      where: { contractId, status: { in: ['PENDING', 'OVERDUE'] } },
+      orderBy: { sequence: 'desc' },
+    });
+    if (!due) return { applied: false as const, reason: 'no-due-contribution' as const };
+    const discount = Math.min(closure.renewalCredit, due.amount);
+    const updatedDue = await this.prisma.contribution.update({
+      where: { id: due.id },
+      data: { amount: due.amount - discount },
+    });
+    await this.entry({
+      contractId, type: 'CREDIT_RENOUVELLEMENT', amount: discount,
+      reference: `Closure:${closure.id}:applied`,
+      meta: { mode: 'DEDUCT', contributionId: due.id, remainder: closure.renewalCredit - discount },
+      oldBalance: acc.available, newBalance: acc.available,
+    });
+    await this.evaluateBands(contractId);
+    return { applied: true as const, mode: closure.mode, discount, contributionId: updatedDue.id };
+  }
+
+  /**
+   * Stop-loss (§22) : au-delà du seuil, écriture STOP_LOSS + alerte CRITIQUE.
+   * Dédupliqué : une seule écriture par franchissement (pas de nouvelle tant
+   * que l'exposition n'est pas redescendue sous le seuil).
+   */
+  private async checkStopLossAndAlert(contractId: string, cfg: CtsConfig, consumed: number, committed: number) {
+    const { triggered, payout } = checkStopLoss(consumed, committed, cfg.stopLoss);
+    if (!cfg.stopLoss) return;
+    if (!triggered) {
+      // Hystérésis : exposition repassée sous le seuil → on solde les alertes stop-loss.
+      const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
+      const ids = open.filter(a => {
+        try { return (JSON.parse(a.payload || '{}') as any).stopLoss === true; } catch { return false; }
+      }).map((a: any) => a.id);
+      if (ids.length) {
+        await this.prisma.ctsAlert.updateMany({
+          where: { id: { in: ids } },
+          data: { status: 'RESOLVED', resolvedAt: new Date() },
+        });
+      }
+      return;
+    }
+    const exposure = consumed + committed;
+    const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
+    const hasOpen = open.some(a => {
+      try { return (JSON.parse(a.payload || '{}') as any).stopLoss === true; } catch { return false; }
+    });
+    const last = await this.prisma.ctsJournal.findFirst({
+      where: { contractId, type: 'STOP_LOSS' },
+      orderBy: { createdAt: 'desc' },
+    });
+    let lastExposure = 0;
+    try { lastExposure = Number(JSON.parse(((last as any)?.meta) || '{}').exposure ?? 0); } catch { lastExposure = 0; }
+    if (!hasOpen) {
+      await this.prisma.ctsAlert.create({
+        data: {
+          contractId, type: 'CRITIQUE', severity: 'CRITICAL', status: 'OPEN',
+          payload: JSON.stringify({ stopLoss: true, exposure, threshold: cfg.stopLoss.threshold, payout }),
+        },
+      });
+    }
+    if (!last || lastExposure <= cfg.stopLoss.threshold) {
+      const acc = await this.getAccount(contractId);
+      await this.entry({
+        contractId, type: 'STOP_LOSS', amount: payout,
+        meta: { exposure, threshold: cfg.stopLoss.threshold, cap: cfg.stopLoss.cap },
+        oldBalance: acc?.available ?? 0, newBalance: acc?.available ?? 0,
+      });
+    }
+  }
+
   /** Bandes + alertes : crée sur dégradation (dédupliquée), résout au retour NORMAL. */
   async evaluateBands(contractId: string) {
     const acc = await this.ensureAccount(contractId);
@@ -551,25 +736,38 @@ export class CtsService {
     // Compte vide (aucun budget constitué, aucune exposition) : NORMAL silencieux,
     // pas d'alerte EPUISEMENT sur les contrats en attente de paiement.
     if (acc.benefitBudget <= 0 && acc.consumed <= 0 && acc.committed <= 0) return 'NORMAL' as const;
-    const current = band(acc.available, acc.benefitBudget, cfg);
+    const current = band(acc.available, this.effectiveBudget(acc), cfg);
     const mapping: Record<Exclude<CtsBand, 'NORMAL'>, { type: string; severity: string }> = {
       SURVEILLANCE: { type: 'SEUIL', severity: 'INFO' },
       ALERTE: { type: 'SEUIL', severity: 'WARNING' },
       CRITIQUE: { type: 'CRITIQUE', severity: 'CRITICAL' },
       EPUISE: { type: 'EPUISEMENT', severity: 'CRITICAL' },
     };
+    // Les alertes pilotées par leur propre cycle (stop-loss, appels de fonds)
+    // ne sont jamais soldées par les bandes — chaque flux les résout lui-même.
+    const keepOpen = (a: any): boolean => {
+      try {
+        const p = JSON.parse(a.payload || '{}') as any;
+        if (p.stopLoss === true) return true;
+      } catch { /* ignore */ }
+      return a.type === 'APPEL_FONDS';
+    };
     if (current === 'NORMAL') {
-      await this.prisma.ctsAlert.updateMany({
-        where: { contractId, status: 'OPEN' },
-        data: { status: 'RESOLVED', resolvedAt: new Date() },
-      });
+      const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
+      const ids = open.filter(a => !keepOpen(a)).map((a: any) => a.id);
+      if (ids.length) {
+        await this.prisma.ctsAlert.updateMany({
+          where: { id: { in: ids } },
+          data: { status: 'RESOLVED', resolvedAt: new Date() },
+        });
+      }
       return current;
     }
     const { type, severity } = mapping[current];
     const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
     const same = open.find(a => a.type === type);
-    // Résout les alertes d'une autre nature (ex. SEUIL/INFO supplantée par CRITIQUE).
-    const stale = open.filter(a => a.type !== type);
+    // Résout les alertes de bande d'une autre nature (ex. SEUIL supplantée par CRITIQUE).
+    const stale = open.filter(a => a.type !== type && !keepOpen(a));
     if (stale.length) {
       await this.prisma.ctsAlert.updateMany({
         where: { id: { in: stale.map(a => a.id) } },
@@ -581,7 +779,7 @@ export class CtsService {
         data: {
           contractId, type, severity, status: 'OPEN',
           payload: JSON.stringify({
-            band: current, available: acc.available, budget: acc.benefitBudget,
+            band: current, available: acc.available, budget: this.effectiveBudget(acc),
             ratio: acc.consumptionRatio, result: acc.provisionalResult,
           }),
         },
@@ -635,6 +833,27 @@ export class CtsController {
   @RequirePermissions('cts.manage')
   cancel(@Param('id') id: string) {
     return this.cts.cancelFundCall(id);
+  }
+
+  @Get('admin/contracts/:id/closure')
+  @RequirePermissions('cts.view')
+  closure(@Param('id') id: string) {
+    return this.cts.getClosure(id);
+  }
+
+  @Post('admin/contracts/:id/closure')
+  @RequirePermissions('cts.manage')
+  close(
+    @Param('id') id: string,
+    @CurrentUser() auth: AuthUser,
+  ) {
+    return this.cts.closeContract(id, auth.id);
+  }
+
+  @Post('admin/closures/:id/confirm')
+  @RequirePermissions('cts.manage')
+  confirmClosure(@Param('id') id: string) {
+    return this.cts.confirmClosure(id);
   }
 }
 

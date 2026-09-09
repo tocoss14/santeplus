@@ -56,6 +56,14 @@ const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
 const AdminClaimsWorkflow = lazy(() => import('./pages/admin/AdminClaimsWorkflow'));
 const Simulateur = lazy(() => import('./pages/Simulateur'));
 
+// Lazy — provider mobile (P21-2)
+const MobileProviderLayout = lazy(() => import('./pages/provider/mobile/MobileProviderLayout'));
+const MobileProviderHome = lazy(() => import('./pages/provider/mobile/MobileProviderHome'));
+const MobileScanPage = lazy(() => import('./pages/provider/mobile/MobileScanPage'));
+const MobileFacturesPage = lazy(() => import('./pages/provider/mobile/MobileFacturesPage'));
+const MobileRejetsPage = lazy(() => import('./pages/provider/mobile/MobileRejetsPage'));
+const MobileSyncPage = lazy(() => import('./pages/provider/mobile/MobileSyncPage'));
+
 // Lazy — provider
 const RegisterProvider = lazy(() => import('./pages/RegisterProvider'));
 const CGA = lazy(() => import('./pages/CGA'));
@@ -182,6 +190,15 @@ export default function App() {
         <Route path="personnel" element={<Lazy><Staff /></Lazy>} />
         <Route path="notifications" element={<Lazy><Notifications /></Lazy>} />
         <Route path="profil" element={<Lazy><Profile /></Lazy>} />
+      </Route>
+
+      <Route path="/prestataire/mobile" element={<Require roles={['PROVIDER', 'SUPER_ADMIN']}><MobileProviderLayout /></Require>}>
+        <Route index element={<Lazy><MobileProviderHome /></Lazy>} />
+        <Route path="scan" element={<Lazy><MobileScanPage /></Lazy>} />
+        <Route path="tp" element={<Lazy><MobileProviderHome /></Lazy>} /> {/* Redirect to home for now */}
+        <Route path="factures" element={<Lazy><MobileFacturesPage /></Lazy>} />
+        <Route path="rejets" element={<Lazy><MobileRejetsPage /></Lazy>} />
+        <Route path="sync" element={<Lazy><MobileSyncPage /></Lazy>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

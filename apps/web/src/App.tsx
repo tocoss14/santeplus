@@ -53,6 +53,7 @@ const AdminDiseases = lazy(() => import('./pages/admin/AdminDiseases'));
 const AdminCts = lazy(() => import('./pages/admin/AdminCts'));
 const AdminFraud = lazy(() => import('./pages/admin/AdminFraud'));
 const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
+const AdminClaimsWorkflow = lazy(() => import('./pages/admin/AdminClaimsWorkflow'));
 const Simulateur = lazy(() => import('./pages/Simulateur'));
 
 // Lazy — provider
@@ -154,6 +155,7 @@ export default function App() {
         <Route path="cts" element={<Lazy><AdminCts /></Lazy>} />
         <Route path="fraud" element={<Lazy><AdminFraud /></Lazy>} />
         <Route path="audit" element={<Lazy><AdminAudit /></Lazy>} />
+        <Route path="claims-workflow" element={<Lazy><AdminClaimsWorkflow /></Lazy>} />
         <Route path="branches" element={<Lazy><AdminBranches /></Lazy>} />
         <Route path="diseases" element={<Lazy><AdminDiseases /></Lazy>} />
         <Route path="profil" element={<Lazy><Profile /></Lazy>} />

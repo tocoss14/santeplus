@@ -16,6 +16,11 @@ export default function Offers() {
       <h1 className="text-2xl sm:text-3xl font-bold text-center">Choisissez votre formule</h1>
       <p className="mt-2 text-center text-stone">Cotisation annuelle pour l'assuré principal. Conjoint et enfants en supplément.</p>
       <div className="mt-2 text-center"><Link to="/cga" className="font-mono text-xs font-bold uppercase tracking-widest text-brand-700 hover:underline">📋 Consulter les Conditions Générales →</Link></div>
+      <div className="mt-4 card-p bg-brand-50 border-brand-100 text-center">
+        <p className="text-sm text-slate-600">Famille, entreprise, budget soins : estimez prime, budget et risque d'épuisement avant de souscrire.</p>
+        <Link to="/simulateur" className="btn-primary btn-sm mt-3">📊 Ouvrir le simulateur commercial</Link>
+        <p className="mt-1 text-[11px] text-slate-400">Estimation indicative, sans engagement.</p>
+      </div>
 
       <div className="mt-8 space-y-4">
         {products.map(p => (

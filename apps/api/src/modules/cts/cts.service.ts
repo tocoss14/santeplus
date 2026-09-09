@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Injectable, Module, NotFoun
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
 import { CurrentUser } from '../../common/decorators';
-import { AuthUser } from '../../common/guards/jwt-auth.guard';
+import { AuthUser, Public } from '../../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
@@ -23,6 +23,12 @@ import {
   type CtsBand,
   type CtsConfig,
 } from '../../domain/cts-engine';
+import {
+  computeQuote,
+  type Frequency,
+  type ProductPricing,
+  type QuotePerson,
+} from '../../domain/engine';
 
 // Statuts qui portent un engagement CTS (miroir des statuts consommant les
 // plafonds, hors PAID qui est la consommation finale).
@@ -125,6 +131,251 @@ export class CtsService {
     const account = await this.ensureAccount(contractId);
     const bandNow = await this.evaluateBands(contractId);
     return { account, band: bandNow };
+  }
+
+  /**
+   * Comptes techniques de l'assuré connecté (§29) : un récap par contrat
+   * (prime, frais, budget, consommé, engagé, disponible, ratio, statut,
+   * appels en cours, crédit, renouvellement = fin de contrat).
+   */
+  async myAccounts(principalUserId: string) {
+    const contracts = await this.prisma.contract.findMany({
+      where: { principalUserId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, number: true, status: true, endDate: true,
+        product: { select: { name: true } },
+      },
+    });
+    const rows = [];
+    for (const c of contracts) {
+      const account = await this.ensureAccount(c.id);
+      const bandNow = await this.evaluateBands(c.id);
+      const fundCalls = await this.prisma.fundCall.findMany({
+        where: { contractId: c.id, status: { in: ['DRAFT', 'SENT'] } },
+        orderBy: { createdAt: 'desc' },
+      });
+      const closure = await this.prisma.contractClosure.findUnique({ where: { contractId: c.id } });
+      rows.push({
+        contractId: c.id,
+        number: c.number,
+        status: c.status,
+        productName: (c.product as any)?.name ?? null,
+        renewalDate: c.endDate,
+        account,
+        band: bandNow,
+        openFundCalls: fundCalls,
+        renewalCredit: closure?.status === 'CONFIRMED' ? closure.renewalCredit : 0,
+      });
+    }
+    return rows;
+  }
+
+  /**
+   * Pilotage entreprise (§30, §35) : effectifs, contrats et CTS du collectif,
+   * top garanties consommées, alertes et appels ouverts. Aucune donnée
+   * médicale individuelle (montants agrégés uniquement).
+   */
+  async companyOverview(companyId: string) {
+    const company = await this.prisma.company.findUnique({ where: { id: companyId } });
+    if (!company || (company as any).status !== 'ACTIVE') throw new NotFoundException('Entreprise introuvable');
+    const [employeesTotal, employeesActive] = await Promise.all([
+      this.prisma.user.count({ where: { companyId, role: 'MEMBER' } }),
+      this.prisma.user.count({ where: { companyId, role: 'MEMBER', status: 'ACTIVE' } }),
+    ]);
+    const contracts = await this.prisma.contract.findMany({
+      where: { companyId },
+      select: {
+        id: true, number: true, kind: true, status: true, endDate: true, principalUserId: true,
+        product: { select: { name: true } },
+        _count: { select: { beneficiaries: true } },
+      },
+    });
+    const beneficiaries = contracts.reduce((a, c: any) => a + (c._count?.beneficiaries ?? 0), 0);
+    const rows = [];
+    const totals = { budget: 0, consumed: 0, committed: 0, available: 0, result: 0, collected: 0 };
+    for (const c of contracts) {
+      const account = await this.ensureAccount(c.id);
+      const bandNow = await this.evaluateBands(c.id);
+      totals.budget += account.benefitBudget + Math.max(0, (account as any).budgetBoost ?? 0);
+      totals.consumed += account.consumed;
+      totals.committed += account.committed;
+      totals.available += account.available;
+      totals.result += account.provisionalResult;
+      totals.collected += account.primeCollected;
+      const holder = await this.prisma.user.findUnique({
+        where: { id: (c as any).principalUserId },
+        select: { firstName: true, lastName: true },
+      });
+      rows.push({
+        contractId: c.id,
+        number: c.number,
+        kind: c.kind,
+        status: c.status,
+        holder: holder ? `${holder.firstName} ${holder.lastName}` : null,
+        beneficiaries: (c as any)._count?.beneficiaries ?? 0,
+        endDate: (c as any).endDate,
+        account,
+        band: bandNow,
+      });
+    }
+    // Top garanties consommées (montants approuvés, sans détail médical).
+    const items = await this.prisma.claimItem.findMany({
+      where: { claim: { contract: { companyId }, status: { in: [...CTS_COMMITTED_STATUSES, 'PAID'] } } },
+      select: { categoryLabel: true, amountApproved: true },
+    });
+    const byGuarantee: Record<string, number> = {};
+    for (const i of items) {
+      if (i.amountApproved == null) continue;
+      byGuarantee[i.categoryLabel] = (byGuarantee[i.categoryLabel] ?? 0) + i.amountApproved;
+    }
+    const topGuarantees = Object.entries(byGuarantee)
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8);
+    const contractIds = contracts.map(c => c.id);
+    const [alerts, fundCalls] = await Promise.all([
+      this.prisma.ctsAlert.findMany({ where: { contractId: { in: contractIds }, status: 'OPEN' }, orderBy: { createdAt: 'desc' }, take: 50 }),
+      this.prisma.fundCall.findMany({ where: { contractId: { in: contractIds }, status: { in: ['DRAFT', 'SENT'] } }, orderBy: { createdAt: 'desc' } }),
+    ]);
+    return {
+      company: { id: company.id, name: (company as any).name },
+      headcount: { total: employeesTotal, active: employeesActive, beneficiaries },
+      contracts: rows,
+      totals,
+      topGuarantees,
+      alerts,
+      fundCalls,
+    };
+  }
+
+  /**
+   * Portefeuille assureur/mutuelle (§31, §47) : primes, consommation,
+   * engagements, sinistralité, résultats, contrats critiques, appels,
+   * paiements, anomalies. Tout est recalculé, rien n'est stocké en double.
+   */
+  async portfolioOverview() {
+    const accounts = await this.prisma.technicalAccount.findMany({
+      include: {
+        contract: {
+          select: {
+            id: true, number: true, status: true, kind: true,
+            product: { select: { name: true, ctsConfig: true } },
+            company: { select: { name: true } },
+          },
+        },
+      },
+    });
+    const totals = { contracts: 0, collected: 0, fees: 0, budget: 0, consumed: 0, committed: 0, available: 0, result: 0, deficit: 0 };
+    const critical: any[] = [];
+    for (const acc of accounts) {
+      const cfg = parseCtsConfig((acc as any).contract?.product?.ctsConfig);
+      const b = band(acc.available, acc.benefitBudget + Math.max(0, (acc as any).budgetBoost ?? 0), cfg);
+      totals.contracts += 1;
+      totals.collected += acc.primeCollected;
+      totals.fees += acc.managementFees;
+      totals.budget += acc.benefitBudget;
+      totals.consumed += acc.consumed;
+      totals.committed += acc.committed;
+      totals.available += acc.available;
+      totals.result += acc.provisionalResult;
+      totals.deficit += acc.deficit;
+      if (b === 'CRITIQUE' || b === 'EPUISE') {
+        critical.push({
+          contractId: acc.contractId,
+          number: (acc as any).contract?.number,
+          product: (acc as any).contract?.product?.name,
+          company: (acc as any).contract?.company?.name ?? null,
+          band: b,
+          available: acc.available,
+          ratio: acc.consumptionRatio,
+          deficit: acc.deficit,
+        });
+      }
+    }
+    critical.sort((a, b) => a.available - b.available);
+    const [openFundCalls, openAlerts, stopLossCount, paidCount] = await Promise.all([
+      this.prisma.fundCall.findMany({
+        where: { status: { in: ['DRAFT', 'SENT'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        include: { contract: { select: { number: true } } },
+      }),
+      this.prisma.ctsAlert.groupBy({ by: ['type', 'status'], _count: true }),
+      this.prisma.ctsJournal.count({ where: { type: 'STOP_LOSS' } }),
+      this.prisma.fundCall.count({ where: { status: 'PAID' } }),
+    ]);
+    const lossRatio = totals.collected > 0 ? totals.consumed / totals.collected : 0;
+    return {
+      totals: { ...totals, lossRatio },
+      critical: critical.slice(0, 20),
+      openFundCalls,
+      alertsByType: openAlerts,
+      stopLossTriggers: stopLossCount,
+      fundCallsPaid: paidCount,
+    };
+  }
+
+  /**
+   * Simulateur commercial (§32) : estimation pré-contractuelle, jamais une
+   * donnée contractuelle (flag estimation + montants indicatifs).
+   */
+  async simulate(input: {
+    productId: string;
+    principalAge: number;
+    spouseAge?: number | null;
+    childrenAges?: number[];
+    frequency: 'ANNUAL' | 'QUARTERLY' | 'MONTHLY';
+    assumedAnnualConsumption: number;
+  }) {
+    const product = await this.prisma.product.findUnique({ where: { id: input.productId } });
+    if (!product || (product as any).status !== 'ACTIVE') throw new NotFoundException('Produit introuvable');
+    const yearsAgo = (age: number) => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - Math.max(0, Math.min(100, Math.floor(age))));
+      return d;
+    };
+    const persons: QuotePerson[] = [{ birthDate: yearsAgo(input.principalAge), relation: 'PRINCIPAL' }];
+    if (input.spouseAge != null) persons.push({ birthDate: yearsAgo(input.spouseAge), relation: 'SPOUSE' });
+    for (const a of input.childrenAges ?? []) persons.push({ birthDate: yearsAgo(a), relation: 'CHILD' });
+    const p = product as any;
+    const pricing: ProductPricing = {
+      basePremiumAnnual: p.basePremiumAnnual,
+      pricePerAdditionalAdultAnnual: p.pricePerAdditionalAdultAnnual ?? 0,
+      pricePerChildAnnual: p.pricePerChildAnnual ?? 0,
+      frequencyFactors: typeof p.frequencyFactors === 'string' ? JSON.parse(p.frequencyFactors) : (p.frequencyFactors ?? {}),
+      minAge: p.minAge ?? 0,
+      maxAge: p.maxAge ?? 65,
+      beneficiaryRules: typeof p.beneficiaryRules === 'string' ? JSON.parse(p.beneficiaryRules) : undefined,
+      ageLoadings: typeof p.ageLoadings === 'string' ? JSON.parse(p.ageLoadings) : undefined,
+      globalAnnualCap: p.globalAnnualCap ?? undefined,
+    };
+    const { errors, quote } = computeQuote(pricing, persons, input.frequency);
+    if (errors.length || !quote) throw new BadRequestException({ message: errors[0] ?? 'Simulation impossible', errors });
+    const cfg = parseCtsConfig(p.ctsConfig);
+    const fees = managementFees(quote.totalAnnual, cfg.managementRate);
+    const budget = benefitBudget(quote.totalAnnual, fees);
+    const assumed = Math.max(0, Math.floor(input.assumedAnnualConsumption));
+    const avail = available(budget, assumed, 0);
+    const b = band(avail, budget, cfg);
+    const daily = assumed / 365;
+    const exhaustionDay = daily > 0 && budget > 0 && assumed > budget ? Math.floor(budget / daily) : null;
+    const { surplus, renewalCredit } = closeOut(assumed, 0, budget, cfg.carryRate);
+    return {
+      estimation: true,
+      disclaimer: 'Montants indicatifs — simulation commerciale, pas une donnée contractuelle.',
+      product: { id: p.id, name: p.name, code: p.code },
+      prime: quote.totalAnnual,
+      fees,
+      budget,
+      assumedAnnualConsumption: assumed,
+      projectedResult: provisionalResult(quote.totalAnnual, fees, assumed, 0),
+      projectedRatio: consumptionRatio(assumed, 0, budget),
+      band: b,
+      exhaustionDay,
+      potentialCredit: renewalCredit,
+      potentialSurplus: surplus,
+    };
   }
 
   /**
@@ -796,6 +1047,15 @@ const proposeFundCallSchema = z.object({
   dueDate: z.coerce.date().optional(),
 });
 
+const simulateSchema = z.object({
+  productId: z.string().min(5),
+  principalAge: z.number().int().min(0).max(100),
+  spouseAge: z.number().int().min(0).max(100).nullable().optional(),
+  childrenAges: z.array(z.number().int().min(0).max(30)).max(15).default([]),
+  frequency: z.enum(['ANNUAL', 'QUARTERLY', 'MONTHLY']),
+  assumedAnnualConsumption: z.number().int().min(0),
+});
+
 @Controller()
 @UseInterceptors(AuditInterceptor)
 export class CtsController {
@@ -805,6 +1065,30 @@ export class CtsController {
   @RequirePermissions('cts.view')
   overview(@Param('id') id: string) {
     return this.cts.getOverview(id);
+  }
+
+  @Get('contracts/mine/cts')
+  myAccounts(@CurrentUser() auth: AuthUser) {
+    return this.cts.myAccounts(auth.id);
+  }
+
+  @Get('company/me/cts')
+  @RequirePermissions('company.dashboard')
+  companyOverview(@CurrentUser() auth: AuthUser) {
+    if (!auth.companyId) throw new BadRequestException('Compte entreprise requis');
+    return this.cts.companyOverview(auth.companyId);
+  }
+
+  @Get('admin/cts/portfolio')
+  @RequirePermissions('cts.view')
+  portfolio() {
+    return this.cts.portfolioOverview();
+  }
+
+  @Public()
+  @Post('cts/simulate')
+  simulate(@Body(new ZodPipe(simulateSchema)) dto: any) {
+    return this.cts.simulate(dto);
   }
 
   @Get('admin/contracts/:id/fund-calls')

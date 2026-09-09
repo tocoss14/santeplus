@@ -139,3 +139,26 @@ export const COMMISSION_TYPES: Record<string, string> = {
   OVERRIDE: 'Override équipe',
   BONUS: 'Bonus performance',
 };
+
+/** Bandes CTS (§14) — affichage seul, calcul côté API. */
+export const CTS_BAND_LABELS: Record<string, string> = {
+  NORMAL: 'Sain',
+  SURVEILLANCE: 'Surveillance',
+  ALERTE: 'Alerte',
+  CRITIQUE: 'Critique',
+  EPUISE: 'Épuisé',
+};
+
+const CTS_BAND_STYLES: Record<string, string> = {
+  NORMAL: 'bg-emerald-100 text-emerald-800',
+  SURVEILLANCE: 'bg-amber-100 text-amber-800',
+  ALERTE: 'bg-orange-100 text-orange-800',
+  CRITIQUE: 'bg-red-100 text-red-700',
+  EPUISE: 'bg-slate-800 text-white',
+};
+
+export const ctsBandLabel = (b: string): string => CTS_BAND_LABELS[b] ?? b;
+export const ctsBandStyle = (b: string): string => CTS_BAND_STYLES[b] ?? 'bg-slate-100 text-slate-600';
+
+export const ratioPct = (r: number | null | undefined): string =>
+  r == null ? '—' : `${Math.round(r * 100)} %`;

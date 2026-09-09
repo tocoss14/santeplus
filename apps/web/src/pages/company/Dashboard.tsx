@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
 import { EmptyState, Spinner, StatCard, StatusBadge } from '../../components/ui';
+import { BandBadge, CtsAlertList, FundCallList } from '../../components/CtsCards';
 
 export default function CompanyDashboard() {
   const [data, setData] = useState<any>(null);
+  const [cts, setCts] = useState<any>(null);
 
   useEffect(() => {
     api.get('/company/me/dashboard').then(setData).catch(() => setData({ error: true }));
+    api.get('/company/me/cts').then(setCts).catch(() => setCts({ error: true }));
   }, []);
 
   if (!data) return <Spinner />;
@@ -59,6 +62,45 @@ export default function CompanyDashboard() {
             </div>
           )}
         </>
+      )}
+
+      {cts && !cts.error && (
+        <div className="card-p space-y-4">
+          <h2 className="font-semibold">Compte technique du collectif</h2>
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <div><p className="text-xs text-slate-400">Budget prestations</p><p className="font-semibold">{fcfa(cts.totals.budget)}</p></div>
+            <div><p className="text-xs text-slate-400">Consommé</p><p className="font-semibold">{fcfa(cts.totals.consumed)}</p></div>
+            <div><p className="text-xs text-slate-400">Disponible</p><p className="font-semibold">{fcfa(cts.totals.available)}</p></div>
+            <div><p className="text-xs text-slate-400">Résultat provisoire</p><p className="font-semibold">{fcfa(cts.totals.result)}</p></div>
+          </div>
+          {cts.contracts?.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr><th className="th text-left">Contrat</th><th className="th text-left">Titulaire</th><th className="th text-left">Statut</th><th className="th text-right">Disponible</th><th className="th text-right">Ratio</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {cts.contracts.map((c: any) => (
+                    <tr key={c.contractId}>
+                      <td className="td font-mono text-xs">{c.number}</td>
+                      <td className="td">{c.holder ?? '—'}</td>
+                      <td className="td"><BandBadge band={c.band} /></td>
+                      <td className="td text-right font-medium">{fcfa(c.account?.available)}</td>
+                      <td className="td text-right">{c.account?.consumptionRatio != null ? `${Math.round(c.account.consumptionRatio * 100)} %` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {cts.topGuarantees?.length > 0 && (
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Top garanties consommées</p>
+              <p className="text-sm">{cts.topGuarantees.map((g: any) => `${g.category} (${fcfa(g.amount)})`).join(' · ')}</p>
+            </div>
+          )}
+          <CtsAlertList items={cts.alerts} />
+          <FundCallList items={cts.fundCalls} />
+          <p className="text-xs text-slate-400">Données agrégées, sans détail médical. Effectif : {cts.headcount.active}/{cts.headcount.total} actifs, {cts.headcount.beneficiaries} ayants droit.</p>
+        </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">

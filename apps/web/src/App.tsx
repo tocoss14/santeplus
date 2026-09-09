@@ -51,6 +51,8 @@ const AdminCommissions = lazy(() => import('./pages/admin/AdminCommissions'));
 const AdminAccounting = lazy(() => import('./pages/admin/AdminAccounting'));
 const AdminBranches = lazy(() => import('./pages/admin/AdminBranches'));
 const AdminDiseases = lazy(() => import('./pages/admin/AdminDiseases'));
+const AdminCts = lazy(() => import('./pages/admin/AdminCts'));
+const Simulateur = lazy(() => import('./pages/Simulateur'));
 
 // Lazy — provider
 const RegisterProvider = lazy(() => import('./pages/RegisterProvider'));
@@ -95,6 +97,7 @@ export default function App() {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Landing />} />
         <Route path="/offres" element={<Lazy><Offers /></Lazy>} />
+        <Route path="/simulateur" element={<Lazy><Simulateur /></Lazy>} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/register-entreprise" element={<RegisterCompany />} />
@@ -147,6 +150,7 @@ export default function App() {
         <Route path="distributors" element={<Lazy><AdminDistributors /></Lazy>} />
         <Route path="commissions" element={<Lazy><AdminCommissions /></Lazy>} />
         <Route path="accounting" element={<Lazy><AdminAccounting /></Lazy>} />
+        <Route path="cts" element={<Lazy><AdminCts /></Lazy>} />
         <Route path="branches" element={<Lazy><AdminBranches /></Lazy>} />
         <Route path="diseases" element={<Lazy><AdminDiseases /></Lazy>} />
         <Route path="profil" element={<Lazy><Profile /></Lazy>} />

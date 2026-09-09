@@ -43,6 +43,7 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/admin/roles', label: 'Rôles', icon: '🔐' },
       { to: '/admin/technical-result', label: 'Résultat technique', icon: '📊' },
       { to: '/admin/accounting', label: 'Comptabilité', icon: '📒' },
+      { to: '/admin/cts', label: 'Comptes techniques', icon: '📉' },
       { to: '/admin/branches', label: 'Branches', icon: '🏷️' },
       { to: '/admin/diseases', label: 'Maladies', icon: '🩺' },
       { to: '/admin/distributors', label: 'Distributeurs', icon: '🤝' },

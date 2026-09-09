@@ -26,6 +26,7 @@ import { OfflineModule } from './modules/offline/offline.controller';
 import { DistributorsModule } from './modules/distributors/distributors.controller';
 import { CommissionsModule } from './modules/commissions/commissions.controller';
 import { AccountingModule } from './modules/accounting/accounting.controller';
+import { BatchBillingModule } from './modules/billing/batch-billing.controller';
 import { CtsModule } from './modules/cts/cts.service';
 import { ReferentialModule } from './modules/referential/referential.controller';
 import { HospitalModule } from './modules/hospital/hospital.controller';
@@ -61,6 +62,7 @@ import { PaymentReminderJob } from './jobs/payment-reminder.job';
     DistributorsModule,
     CommissionsModule,
     AccountingModule,
+    BatchBillingModule,
     ReferentialModule,
     HospitalModule,
     CtsModule,

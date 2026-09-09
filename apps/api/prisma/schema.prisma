@@ -360,6 +360,7 @@ model Claim {
   prescriptionId String?
   deliveryId     String?
   careRecord     CareRecord?
+  batchInvoiceItems BatchInvoiceItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -464,9 +465,131 @@ model Provider {
   deliveries Delivery[]
   careRecords CareRecord[]
   fraudCases FraudCase[]
+  batchInvoices BatchInvoice[]
+  creditNotes CreditNote[]
+  reconciliations Reconciliation[]
 
   @@index([city])
   @@index([type])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FACTURATION TIERS-PAYANT AVANCÉE (P21-1)
+// Factures groupées, rejets, avoirs, réconciliation
+// ═══════════════════════════════════════════════════════════════════
+
+model BatchInvoice {
+  id            String   @id @default(cuid())
+  number        String   @unique
+  providerId    String
+  provider      Provider @relation(fields: [providerId], references: [id])
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        String   @default("DRAFT")  // DRAFT | SUBMITTED | VALIDATED | PAID | REJECTED | PARTIAL
+  totalAmount   Int      @default(0)
+  totalApproved Int      @default(0)
+  totalRejected Int      @default(0)
+  notes         String?
+  submittedAt   DateTime?
+  validatedAt   DateTime?
+  paidAt        DateTime?
+  paymentRef    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items         BatchInvoiceItem[]
+  rejections    Rejection[]
+  creditNotes   CreditNote[]
+
+  @@index([providerId, status])
+  @@index([periodStart, periodEnd])
+}
+
+model BatchInvoiceItem {
+  id              String       @id @default(cuid())
+  batchInvoiceId  String
+  batchInvoice    BatchInvoice @relation(fields: [batchInvoiceId], references: [id], onDelete: Cascade)
+  claimId         String
+  claim           Claim        @relation(fields: [claimId], references: [id])
+  claimItemId     String?
+  actId           String?
+  quantity        Int          @default(1)
+  unitPrice       Int
+  amountRequested Int
+  amountApproved  Int          @default(0)
+  amountRejected  Int          @default(0)
+  rejectionReason String?
+  status          String       @default("PENDING")  // PENDING | APPROVED | REJECTED | PARTIAL
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  rejections      Rejection[]
+
+  @@index([batchInvoiceId])
+  @@index([claimId])
+  @@index([status])
+}
+
+model Rejection {
+  id               String        @id @default(cuid())
+  code             String        @unique
+  batchInvoiceId   String
+  batchInvoice     BatchInvoice  @relation(fields: [batchInvoiceId], references: [id])
+  batchInvoiceItemId String
+  batchInvoiceItem BatchInvoiceItem @relation(fields: [batchInvoiceItemId], references: [id])
+  type             String        // MEDICAL | ADMINISTRATIVE | CODING | DUPLICATE | OUT_OF_COVERAGE | OTHER
+  reason           String
+  amount           Int
+  status           String        @default("OPEN")  // OPEN | ACKNOWLEDGED | DISPUTED | RESOLVED
+  disputedAt       DateTime?
+  resolvedAt       DateTime?
+  resolutionNote   String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([batchInvoiceId])
+  @@index([status])
+  @@index([type])
+}
+
+model CreditNote {
+  id              String       @id @default(cuid())
+  number          String       @unique
+  providerId      String
+  provider        Provider     @relation(fields: [providerId], references: [id])
+  batchInvoiceId  String?
+  batchInvoice    BatchInvoice? @relation(fields: [batchInvoiceId], references: [id])
+  type            String       // REJECTION | OVERPAYMENT | ADJUSTMENT | DUPLICATE_PAYMENT
+  reason          String
+  amount          Int
+  status          String       @default("DRAFT")  // DRAFT | ISSUED | APPLIED | CANCELLED
+  appliedAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([providerId])
+  @@index([batchInvoiceId])
+  @@index([status])
+}
+
+model Reconciliation {
+  id              String   @id @default(cuid())
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id])
+  periodStart     DateTime
+  periodEnd       DateTime
+  status          String   @default("PENDING")  // PENDING | MATCHED | DISCREPANCY | RESOLVED
+  expectedAmount  Int
+  paidAmount      Int
+  difference      Int
+  notes           String?
+  matchedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([providerId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
 }
 
 model Act {

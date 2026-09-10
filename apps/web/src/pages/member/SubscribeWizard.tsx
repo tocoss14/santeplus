@@ -134,6 +134,7 @@ export default function SubscribeWizard() {
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [methodsError, setMethodsError] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -217,7 +218,10 @@ export default function SubscribeWizard() {
     api.get<any[]>('/payments/methods').then(m => {
       setPaymentMethods(m);
       if (m[0]) setMethod(m[0].code);
-    }).catch(() => {});
+    }).catch((e: any) => {
+      // Sans moyens de paiement l'étape 6 est dans une impasse — l'afficher.
+      setMethodsError(e?.message ?? 'Impossible de charger les moyens de paiement');
+    });
   }, []);
 
   const product = useMemo(() => products?.find(p => p.id === productId), [products, productId]);
@@ -358,7 +362,11 @@ export default function SubscribeWizard() {
     if (photoFile) {
       const fd = new FormData();
       fd.append('photo', photoFile);
-      api.post('/users/me/photo', fd).catch(() => {});
+      api.post('/users/me/photo', fd).catch((e: any) => {
+        // La photo n'est pas bloquante pour la souscription, mais ne pas la
+        // perdre en silence — l'utilisateur devra la renvoyer depuis son profil.
+        setError(`Photo non enregistrée (${e?.message ?? 'erreur inconnue'}) — vous pourrez la renvoyer depuis votre profil.`);
+      });
     }
     setStep(4);
     setError(null);
@@ -754,6 +762,7 @@ export default function SubscribeWizard() {
               <p className="mt-1 text-sm text-slate-500">Réglez {fcfa(subscription.firstPayment.amount)} pour activer votre couverture.</p>
             )}
             <Field label="Moyen de paiement">
+              {methodsError && <ErrorBanner message={methodsError} />}
               <div className="grid gap-2">
                 {paymentMethods.map(m => (
                   <label key={m.code} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${method === m.code ? 'border-brand-600 ring-1 ring-brand-600 bg-brand-50/50' : 'border-slate-200'}`}>

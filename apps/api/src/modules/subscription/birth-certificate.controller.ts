@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators';
 import { AuthUser } from '../../common/guards/jwt-auth.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
+import { PrismaService } from '../../common/prisma.module';
+import { FilesModule } from '../files/files.service';
 import { BirthCertificateService } from './birth-certificate.service';
 
 const extractedDataSchema = z.object({
@@ -17,7 +19,10 @@ const extractedDataSchema = z.object({
 
 @Controller('subscription')
 export class BirthCertificateController {
-  constructor(private birthCert: BirthCertificateService) {}
+  constructor(
+    private birthCert: BirthCertificateService,
+    private prisma: PrismaService,
+  ) {}
 
   /**
    * Upload de l'acte de naissance (multipart/form-data)
@@ -40,7 +45,7 @@ export class BirthCertificateController {
     @Body(new ZodPipe(extractedDataSchema)) dto: any,
   ) {
     // Récupérer le dernier fichier uploadé
-    const config = await this.birthCert['prisma'].systemConfig.findUnique({
+    const config = await this.prisma.systemConfig.findUnique({
       where: { key: `birth_cert_verify_${auth.id}` },
     });
 
@@ -66,6 +71,7 @@ export class BirthCertificateController {
 }
 
 @Module({
+  imports: [FilesModule],
   controllers: [BirthCertificateController],
   providers: [BirthCertificateService],
   exports: [BirthCertificateService],

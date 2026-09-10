@@ -192,7 +192,13 @@ export async function syncQueue(): Promise<{ synced: number; conflicts: Array<{ 
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
-    data = { message: text };
+    data = null;
+  }
+  // Réponse non-JSON (fallback SPA HTML, page d'erreur proxy…) : ne JAMAIS la
+  // traiter comme un succès — sinon la file entière serait vidée alors que rien
+  // n'a été synchronisé (perte de données). On lève et la file est conservée.
+  if (data === null && text) {
+    throw new Error(`Réponse non JSON du serveur (statut ${res.status}) — synchronisation annulée, file conservée`);
   }
   if (!res.ok) {
     // Network error — do not clear queue, propagate

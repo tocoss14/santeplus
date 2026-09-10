@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { ROLE_LABELS } from '../../format';
-import { Spinner } from '../../components/ui';
+import { ErrorBanner, Spinner } from '../../components/ui';
 
 const PERMISSION_GROUPS: Record<string, string[]> = {
   Assurés: ['members.read', 'members.manage'],
@@ -22,24 +22,37 @@ export default function AdminRoles() {
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.get('/admin/roles').then(r => {
       setRoles(r.map((x: any) => x.role));
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((e: any) => {
+      setLoading(false);
+      setError(e?.message ?? 'Impossible de charger les rôles');
+    });
   }, []);
 
   useEffect(() => {
     if (role === 'SUPER_ADMIN') return;
-    api.get(`/admin/roles/${role}/permissions`).then(r => setKeys(new Set(r.keys))).catch(() => {});
+    api.get(`/admin/roles/${role}/permissions`).then(r => setKeys(new Set(r.keys))).catch((e: any) => {
+      setError(e?.message ?? 'Impossible de charger les permissions');
+    });
   }, [role]);
 
   async function save(next: Set<string>) {
-    setKeys(next);
-    await api.post(`/admin/roles/${role}/permissions`, { keys: [...next] });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    const previous = keys;
+    setError(null);
+    setKeys(next); // optimiste
+    try {
+      await api.post(`/admin/roles/${role}/permissions`, { keys: [...next] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (e: any) {
+      setKeys(previous); // rollback — ne pas mentir à l'utilisateur
+      setError(e?.message ?? 'Enregistrement impossible');
+    }
   }
 
   if (loading) return <Spinner />;
@@ -57,6 +70,7 @@ export default function AdminRoles() {
         <div className="card-p text-sm text-slate-500">Le super administrateur dispose implicitement de toutes les permissions.</div>
       ) : (
         <>
+          <ErrorBanner message={error} />
           {saved && <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-700">✅ Permissions enregistrées (prise d’effet en ~30 s)</div>}
           <div className="grid gap-4 md:grid-cols-2">
             {Object.entries(PERMISSION_GROUPS).map(([group, perms]) => (

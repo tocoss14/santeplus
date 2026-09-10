@@ -136,9 +136,11 @@ jobs:
           RUNSITE_SERVICE_ID: ${{ secrets.RUNSITE_SERVICE_ID }}
         run: |
           echo "Triggering Runsite deployment..."
-          # --fail : un endpoint/clé invalide doit faire échouer le job (pas de 404 silencieux)
+          # --fail : un endpoint/clé invalide doit faire échouer le job (pas de 404 silencieux).
+          # L'API publique actuelle exige /api/v1/.../deployments pour construire et
+          # publier un nouveau commit ; /deploy ne fait que démarrer l'image existante.
           curl --fail-with-body -s -X POST \
-            "https://api.runsite.app/api/web-services/${{ secrets.RUNSITE_SERVICE_ID }}/deploy" \
+            "https://api.runsite.app/api/v1/web-services/${{ secrets.RUNSITE_SERVICE_ID }}/deployments" \
             -H "Authorization: Bearer $RUNSITE_API_KEY" \
             -H "Content-Type: application/json" \
             --data '{"branch":"master"}'

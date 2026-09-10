@@ -103,4 +103,35 @@ describe('offlineQueue', () => {
     await clearQueue();
     expect(await getQueue()).toEqual([]);
   });
+
+  // Régression : un 200 non-JSON (fallback SPA HTML, page d'erreur proxy) ne doit
+  // JAMAIS être traité comme un succès — sinon la file entière est vidée alors que
+  // rien n'a été synchronisé (perte de données).
+  it('non-JSON 200 response does NOT wipe the queue', async () => {
+    const payload = { prescriptionNumber: 'ORD-HTML', lines: [{ lineId: 'L1', quantity: 1 }] };
+    const hash = await computeHash(payload, 'test-session-token');
+    await enqueueDelivery(payload, hash, 'test-session-token');
+    // @ts-ignore
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => '<!DOCTYPE html><html><body>SPA fallback</body></html>',
+    }));
+    await expect(syncQueue()).rejects.toThrow(/non JSON/);
+    // La file est intacte — aucune délivrance perdue.
+    const q = await getQueue();
+    expect(q.length).toBe(1);
+    expect(q[0].payload.prescriptionNumber).toBe('ORD-HTML');
+  });
+
+  it('network failure keeps the queue and propagates the error', async () => {
+    const payload = { prescriptionNumber: 'ORD-NET', lines: [{ lineId: 'L1', quantity: 1 }] };
+    const hash = await computeHash(payload, 'test-session-token');
+    await enqueueDelivery(payload, hash, 'test-session-token');
+    // @ts-ignore
+    global.fetch = vi.fn(async () => { throw new Error('offline'); });
+    await expect(syncQueue()).rejects.toThrow('offline');
+    const q = await getQueue();
+    expect(q.length).toBe(1);
+  });
 });

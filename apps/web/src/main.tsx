@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './auth';
 import ErrorBoundary from './components/ErrorBoundary';
+import ApiErrorToast from './components/ApiErrorToast';
 import './index.css';
 import { initSentry } from './lib/sentry';
 
@@ -19,6 +20,7 @@ if ('serviceWorker' in navigator) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
+      <ApiErrorToast />
       <BrowserRouter>
         <AuthProvider>
           <App />

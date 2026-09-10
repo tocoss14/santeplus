@@ -29,6 +29,7 @@ export default function DistributorDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [commissions, setCommissions] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [tab, setTab] = useState<'overview' | 'commissions' | 'share'>('overview');
   const [loading, setLoading] = useState(true);
 
@@ -65,7 +66,11 @@ export default function DistributorDashboard() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
+      setCopyError(null);
       setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // Presse-papiers refusé (permissions navigateur) — ne pas mentir avec "Copié !".
+      setCopyError('Copie impossible — sélectionnez et copiez le texte manuellement.');
     });
   };
 
@@ -144,6 +149,7 @@ export default function DistributorDashboard() {
             <p className="mt-2 text-xs text-stone">
               Partagez ce code ou votre lien pour recruter de nouveaux assurés.
             </p>
+            {copyError && <p className="mt-1 text-xs text-red-700">{copyError}</p>}
           </div>
 
           {/* Commission Summary */}

@@ -1,6 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.module';
-import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns';
+
+function startOfMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function endOfMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+}
+
+function subMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  result.setUTCMonth(result.getUTCMonth() - months);
+  return result;
+}
+
+function formatYearMonth(date: Date): string {
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  return `${date.getUTCFullYear()}-${month}`;
+}
 
 export interface LossRatioData {
   period: string;
@@ -94,7 +112,7 @@ export class AnalyticsService {
       const p = premiums._sum.amount ?? 0;
       const c = claims._sum.totalApproved ?? 0;
       periods.unshift({
-        period: format(periodStart, 'yyyy-MM'),
+        period: formatYearMonth(periodStart),
         premiums: p,
         claims: c,
         lossRatio: p > 0 ? c / p : 0,
@@ -374,7 +392,7 @@ export class AnalyticsService {
       const c = claims._sum.totalApproved ?? 0;
 
       data.unshift({
-        date: format(periodStart, 'yyyy-MM'),
+        date: formatYearMonth(periodStart),
         activeContracts,
         totalMembers,
         totalPremiums: p,

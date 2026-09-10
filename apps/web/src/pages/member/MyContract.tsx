@@ -119,6 +119,7 @@ function PendingPaymentCard({ contract, onPaid }: { contract: any; onPaid: () =>
   const [method, setMethod] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [methodsError, setMethodsError] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<any[]>('/payments/methods')
@@ -126,7 +127,7 @@ function PendingPaymentCard({ contract, onPaid }: { contract: any; onPaid: () =>
         setMethods(m);
         if (m[0]) setMethod(m[0].code);
       })
-      .catch(() => {});
+      .catch((e: any) => setMethodsError(e?.message ?? 'Impossible de charger les moyens de paiement'));
   }, []);
 
   if (!next) return null;
@@ -135,6 +136,7 @@ function PendingPaymentCard({ contract, onPaid }: { contract: any; onPaid: () =>
     <div className="card-p border-amber-300 bg-amber-50">
       <p className="font-semibold text-amber-800">Paiement en attente — {fcfa(next.amount)} à régler pour activer votre contrat.</p>
       {error && <ErrorBanner message={error} />}
+      {methodsError && <ErrorBanner message={methodsError} />}
       <div className="mt-3 flex flex-col sm:flex-row gap-2">
         <select className="input sm:w-64" value={method} onChange={e => setMethod(e.target.value)}>
           {methods.map(m => <option key={m.code} value={m.code}>{m.label}</option>)}

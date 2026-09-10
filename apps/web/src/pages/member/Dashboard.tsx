@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { Badge, EmptyState, Spinner, StatCard, StatusBadge } from '../../components/ui';
+import { Badge, EmptyState, ErrorBanner, Spinner, StatCard, StatusBadge } from '../../components/ui';
 
 export default function MemberDashboard() {
   const [contracts, setContracts] = useState<any[] | null>(null);
   const [claims, setClaims] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [renewError, setRenewError] = useState<string | null>(null);
+  const [renewing, setRenewing] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -20,7 +23,11 @@ export default function MemberDashboard() {
         setClaims(cl.slice(0, 4));
         setProviders(p.slice(0, 3));
       })
-      .catch(() => setContracts([]));
+      .catch((e: any) => {
+        // Ne pas confondre "aucun contrat" avec "échec du chargement".
+        setLoadError(e?.message ?? 'Impossible de charger vos données');
+        setContracts([]);
+      });
   }, []);
 
   if (!contracts) return <Spinner />;
@@ -37,6 +44,8 @@ export default function MemberDashboard() {
         <h1 className="text-xl font-bold">Bonjour 👋</h1>
         <Link to="/app/remboursements/nouveau" className="btn-primary btn-sm">＋ Déclarer une dépense</Link>
       </div>
+
+      <ErrorBanner message={loadError} />
 
       {pendingPayment && (
         <Link to="/app/contrat" className="block card-p border-amber-300 bg-amber-50 hover:bg-amber-100 transition">
@@ -64,14 +73,23 @@ export default function MemberDashboard() {
           {daysLeft != null && daysLeft <= 30 && (
             <div className="card-p border-orange-200 bg-orange-50">
               <p className="font-medium text-orange-800">⚠️ Votre contrat expire dans {daysLeft} jours.</p>
+              {renewError && <p className="mt-2 text-sm text-red-700">{renewError}</p>}
               <button
                 className="btn-primary btn-sm mt-3"
+                disabled={renewing}
                 onClick={async () => {
-                  await api.post(`/contracts/${active.id}/renew`);
-                  window.location.reload();
+                  setRenewing(true);
+                  setRenewError(null);
+                  try {
+                    await api.post(`/contracts/${active.id}/renew`);
+                    window.location.reload();
+                  } catch (e: any) {
+                    setRenewError(e?.message ?? 'Renouvellement impossible');
+                    setRenewing(false);
+                  }
                 }}
               >
-                Renouveler maintenant
+                {renewing ? 'Renouvellement…' : 'Renouveler maintenant'}
               </button>
             </div>
           )}

@@ -75,8 +75,12 @@ git push -u origin main
    - **Root directory** : `apps/web`
    - **Build command** : `npm install && npm run build`
    - **Output directory** : `dist`
-   - **Variable de build** : `VITE_API_URL` = `https://VOTRE-API.runsite.app`
+   - **Variable de build (recommandée)** : `VITE_API_URL` = `https://VOTRE-API.runsite.app`
 3. **Deploy** â†’ ouvrez l'URL fournie : la landing page doit charger les formules.
+
+À défaut de variable explicite, un front hébergé sur `*.runsite.site` appelle
+automatiquement le service API jumeau `*.runsite.app` portant le même préfixe
+(par exemple `santeplus.runsite.site` → `https://santeplus.runsite.app`).
 
 Le fichier `apps/web/public/_redirects` (`/* /index.html 200`) assure le fallback SPA.
 Si les routes profondes (ex. `/app/contrat`) renvoient 404 aprÃ¨s refresh, ajoutez la mÃªme
@@ -113,7 +117,48 @@ Dashboard â†’ votre service â†’ *Domains* â†’ ajoutez `app.votred
 puis crÃ©ez les CNAME chez votre registrar. SSL automatique. Mettez Ã  jour `WEB_ORIGIN`/`APP_URL`
 et `VITE_API_URL` (redeploy frontend) en consÃ©quence.
 
-## 10. Checklist de mise en production
+## 10. Dépannage — l'API renvoie du HTML (fallback SPA)
+
+**Symptôme :** toutes les routes `/api/*` et `/health` renvoient le HTML de la
+landing page (`content-type: text/html`) au lieu du JSON de l'API.
+
+**Cause :** le frontend est déployé en *Static Site* : son fichier `_redirects`
+(`/* /index.html 200`) répond à **tous** les chemins, y compris `/api/*`. Il n'y
+a **aucun nginx** dans cette architecture — les configs `nginx.prod.conf` et
+`apps/web/nginx.conf` ne servent que les déploiements Docker.
+
+**Correctifs (dans le dépôt) :**
+1. `apps/web/src/api.ts` — `API_BASE` utilise `VITE_API_URL` quand elle est définie,
+   puis le service API jumeau `*.runsite.app` pour un front `*.runsite.site`,
+   puis la même origine ; une réponse non-JSON lève une erreur explicite au lieu
+   d'être silencieusement interprétée.
+2. `apps/web/nginx.conf` + `apps/web/Dockerfile` — l'upstream API est
+   configurable (`API_UPSTREAM`, défaut `http://api:4000`) et `/health` proxifie
+   vers `/api/health` ; un upstream injoignable renvoie un 502 JSON explicite,
+   jamais le fallback SPA.
+
+**Deux architectures possibles :**
+
+| Architecture | Routage `/api` | À configurer |
+|---|---|---|
+| **A. API + Static Site** (doc §4-5) | Le front appelle l'URL de l'API directement (cross-origin) | `VITE_API_URL=https://VOTRE-API.runsite.app` recommandé à la build du front + `WEB_ORIGIN`/`APP_URL` côté API (un front `*.runsite.site` sans variable utilise automatiquement le service jumeau `*.runsite.app`) |
+| **B. nginx unique** (Docker) | Le nginx du front proxifie `/api/` vers l'API | `API_UPSTREAM=http://<host-interne-api>:4000` sur le conteneur web |
+
+**Diagnostic rapide :**
+
+```bash
+# Vérifie l'API, pas le front statique : le domaine du front répond toujours en HTML.
+curl -i https://VOTRE-API.runsite.app/api/health
+# doit renvoyer {"status":"ok"} — si vous voyez du HTML, le routage /api est en cause
+```
+
+Si vous êtes en architecture A et que le front n'appelle pas la bonne API,
+reconstruisez le Static Site avec la variable de build `VITE_API_URL` — elle est
+figée au build Vite, pas modifiable au runtime. Sans variable, seul un front
+`*.runsite.site` bénéficie du repli automatique vers le service jumeau
+`*.runsite.app`.
+
+## 11. Checklist de mise en production
 
 - [ ] `JWT_SECRET` fort et unique
 - [ ] `MOCK_PAYMENTS=false`, clÃ©s live FedaPay/CinetPay

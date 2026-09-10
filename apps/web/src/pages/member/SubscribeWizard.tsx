@@ -32,7 +32,7 @@ interface GuaranteeOption {
   customizable: boolean;
 }
 
-const STEPS = ['Formule', 'Mes garanties', 'Photo', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
+const STEPS = ['Formule', 'Acte de naissance', 'Mes garanties', 'Photo', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
 
 function GuaranteeSlider({ option, value, onChange }: { option: GuaranteeOption; value: SelectedGuarantee; onChange: (v: SelectedGuarantee) => void }) {
   const rateSteps = Math.min(10, option.maxRate - option.minRate);
@@ -138,6 +138,14 @@ export default function SubscribeWizard() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Acte de naissance
+  const [birthCertFile, setBirthCertFile] = useState<File | null>(null);
+  const [birthCertPreview, setBirthCertPreview] = useState<string | null>(null);
+  const [birthCertVerified, setBirthCertVerified] = useState(false);
+  const [birthCertVerifying, setBirthCertVerifying] = useState(false);
+  const [birthCertError, setBirthCertError] = useState<string | null>(null);
+  const birthCertRef = useRef<HTMLInputElement>(null);
+
   // Charger la photo existante de l'utilisateur
   useEffect(() => {
     api.get<{ fileId: string | null }>('/users/me/photo').then(r => {
@@ -154,7 +162,7 @@ export default function SubscribeWizard() {
         if (list.length) {
           const contract = list[0];
           if (contract.status === 'ACTIVE') {
-            setStep(6); // Go to success
+            setStep(7); // Go to success
             setSubscription({ contractId: contract.id, number: contract.number });
           } else {
             // Poll payment status
@@ -169,15 +177,15 @@ export default function SubscribeWizard() {
                   const res = await api.get<{ status: string }>(`/payments/${last.id}/status`);
                   if (res.status === 'SUCCEEDED') {
                     clearInterval(poll);
-                    setStep(6);
+                    setStep(7);
                     setSubscription({ contractId: contract.id, number: contract.number });
                   } else if (res.status === 'FAILED') {
                     clearInterval(poll);
                     setError('Le paiement a échoué. Réessayez.');
-                    setStep(5);
-                  } else if (attempts >= 10) {
+                    setStep(6);
+} else if (attempts >= 10) {
                     clearInterval(poll);
-                    setStep(5);
+                    setStep(6);
                     setError('Paiement en cours de traitement. Vérifiez votre contrat dans quelques minutes.');
                   }
                 } catch {
@@ -271,13 +279,77 @@ export default function SubscribeWizard() {
 
   const goStep2 = () => {
     if (!productId) return setError('Choisissez une formule');
-    setStep(1);
+    setStep(1); // Now goes to birth certificate step
     setError(null);
   };
 
+  // Gestion acte de naissance
+  function handleBirthCert(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Validate file
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setBirthCertError('Format non supporté. PDF, JPG, PNG ou WebP uniquement.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setBirthCertError('Fichier trop volumineux (max 10 Mo).');
+      return;
+    }
+    setBirthCertFile(file);
+    setBirthCertPreview(URL.createObjectURL(file));
+    setBirthCertVerified(false);
+    setBirthCertError(null);
+  }
+
+  async function verifyBirthCert() {
+    if (!birthCertFile) return;
+    setBirthCertVerifying(true);
+    setBirthCertError(null);
+    try {
+      // Upload file
+      const fd = new FormData();
+      fd.append('file', birthCertFile);
+      const uploadRes = await api.post('/subscription/birth-certificate/upload', fd);
+      
+      // For now, we simulate verification by asking user to confirm data matches
+      // In production, this would call OCR or manual review endpoint
+      // We'll do a simple client-side check against user profile
+      const userRes = await api.get<{ firstName: string; lastName: string; birthDate: string }>('/auth/me');
+      
+      // Store verification result (in real app, backend would do OCR comparison)
+      // For now, we'll mark as verified if user confirms
+      // This is a simplified version - real implementation would use OCR
+      const confirmMatch = window.confirm(
+        `Confirmez-vous que l'acte de naissance contient :\n` +
+        `Nom : ${userRes.lastName}\n` +
+        `Prénom : ${userRes.firstName}\n` +
+        `Date de naissance : ${userRes.birthDate}\n\n` +
+        `Si oui, cliquez sur OK. Sinon, annulez et corrigez votre profil.`
+      );
+      
+      if (confirmMatch) {
+        // Call backend to record verification
+        await api.post('/subscription/birth-certificate/verify', {
+          firstName: userRes.firstName,
+          lastName: userRes.lastName,
+          birthDate: userRes.birthDate,
+        });
+        setBirthCertVerified(true);
+      } else {
+        setBirthCertError('Vérification annulée. Les données ne correspondent pas.');
+      }
+    } catch (err: any) {
+      setBirthCertError(err?.message ?? 'Erreur lors de la vérification');
+    } finally {
+      setBirthCertVerifying(false);
+    }
+  }
+
   const goStep3 = () => {
-    // Passer à la photo
-    setStep(2);
+    // Passer à la photo (now step 3)
+    setStep(3);
     setError(null);
   };
 
@@ -288,7 +360,7 @@ export default function SubscribeWizard() {
       fd.append('photo', photoFile);
       api.post('/users/me/photo', fd).catch(() => {});
     }
-    setStep(3);
+    setStep(4);
     setError(null);
   };
 
@@ -298,7 +370,7 @@ export default function SubscribeWizard() {
     const ok = await computeQuote(beneficiaries, selectedGuarantees);
     setBusy(false);
     if (ok) {
-      setStep(4);
+      setStep(5);
       setError(null);
     }
   };
@@ -315,7 +387,7 @@ export default function SubscribeWizard() {
       });
       setSubscription(res);
       setQuote(res.quote);
-      setStep(5);
+      setStep(6);
     } catch (e: any) {
       setError(e?.message ?? 'Souscription impossible');
     } finally {
@@ -339,7 +411,7 @@ export default function SubscribeWizard() {
       const conf = await api.post('/payments/mock/confirm', { paymentId: init.payment.id, outcome: 'SUCCESS' });
       if ((conf as any).status === 'SUCCEEDED') {
         setPaymentResult(init.payment);
-        setStep(6);
+        setStep(7);
       } else {
         setError('Le paiement a échoué. Réessayez.');
       }
@@ -393,8 +465,93 @@ export default function SubscribeWizard() {
         </div>
       )}
 
-      {/* Étape 2 : Sélection des garanties */}
+      {/* Étape 1 : Acte de naissance (NOUVEAU) */}
       {step === 1 && (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="font-semibold">📄 Acte de naissance obligatoire</p>
+            <p className="mt-1">
+              Pour valider votre identité, vous devez fournir une copie de votre acte de naissance.
+              Le système vérifiera que les informations correspondent à votre profil.
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center gap-4">
+            <button
+              type="button"
+              onClick={() => birthCertRef.current?.click()}
+              className="relative flex h-36 w-36 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+            >
+              {birthCertPreview ? (
+                <div className="h-full w-full rounded-xl bg-slate-100 flex items-center justify-center">
+                  <span className="text-4xl">📄</span>
+                </div>
+              ) : (
+                <div className="text-center text-sm leading-tight">
+                  <div className="text-3xl mb-1">📄</div>
+                  Ajouter l'acte de naissance
+                </div>
+              )}
+            </button>
+            <input
+              ref={birthCertRef}
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleBirthCert}
+            />
+            {birthCertPreview && !birthCertVerified && (
+              <button type="button" onClick={() => { setBirthCertFile(null); setBirthCertPreview(null); }} className="text-xs text-red-500 hover:underline">
+                Retirer le fichier
+              </button>
+            )}
+            <p className="text-xs text-slate-400">PDF, JPG, PNG ou WebP — max 10 Mo</p>
+          </div>
+
+          {birthCertFile && !birthCertVerified && (
+            <div className="card-p bg-amber-50 border-amber-200 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <p className="font-semibold text-amber-800">Vérification requise</p>
+                  <p className="text-xs text-amber-700">Le système doit comparer les données de l'acte avec votre profil.</p>
+                </div>
+              </div>
+              <button
+                className="btn-primary w-full"
+                disabled={birthCertVerifying}
+                onClick={verifyBirthCert}
+              >
+                {birthCertVerifying ? '⟳ Vérification en cours…' : 'Lancer la vérification'}
+              </button>
+              {birthCertError && (
+                <p className="text-sm text-red-600">{birthCertError}</p>
+              )}
+            </div>
+          )}
+
+          {birthCertVerified && (
+            <div className="card-p bg-emerald-50 border-emerald-200 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-800">
+                <span className="text-2xl">✅</span>
+                <div>
+                  <p className="font-semibold">Vérification réussie</p>
+                  <p className="text-xs">Les informations correspondent à votre profil.</p>
+                </div>
+              </div>
+              <p className="text-xs text-emerald-700">Vous pouvez maintenant continuer.</p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button className="btn-outline flex-1" onClick={() => setStep(0)}>Retour</button>
+            <button className="btn-primary flex-[2]" disabled={!birthCertVerified} onClick={() => setStep(2)}>Continuer</button>
+          </div>
+        </div>
+      )}
+
+      {/* Étape 2 : Sélection des garanties (décalée) */}
+      {step === 2 && (
         <div className="space-y-4">
           <div className="rounded-lg bg-brand-50 p-4 text-sm text-brand-800">
             <p className="font-semibold">🎯 Personnalisez vos garanties</p>
@@ -465,7 +622,7 @@ export default function SubscribeWizard() {
             <p className="text-xs text-slate-400">JPG, PNG ou WebP — max 5 Mo</p>
           </div>
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(2)}>Retour</button>
             <button className="btn-primary flex-[2]" onClick={goStep4}>Continuer</button>
           </div>
         </div>

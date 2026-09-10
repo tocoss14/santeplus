@@ -6,6 +6,7 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { SubscriptionService } from './subscription.service';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { CtsModule } from '../cts/cts.service';
+import { BirthCertificateModule } from './birth-certificate.controller';
 
 const beneficiaryDraftSchema = z.object({
   firstName: z.string().min(2).max(60),
@@ -64,7 +65,7 @@ export class SubscriptionController {
 @Module({
   controllers: [SubscriptionController],
   providers: [SubscriptionService, NotificationDispatchService],
-  imports: [CtsModule],
+  imports: [CtsModule, BirthCertificateModule],
   exports: [SubscriptionService],
 })
 export class SubscriptionModule {}

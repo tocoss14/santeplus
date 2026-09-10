@@ -585,14 +585,14 @@ export default function SubscribeWizard() {
           )}
 
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(0)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
             <button className="btn-primary flex-[2]" onClick={goStep3}>Continuer</button>
           </div>
         </div>
       )}
 
       {/* Étape 3 : Photo d'identité */}
-      {step === 2 && (
+      {step === 3 && (
         <div className="space-y-4">
           <div className="rounded-lg bg-brand-50 p-4 text-sm text-brand-800">
             <p className="font-semibold">📸 Photo pour votre carte d'assuré</p>
@@ -629,7 +629,7 @@ export default function SubscribeWizard() {
       )}
 
       {/* Étape 4 : Bénéficiaires */}
-      {step === 3 && (
+      {step === 4 && (
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
             Ajoutez vos ayants droit ({product?.beneficiaryRules?.maxBeneficiaries ?? 6} maximum).
@@ -672,14 +672,14 @@ export default function SubscribeWizard() {
             </button>
           )}
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(2)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(3)}>Retour</button>
             <button className="btn-primary flex-[2]" disabled={busy} onClick={goStep5}>{busy ? 'Calcul…' : 'Voir mon devis'}</button>
           </div>
         </div>
       )}
 
       {/* Étape 5 : Devis */}
-      {step === 4 && quote && (
+      {step === 5 && quote && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Récapitulatif</h3>
@@ -732,14 +732,14 @@ export default function SubscribeWizard() {
             <p>• Contrat porté par {product?.insurerPartner?.name}. SantéPlus agit comme plateforme technologique.</p>
           </div>
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(3)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(4)}>Retour</button>
             <button className="btn-primary flex-[2]" disabled={busy} onClick={subscribe}>{busy ? 'Création…' : 'Valider ma souscription'}</button>
           </div>
         </div>
       )}
 
       {/* Étape 6 : Paiement */}
-      {step === 5 && subscription && (
+      {step === 6 && subscription && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Contrat {subscription.number} créé</h3>
@@ -772,7 +772,7 @@ export default function SubscribeWizard() {
       )}
 
       {/* Étape 7 : Terminé */}
-      {step === 6 && (
+      {step === 7 && (
         <div className="card-p text-center">
           <div className="text-5xl">🎉</div>
           <h2 className="mt-3 text-xl font-bold text-emerald-700">Paiement confirmé — contrat actif !</h2>

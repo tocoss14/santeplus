@@ -162,7 +162,6 @@ export default function App() {
         <Route path="accounting" element={<Lazy><AdminAccounting /></Lazy>} />
         <Route path="cts" element={<Lazy><AdminCts /></Lazy>} />
         <Route path="fraud" element={<Lazy><AdminFraud /></Lazy>} />
-        <Route path="audit" element={<Lazy><AdminAudit /></Lazy>} />
         <Route path="claims-workflow" element={<Lazy><AdminClaimsWorkflow /></Lazy>} />
         <Route path="branches" element={<Lazy><AdminBranches /></Lazy>} />
         <Route path="diseases" element={<Lazy><AdminDiseases /></Lazy>} />

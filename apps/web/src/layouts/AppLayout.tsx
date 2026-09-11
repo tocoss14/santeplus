@@ -51,7 +51,6 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/admin/diseases', label: 'Maladies', icon: '🩺' },
       { to: '/admin/distributors', label: 'Distributeurs', icon: '🤝' },
       { to: '/admin/commissions', label: 'Commissions', icon: '💰' },
-      { to: '/admin/audit', label: 'Audit', icon: '📜' },
     ],
   },
   provider: {

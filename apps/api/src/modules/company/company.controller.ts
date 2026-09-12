@@ -21,6 +21,17 @@ const registerCompanySchema = z.object({
   password: z.string().min(8),
 });
 
+export function normalizeImportHeader(header: string): string {
+  return header.trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_-]+/g, '');
+}
+
+export function detectImportDelimiter(content: string): string {
+  const firstLine = content.split(/\r?\n/).find(line => line.trim() !== '') ?? '';
+  const semicolons = (firstLine.match(/;/g) ?? []).length;
+  const commas = (firstLine.match(/,/g) ?? []).length;
+  return semicolons > 0 && semicolons >= commas ? ';' : ',';
+}
+
 const addEmployeeSchema = z.object({
   firstName: z.string().min(2).max(60),
   lastName: z.string().min(2).max(60),
@@ -135,7 +146,12 @@ export class CompanyService {
     csvContent: string,
   ): Promise<{ imported: number; errors: { row: number; message: string }[]; tempPasswords: { email: string; password: string }[] }> {
     const company = await this.requireCompany(auth);
-    const parsed = Papa.parse<Record<string, string>>(csvContent, { header: true, skipEmptyLines: true, transformHeader: h => h.trim().toUpperCase() });
+    const parsed = Papa.parse<Record<string, string>>(csvContent, {
+      header: true,
+      delimiter: detectImportDelimiter(csvContent),
+      skipEmptyLines: true,
+      transformHeader: normalizeImportHeader,
+    });
     const rows = parsed.data;
     const errors: { row: number; message: string }[] = [];
     const tempPasswords: { email: string; password: string }[] = [];
@@ -149,11 +165,11 @@ export class CompanyService {
       const row = rows[i];
       const rowNum = i + 2;
       try {
-        const firstName = (row['PRENOM'] ?? row['PRÉNOM'] ?? '').trim();
+        const firstName = (row['PRENOM'] ?? '').trim();
         const lastName = (row['NOM'] ?? '').trim();
         const email = (row['EMAIL'] ?? '').trim().toLowerCase();
-        const phone = this.normalizePhone(row['TELEPHONE'] ?? row['TÉLÉPHONE'] ?? '');
-        const birthDate = this.parseDate(row['DATENAISSANCE'] ?? row['DATE NAISSANCE'] ?? row['DATE DE NAISSANCE'] ?? '');
+        const phone = this.normalizePhone(row['TELEPHONE'] ?? '');
+        const birthDate = this.parseDate(row['DATENAISSANCE'] ?? '');
         const position = (row['FONCTION'] ?? row['POSTE'] ?? '').trim() || undefined;
 
         if (!firstName || !lastName) throw new Error('Nom et prénom requis');
@@ -178,7 +194,7 @@ export class CompanyService {
           if (exists) throw new Error('Un compte existe déjà avec ce téléphone');
         }
 
-        const beneficiaries = this.parseBeneficiaries(row['AYANTSDROIT'] ?? row['AYANTS DROIT'] ?? row['AYANTS DROITS'] ?? '');
+        const beneficiaries = this.parseBeneficiaries(row['AYANTSDROIT'] ?? row['AYANTSDROITS'] ?? '');
 
         const result = await this.createEmployee(company.id, {
           firstName, lastName, email: email || '', phone, birthDate, gender: 'M', position, beneficiaries,
@@ -208,7 +224,7 @@ export class CompanyService {
 
   private parseBeneficiaries(raw: string): any[] {
     if (!raw?.trim()) return [];
-    const entries = raw.split(/[;\n]/).map(s => s.trim()).filter(Boolean);
+    const entries = raw.split(/[;|\n]/).map(s => s.trim()).filter(Boolean);
     const out: any[] = [];
     for (const entry of entries) {
       const m = entry.match(/^(conjoint|enfant|autre)\s*:\s*([^,]+),\s*(.+)$/i);

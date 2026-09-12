@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { ROLE_HOME, useAuth } from './auth';
 import { Spinner } from './components/ui';
 import PublicLayout from './layouts/PublicLayout';
@@ -48,10 +48,13 @@ const AdminTechnicalResult = lazy(() => import('./pages/admin/AdminTechnicalResu
 const AdminDistributors = lazy(() => import('./pages/admin/AdminDistributors'));
 const AdminCommissions = lazy(() => import('./pages/admin/AdminCommissions'));
 const AdminAccounting = lazy(() => import('./pages/admin/AdminAccounting'));
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
+const AdminBilling = lazy(() => import('./pages/admin/AdminBilling'));
 const AdminBranches = lazy(() => import('./pages/admin/AdminBranches'));
 const AdminDiseases = lazy(() => import('./pages/admin/AdminDiseases'));
 const AdminCts = lazy(() => import('./pages/admin/AdminCts'));
 const AdminFraud = lazy(() => import('./pages/admin/AdminFraud'));
+const AdminFraudDetail = lazy(() => import('./pages/admin/AdminFraudDetail'));
 const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
 const AdminClaimsWorkflow = lazy(() => import('./pages/admin/AdminClaimsWorkflow'));
 const Simulateur = lazy(() => import('./pages/Simulateur'));
@@ -61,6 +64,8 @@ const MobileProviderLayout = lazy(() => import('./pages/provider/mobile/MobilePr
 const MobileProviderHome = lazy(() => import('./pages/provider/mobile/MobileProviderHome'));
 const MobileScanPage = lazy(() => import('./pages/provider/mobile/MobileScanPage'));
 const MobileFacturesPage = lazy(() => import('./pages/provider/mobile/MobileFacturesPage'));
+const MobileFactureDetailPage = lazy(() => import('./pages/provider/mobile/MobileFactureDetailPage'));
+const MobileFactureNewPage = lazy(() => import('./pages/provider/mobile/MobileFactureNewPage'));
 const MobileRejetsPage = lazy(() => import('./pages/provider/mobile/MobileRejetsPage'));
 const MobileSyncPage = lazy(() => import('./pages/provider/mobile/MobileSyncPage'));
 
@@ -91,8 +96,11 @@ const Notifications = lazy(() => import('./pages/shared/Notifications'));
 
 function Require({ roles, children }: { roles: string[]; children: React.ReactNode }) {
   const { me, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <Spinner />;
-  if (!me) return <Navigate to="/login" replace />;
+  if (!me) {
+    return <Navigate to="/login" state={{ from: `${location.pathname}${location.search}` }} replace />;
+  }
   if (!roles.includes(me.role)) return <Navigate to={ROLE_HOME[me.role] ?? '/'} replace />;
   return <>{children}</>;
 }
@@ -160,8 +168,11 @@ export default function App() {
         <Route path="distributors" element={<Lazy><AdminDistributors /></Lazy>} />
         <Route path="commissions" element={<Lazy><AdminCommissions /></Lazy>} />
         <Route path="accounting" element={<Lazy><AdminAccounting /></Lazy>} />
+        <Route path="analytics" element={<Lazy><AdminAnalytics /></Lazy>} />
+        <Route path="billing" element={<Lazy><AdminBilling /></Lazy>} />
         <Route path="cts" element={<Lazy><AdminCts /></Lazy>} />
         <Route path="fraud" element={<Lazy><AdminFraud /></Lazy>} />
+        <Route path="fraud/:id" element={<Lazy><AdminFraudDetail /></Lazy>} />
         <Route path="claims-workflow" element={<Lazy><AdminClaimsWorkflow /></Lazy>} />
         <Route path="branches" element={<Lazy><AdminBranches /></Lazy>} />
         <Route path="diseases" element={<Lazy><AdminDiseases /></Lazy>} />
@@ -194,8 +205,12 @@ export default function App() {
       <Route path="/prestataire/mobile" element={<Require roles={['PROVIDER', 'SUPER_ADMIN']}><MobileProviderLayout /></Require>}>
         <Route index element={<Lazy><MobileProviderHome /></Lazy>} />
         <Route path="scan" element={<Lazy><MobileScanPage /></Lazy>} />
-        <Route path="tp" element={<Lazy><MobileProviderHome /></Lazy>} /> {/* Redirect to home for now */}
+        <Route path="tp" element={<Lazy><ProviderTpUnified /></Lazy>} />
+        <Route path="tp/nouvelle" element={<Lazy><NewThirdParty /></Lazy>} />
+        <Route path="tp/:id" element={<Lazy><TpDetail /></Lazy>} />
         <Route path="factures" element={<Lazy><MobileFacturesPage /></Lazy>} />
+        <Route path="factures/nouvelle" element={<Lazy><MobileFactureNewPage /></Lazy>} />
+        <Route path="factures/:id" element={<Lazy><MobileFactureDetailPage /></Lazy>} />
         <Route path="rejets" element={<Lazy><MobileRejetsPage /></Lazy>} />
         <Route path="sync" element={<Lazy><MobileSyncPage /></Lazy>} />
       </Route>

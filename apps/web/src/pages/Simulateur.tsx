@@ -4,6 +4,10 @@ import { fcfa, ratioPct } from '../format';
 import { ErrorBanner, Field, Spinner } from '../components/ui';
 import { BandBadge } from '../components/CtsCards';
 
+export function resolveSimulateProductId(formProductId: string, products: Array<{ id?: string } | null | undefined>): string {
+  return formProductId || products[0]?.id || '';
+}
+
 export default function Simulateur() {
   const [products, setProducts] = useState<any[]>([]);
   const [form, setForm] = useState({
@@ -13,6 +17,9 @@ export default function Simulateur() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // La formule affichée et la formule envoyée doivent toujours correspondre, même
+  // si la mise à jour asynchrone de productId n’a pas encore été appliquée.
+  const effectiveProductId = resolveSimulateProductId(form.productId, products);
 
   useEffect(() => {
     api.get<any[]>('/products?clientType=INDIVIDUAL').then(list => {
@@ -36,7 +43,7 @@ export default function Simulateur() {
     try {
       const childrenAges = form.children.split(/[,\s;]+/).map(s => s.trim()).filter(Boolean).map(Number).filter(n => Number.isFinite(n) && n >= 0);
       const res = await api.post('/cts/simulate', {
-        productId: form.productId,
+        productId: effectiveProductId,
         principalAge: Number(form.principalAge),
         spouseAge: form.spouse ? Number(form.spouseAge) : null,
         childrenAges,
@@ -60,7 +67,7 @@ export default function Simulateur() {
       <form onSubmit={submit} className="card-p mt-6 space-y-3">
         <ErrorBanner message={error} />
         <Field label="Formule">
-          <select className="input" value={form.productId} onChange={set('productId')} required>
+          <select className="input" value={effectiveProductId} onChange={set('productId')} required>
             {products.map(p => <option key={p.id} value={p.id}>{p.name} — {fcfa(p.basePremiumAnnual)}/an</option>)}
           </select>
         </Field>
@@ -80,13 +87,15 @@ export default function Simulateur() {
         {form.spouse && (
           <Field label="Âge du conjoint"><input className="input" type="number" min={0} max={100} value={form.spouseAge} onChange={set('spouseAge')} /></Field>
         )}
-        <Field label="Âges des enfants (séparés par des virgules)" error="Laisser vide si aucun">
+        <Field label="Âges des enfants (séparés par des virgules)" hint="Laisser vide si aucun">
           <input className="input" value={form.children} onChange={set('children')} placeholder="Ex : 5, 8" />
         </Field>
         <Field label="Consommation soins annuelle supposée (FCFA)">
           <input className="input" type="number" min={0} step={5000} value={form.consumption} onChange={set('consumption')} required />
         </Field>
-        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Calcul…' : 'Simuler'}</button>
+        <button className="btn-primary w-full" disabled={busy || !effectiveProductId}>
+          {busy ? 'Calcul…' : !products.length ? 'Chargement des formules…' : 'Simuler'}
+        </button>
       </form>
 
       {result && (

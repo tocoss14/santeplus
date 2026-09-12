@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { api, fileUrl } from '../api';
 import { ErrorBanner, Field } from '../components/ui';
@@ -7,6 +7,8 @@ import { ErrorBanner, Field } from '../components/ui';
 export default function Register() {
   const { register, login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const productId = searchParams.get('productId');
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', birthDate: '', gender: '', password: '' });
   const [referralCode, setReferralCode] = useState(() => localStorage.getItem('sp_referral') || '');
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export default function Register() {
         fd.append('photo', photoFile);
         await api.post('/users/me/photo', fd);
       }
-      navigate('/app/souscrire');
+      navigate(productId ? `/app/souscrire?productId=${encodeURIComponent(productId)}` : '/app/souscrire');
     } catch (err: any) {
       const fieldErrors = err?.data?.errors?.fieldErrors;
       const first = fieldErrors ? Object.values(fieldErrors).flat().join(', ') : null;

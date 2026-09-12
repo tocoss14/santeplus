@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fmtDate, RELATION_LABELS } from '../../format';
-import { EmptyState, ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { ConfirmModal, EmptyState, ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
 
 export default function Beneficiaries() {
   const [contractId, setContractId] = useState<string | null>(null);
@@ -10,6 +10,8 @@ export default function Beneficiaries() {
   const [form, setForm] = useState({ firstName: '', lastName: '', birthDate: '', gender: '', relation: 'CHILD' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<any | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
 
   const load = () => {
     void api.get<any[]>('/contracts/mine')
@@ -43,10 +45,19 @@ export default function Beneficiaries() {
     }
   };
 
-  const remove = async (id: string) => {
-    if (!confirm('Retirer cet ayant droit de la couverture ?')) return;
-    await api.post(`/contracts/${contractId}/beneficiaries/${id}/remove`);
-    load();
+  const remove = async () => {
+    if (!removeTarget) return;
+    setRemoveBusy(true);
+    setError(null);
+    try {
+      await api.post(`/contracts/${contractId}/beneficiaries/${removeTarget.id}/remove`);
+      setRemoveTarget(null);
+      load();
+    } catch (err: any) {
+      setError(err?.message ?? 'Retrait impossible');
+    } finally {
+      setRemoveBusy(false);
+    }
   };
 
   if (!items) return <Spinner />;
@@ -79,6 +90,11 @@ export default function Beneficiaries() {
               </div>
               <div className="flex flex-col items-end gap-1.5">
                 <StatusBadge status={b.status} />
+                {b.status === 'COVERED' && (
+                  <button onClick={() => setRemoveTarget(b)} className="text-xs text-red-600 hover:underline">
+                    Retirer
+                  </button>
+                )}
               </div>
             </li>
           ))}
@@ -110,6 +126,17 @@ export default function Beneficiaries() {
           {busy ? 'Ajout…' : 'Ajouter'}
         </button>
       </Modal>
+
+      <ConfirmModal
+        open={Boolean(removeTarget)}
+        title="Retirer un ayant droit"
+        message={removeTarget ? `Retirer ${removeTarget.firstName} ${removeTarget.lastName} de la couverture ?` : ''}
+        confirmLabel="Retirer"
+        busy={removeBusy}
+        error={error}
+        onClose={() => { if (!removeBusy) setRemoveTarget(null); }}
+        onConfirm={remove}
+      />
     </div>
   );
 }

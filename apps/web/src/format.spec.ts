@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { prescriptionStatusLabel, statusLabel } from './format';
+import { cardQrPayload, prescriptionStatusLabel, statusLabel } from './format';
 
 // P6/7 : libellés FR §5 (ordonnances) et §27 (factures).
 // Les statuts techniques API sont inchangés — seul l'affichage est mappé.
@@ -31,6 +31,12 @@ describe('statusLabel — statuts facture §27', () => {
 
   it('statut inconnu : repli sur la valeur brute', () => {
     expect(statusLabel('NOUVEAU_STATUT_XYZ')).toBe('NOUVEAU_STATUT_XYZ');
+  });
+});
+
+describe('cardQrPayload — charge utile canonique de vérification', () => {
+  it('utilise la clé t attendue par /provider/verify', () => {
+    expect(cardQrPayload('tok_1234567890')).toBe('{"t":"tok_1234567890"}');
   });
 });
 

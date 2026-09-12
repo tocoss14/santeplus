@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { useAuth } from '../../auth';
 import { fcfa, fmtDate, fmtDateTime } from '../../format';
@@ -18,7 +19,9 @@ export default function ProviderDeliveries() {
   const { me } = useAuth();
   // Identifiant de session NON SECRET pour la file offline (jamais un token).
   const sessionId = me?.memberNumber ?? me?.id ?? 'offline';
+  const [searchParams] = useSearchParams();
   const [prescriptionInput, setPrescriptionInput] = useState('');
+  const pendingOrdonnanceRef = useRef(searchParams.get('ordonnance'));
   const [prescription, setPrescription] = useState<any | null>(null);
   const [lines, setLines] = useState<any[]>([]);
   const [deliveries, setDeliveries] = useState<any[] | null>(null);
@@ -60,10 +63,10 @@ export default function ProviderDeliveries() {
     return () => window.removeEventListener('online', onOnline);
   }, [refreshQueue]);
 
-  async function scan() {
+  async function scan(override?: string) {
     setError(null); setMessage(null);
     try {
-      const value = prescriptionInput.trim();
+      const value = (override ?? prescriptionInput).trim();
       const payload = value.startsWith('{') ? { qrToken: JSON.parse(value).prescription ?? value }
         : value.startsWith('ORD-') ? { number: value } : { qrToken: value };
       const res = await api.post('/provider/prescriptions/scan', payload);
@@ -98,6 +101,16 @@ export default function ProviderDeliveries() {
       setPrescription(null);
     }
   }
+
+  useEffect(() => {
+    const pending = pendingOrdonnanceRef.current;
+    if (pending) {
+      pendingOrdonnanceRef.current = null;
+      setPrescriptionInput(pending);
+      void scan(pending);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function deliver() {
     setBusy(true); setError(null);
@@ -168,7 +181,7 @@ export default function ProviderDeliveries() {
         <Field label="Scanner l'ordonnance (QR ou n° ORD-…)">
           <div className="flex gap-2">
             <input className="input flex-1 font-mono" placeholder='ORD-2026-XXXXXX ou QR JSON' value={prescriptionInput} onChange={e => setPrescriptionInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && scan()} />
-            <button className="btn-primary btn-sm" disabled={!prescriptionInput.trim()} onClick={scan}>Charger</button>
+            <button className="btn-primary btn-sm" disabled={!prescriptionInput.trim()} onClick={() => scan()}>Charger</button>
           </div>
         </Field>
         <ErrorBanner message={error} />

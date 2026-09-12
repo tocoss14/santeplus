@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../../../api';
-import { fcfa, fmtDate, statusLabel } from '../../../format';
-import { StatusBadge, Spinner, EmptyState } from '../../../components/ui';
+import { fcfa, fmtDate } from '../../../format';
+import { EmptyState, ErrorBanner, Spinner, StatusBadge } from '../../../components/ui';
 
 function qs(obj: Record<string, any>) {
   return new URLSearchParams(Object.entries(obj).filter(([, v]) => v !== '' && v != null)).toString();
@@ -11,21 +10,70 @@ function qs(obj: Record<string, any>) {
 export default function MobileRejetsPage() {
   const [rejections, setRejections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<string>('');
+  const [status, setStatus] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    load();
-  }, [status]);
-
-  const load = async () => {
+  const load = async (nextStatus = status) => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await api.get(`/billing/rejections?${qs({ status: status || undefined, limit: 50 })}`);
-      setRejections(res.items ?? res);
-    } catch (e) {
+      const res = await api.get(`/provider/rejections?${qs({ status: nextStatus || undefined })}`);
+      setRejections(Array.isArray(res) ? res : res.items ?? []);
+    } catch (err: any) {
+      setError(err?.message ?? 'Chargement impossible');
       setRejections([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load(status);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  const startDispute = (id: string) => {
+    setSelectedId(id);
+    setReason('');
+    setNotice(null);
+    setError(null);
+  };
+
+  const dispute = async () => {
+    if (!selectedId || reason.trim().length < 5) {
+      setError('Expliquez la contestation en au moins cinq caractères.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post('/provider/rejections/dispute', { rejectionId: selectedId, resolutionNote: reason.trim() });
+      setNotice('Contestation envoyée.');
+      setSelectedId(null);
+      setReason('');
+      await load();
+    } catch (err: any) {
+      setError(err?.message ?? 'Contestation impossible');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const acknowledge = async (id: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post('/provider/rejections/acknowledge', { rejectionId: id });
+      setNotice('Accusé de réception enregistré.');
+      await load();
+    } catch (err: any) {
+      setError(err?.message ?? 'Accusé impossible');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -37,23 +85,24 @@ export default function MobileRejetsPage() {
     { value: 'RESOLVED', label: 'Résolus' },
   ];
 
-  if (loading) return <Spinner />;
+  if (loading && rejections.length === 0 && !error) return <Spinner />;
 
   return (
     <div className="px-4 space-y-4">
       <h1 className="font-bold text-lg">Rejets</h1>
+      <ErrorBanner message={error} />
+      {notice && <p className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-700">{notice}</p>}
 
-      {/* Filtres */}
       <div className="flex gap-2 overflow-x-auto pb-2">
-        {statusFilters.map(f => (
+        {statusFilters.map(filter => (
           <button
-            key={f.value}
-            onClick={() => setStatus(f.value)}
+            key={filter.value}
+            onClick={() => setStatus(filter.value)}
             className={`btn-sm px-3 py-1.5 rounded-full whitespace-nowrap transition ${
-              status === f.value ? 'btn-primary' : 'btn-outline'
+              status === filter.value ? 'btn-primary' : 'btn-outline'
             }`}
           >
-            {f.label}
+            {filter.label}
           </button>
         ))}
       </div>
@@ -62,32 +111,47 @@ export default function MobileRejetsPage() {
         <EmptyState icon="⚠️" title="Aucun rejet" hint="Les rejets apparaîtront ici après validation des factures" />
       ) : (
         <div className="space-y-2">
-          {rejections.map(r => (
-            <div key={r.id} className="card-p p-3">
+          {rejections.map(rejection => (
+            <div key={rejection.id} className="card-p p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold font-mono text-sm">{r.code}</p>
-                    <StatusBadge status={r.status} />
+                    <p className="font-semibold font-mono text-sm">{rejection.code}</p>
+                    <StatusBadge status={rejection.status} />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    {r.type} · {fcfa(r.amount)} · {r.batchInvoiceItem?.claim?.reference ?? 'Sinistre'}
+                    {rejection.type} · {fcfa(rejection.amount)} · {rejection.batchInvoiceItem?.claim?.reference ?? 'Sinistre'}
                   </p>
-                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{r.reason}</p>
+                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{rejection.reason}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-bold text-red-600">{fcfa(r.amount)}</p>
-                  <p className="text-xs text-slate-500">{fmtDate(r.createdAt)}</p>
+                  <p className="font-bold text-red-600">{fcfa(rejection.amount)}</p>
+                  <p className="text-xs text-slate-500">{fmtDate(rejection.createdAt)}</p>
                 </div>
               </div>
-              {r.status === 'OPEN' && (
-                <div className="mt-2 flex gap-2 pt-2 border-t">
-                  <button className="btn-outline btn-sm flex-1" onClick={() => dispute(r.id)}>Contester</button>
-                  <button className="btn-primary btn-sm flex-1" onClick={() => acknowledge(r.id)}>Accuser réception</button>
+              {rejection.status === 'OPEN' && (
+                <div className="mt-2 space-y-2 border-t pt-2">
+                  <div className="flex gap-2">
+                    <button className="btn-outline btn-sm flex-1" disabled={busy} onClick={() => startDispute(rejection.id)}>Contester</button>
+                    <button className="btn-primary btn-sm flex-1" disabled={busy} onClick={() => acknowledge(rejection.id)}>Accuser réception</button>
+                  </div>
+                  {selectedId === rejection.id && (
+                    <div className="space-y-2">
+                      <label className="label" htmlFor={`dispute-${rejection.id}`}>Motif de la contestation</label>
+                      <textarea
+                        id={`dispute-${rejection.id}`}
+                        className="input min-h-[72px]"
+                        value={reason}
+                        onChange={e => setReason(e.target.value)}
+                        placeholder="Montant, acte, date, pièce justificative…"
+                      />
+                      <button className="btn-primary btn-sm w-full" disabled={busy} onClick={dispute}>Envoyer la contestation</button>
+                    </div>
+                  )}
                 </div>
               )}
-              {r.status === 'DISPUTED' && (
-                <div className="mt-2 text-xs text-brand-600">Contestation envoyée — en attente de réponse admin</div>
+              {rejection.status === 'DISPUTED' && (
+                <p className="mt-2 text-xs text-brand-600">Contestation envoyée — en attente de réponse admin.</p>
               )}
             </div>
           ))}
@@ -95,26 +159,4 @@ export default function MobileRejetsPage() {
       )}
     </div>
   );
-}
-
-async function dispute(id: string) {
-  const reason = prompt('Motif de la contestation :');
-  if (!reason) return;
-  try {
-    await api.post('/billing/rejections/dispute', { rejectionId: id, resolutionNote: reason });
-    alert('Contestation envoyée');
-    window.location.reload();
-  } catch (e: any) {
-    alert(e.message ?? 'Erreur');
-  }
-}
-
-async function acknowledge(id: string) {
-  try {
-    await api.post('/billing/rejections/resolve', { rejectionId: id, resolutionNote: 'Accusé réception par prestataire' });
-    alert('Accusé réception enregistré');
-    window.location.reload();
-  } catch (e: any) {
-    alert(e.message ?? 'Erreur');
-  }
 }

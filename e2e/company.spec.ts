@@ -41,6 +41,14 @@ test.describe('Entreprise: register-entreprise → import salariés', () => {
     expect(imp.imported).toBe(2);
     expect(imp.errors.length).toBe(0);
 
+    // Import avec le modèle documenté à points-virgules
+    const semicolonCsv = `Nom;Prénom;DateNaissance;Téléphone;Email;Fonction;Ayants droit;Statut\nMartin;Paul;12/03/1991;+22997000003;paul_${uid()}@test.bj;Chauffeur;;ACTIF`;
+    const semicolonRes = await ctx.post('/api/company/me/employees/import', { data: { csv: semicolonCsv } });
+    expect(semicolonRes.ok()).toBeTruthy();
+    const semicolonImp = await semicolonRes.json();
+    expect(semicolonImp.imported).toBe(1);
+    expect(semicolonImp.errors.length).toBe(0);
+
     await ctx.dispose();
   });
 });

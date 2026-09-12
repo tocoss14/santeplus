@@ -1,10 +1,42 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import jsQR from 'jsqr';
 import { api } from '../../../api';
-import { ErrorBanner, Spinner, StatusBadge } from '../../../components/ui';
-import { computeHash, enqueueDelivery } from '../../../lib/offlineQueue';
+import { ErrorBanner, Spinner } from '../../../components/ui';
 
 type ScanType = 'PRESCRIPTION' | 'CARD' | 'ENTENTE';
 type ScanResult = { type: ScanType; token: string; payload: any } | null;
+type RecentScan = { token: string; type: ScanType; scannedAt: string };
+
+const RECENT_SCANS_KEY = 'provider-mobile-recent-scans';
+
+export function resolveQrVerifyPayload(rawToken: string): Record<string, string> {
+  let value = rawToken.trim();
+  if (value.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(value);
+      const candidate = parsed?.t ?? parsed?.token;
+      if (typeof candidate === 'string' && candidate.length > 0) value = candidate;
+    } catch {
+      const match = value.match(/"(?:t|token)"\s*:\s*"([^"]+)"/);
+      if (match) value = match[1];
+    }
+  }
+  value = value.replace(/^"|"$/g, '');
+  if (/^CTR-/i.test(value)) return { contractNumber: value };
+  if (value.startsWith('tok_') || value.length >= 20) return { cardToken: value };
+  return { memberNumber: value };
+}
+
+function loadRecentScans(): RecentScan[] {
+  try {
+    const raw = localStorage.getItem(RECENT_SCANS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, 10) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function MobileScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -14,7 +46,9 @@ export default function MobileScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
+  const [recentScans, setRecentScans] = useState<RecentScan[]>(() => loadRecentScans());
   const streamRef = useRef<MediaStream | null>(null);
+  const scanningRef = useRef(false);
 
   useEffect(() => {
     const checkOnline = () => setOfflineMode(!navigator.onLine);
@@ -28,6 +62,18 @@ export default function MobileScanPage() {
     };
   }, []);
 
+  const rememberScan = (token: string, type: ScanType) => {
+    setRecentScans(previous => {
+      const next = [{ token, type, scannedAt: new Date().toISOString() }, ...previous.filter(scan => scan.token !== token)].slice(0, 10);
+      try {
+        localStorage.setItem(RECENT_SCANS_KEY, JSON.stringify(next));
+      } catch {
+        // Le stockage local est seulement un confort : ne jamais bloquer le scan.
+      }
+      return next;
+    });
+  };
+
   const startCamera = async () => {
     try {
       setError(null);
@@ -38,6 +84,7 @@ export default function MobileScanPage() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        scanningRef.current = true;
         setScanning(true);
         scanLoop();
       }
@@ -47,6 +94,7 @@ export default function MobileScanPage() {
   };
 
   const stopCamera = () => {
+    scanningRef.current = false;
     setScanning(false);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
@@ -56,7 +104,7 @@ export default function MobileScanPage() {
   };
 
   const scanLoop = () => {
-    if (!scanning || !videoRef.current || !canvasRef.current) return;
+    if (!scanningRef.current || !videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (video.readyState !== video.HAVE_ENOUGH_DATA) {
@@ -65,36 +113,62 @@ export default function MobileScanPage() {
     }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (ctx) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    // Lecture QR via lecture native (ex: jsQR serait mieux, ici on simule)
-    // En production, utiliser jsQR ou @zxing/browser
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try {
+        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' });
+        if (code?.data) {
+          stopCamera();
+          void verifyScan(code.data.trim());
+          return;
+        }
+      } catch (e) {
+        console.error('[MobileScan] frame error', e);
+      }
+    }
     requestAnimationFrame(scanLoop);
   };
 
-  // Simulation détection QR (remplacer par vraie lib en prod)
-  const simulateScan = async (token: string) => {
+  const verifyScan = async (rawToken: string) => {
+    const token = rawToken.trim();
+    if (!token) {
+      setError('Code vide — réessayez le scan ou la saisie manuelle.');
+      return;
+    }
+    let type: ScanType = 'PRESCRIPTION';
+    if (/^(CARD-|CTR-|tok_|MEM-)/i.test(token)) type = 'CARD';
+    else if (/^(ENT-|HOS-)/i.test(token)) type = 'ENTENTE';
+
+    if (!navigator.onLine) {
+      rememberScan(token, type);
+      setResult({ type, token, payload: { offline: true } });
+      setError('Réseau indisponible — code enregistré localement. Vérifiez-le dès la reconnexion.');
+      return;
+    }
+
     stopCamera();
     setProcessing(true);
     setError(null);
-    // Détecter le type selon le préfixe
-    let type: ScanType = 'PRESCRIPTION';
-    if (token.startsWith('CARD-')) type = 'CARD';
-    else if (token.startsWith('ENT-')) type = 'ENTENTE';
-
     try {
-      const res = await api.post('/provider/verify-qr', { token, type });
-      setResult({ type, token, payload: res });
-    } catch (e: any) {
-      // Mode hors-ligne : mettre en queue
-      if (offlineMode || e.message?.includes('Network')) {
-        const { enqueueDeliveryWithHash } = await import('../../../lib/offlineQueue');
-        await enqueueDeliveryWithHash({ endpoint: '/provider/verify-qr', body: { token, type } }, 'provider');
-        setError('Hors-ligne — scan mis en file d\'attente pour sync');
-        setResult({ type: 'PRESCRIPTION', token, payload: { queued: true } });
+      if (type === 'PRESCRIPTION') {
+        const payload = token.startsWith('{') || token.startsWith('ORD-')
+          ? { qrToken: token }
+          : { number: token };
+        const res = await api.post('/provider/prescriptions/scan', payload);
+        rememberScan(token, type);
+        setResult({ type, token, payload: res });
+      } else if (type === 'CARD') {
+        const res = await api.post('/provider/verify', resolveQrVerifyPayload(token));
+        rememberScan(token, type);
+        setResult({ type, token, payload: res });
       } else {
-        setError(e.message ?? 'Erreur de vérification');
+        rememberScan(token, type);
+        setResult({ type, token, payload: { reference: token } });
       }
+    } catch (e: any) {
+      setError(e?.message ?? 'Erreur de vérification');
     } finally {
       setProcessing(false);
     }
@@ -104,7 +178,7 @@ export default function MobileScanPage() {
     e.preventDefault();
     const form = e.currentTarget;
     const token = new FormData(form).get('token') as string;
-    if (token) await simulateScan(token.trim());
+    if (token) await verifyScan(token);
     form.reset();
   };
 
@@ -162,15 +236,33 @@ export default function MobileScanPage() {
             </div>
             <h2 className="font-semibold text-lg capitalize">{result.type.toLowerCase()} détecté</h2>
             <p className="text-xs opacity-70 mt-1 font-mono">{result.token}</p>
-            {result.payload?.queued && (
+            {result.payload?.offline && (
               <div className="mt-2 p-2 bg-amber-900/50 rounded text-xs text-center">
-                Mis en file d'attente — sera traité à la reconnexion
+                Réseau indisponible — code enregistré localement. Vérifiez-le dès la reconnexion.
               </div>
             )}
             <div className="mt-4 flex gap-3 w-full max-w-xs">
               <button onClick={clearResult} className="btn-outline flex-1 text-white border-white/50">Re-scanner</button>
-              {result.type === 'PRESCRIPTION' && result.payload?.prescriptionId && (
-                <a href={`/prestataire/mobile/tp/new?prescription=${result.payload.prescriptionId}`} className="btn-primary flex-1">Créer TP</a>
+              {result.type === 'PRESCRIPTION' && (result.payload?.id || result.payload?.number) && (
+                <Link
+                  to={`/prestataire/delivrances?ordonnance=${encodeURIComponent(result.payload?.id ?? result.payload?.number ?? result.token)}`}
+                  className="btn-primary flex-1 text-center"
+                >
+                  Délivrer
+                </Link>
+              )}
+              {result.type === 'CARD' && (
+                <Link
+                  to={`/prestataire/verifier?token=${encodeURIComponent(result.token)}`}
+                  className="btn-primary flex-1 text-center"
+                >
+                  Vérifier
+                </Link>
+              )}
+              {result.type === 'ENTENTE' && (
+                <Link to="/prestataire/hospitalisation" className="btn-primary flex-1 text-center">
+                  Ententes
+                </Link>
               )}
             </div>
           </div>
@@ -191,7 +283,7 @@ export default function MobileScanPage() {
           <input
             name="token"
             className="input flex-1 font-mono text-sm"
-            placeholder="ORD-... / CARD-... / ENT-..."
+            placeholder="ORD-... / tok_... / CTR-... / HOS-..."
             autoComplete="off"
             required
           />
@@ -202,7 +294,25 @@ export default function MobileScanPage() {
       {/* Historique récent */}
       <section className="space-y-2">
         <h3 className="font-semibold">Scans récents</h3>
-        <p className="text-xs text-slate-500">L'historique sera affiché ici après implémentation du stockage local.</p>
+        {recentScans.length === 0 ? (
+          <p className="text-xs text-slate-500">Aucun scan enregistré sur cet appareil pour le moment.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+            {recentScans.map(scan => (
+              <li key={scan.token} className="flex items-center gap-2 px-3 py-2 text-sm">
+                <span className="font-mono text-xs text-slate-500 truncate">{scan.token}</span>
+                <button
+                  type="button"
+                  className="ml-auto btn-outline btn-sm"
+                  disabled={processing}
+                  onClick={() => verifyScan(scan.token)}
+                >
+                  Revérifier
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

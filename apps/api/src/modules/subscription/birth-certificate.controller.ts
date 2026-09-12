@@ -1,14 +1,14 @@
-import { BadRequestException, Body, Controller, Get, Module, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Module, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators';
 import { AuthUser } from '../../common/guards/jwt-auth.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
-import { PrismaService } from '../../common/prisma.module';
 import { FilesModule } from '../files/files.service';
 import { BirthCertificateService } from './birth-certificate.service';
 
 const extractedDataSchema = z.object({
+  fileId: z.string().min(5),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   birthDate: z.coerce.date(),
@@ -19,10 +19,7 @@ const extractedDataSchema = z.object({
 
 @Controller('subscription')
 export class BirthCertificateController {
-  constructor(
-    private birthCert: BirthCertificateService,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private birthCert: BirthCertificateService) {}
 
   /**
    * Upload de l'acte de naissance (multipart/form-data)
@@ -44,21 +41,8 @@ export class BirthCertificateController {
     @CurrentUser() auth: AuthUser,
     @Body(new ZodPipe(extractedDataSchema)) dto: any,
   ) {
-    // Récupérer le dernier fichier uploadé
-    const config = await this.prisma.systemConfig.findUnique({
-      where: { key: `birth_cert_verify_${auth.id}` },
-    });
-
-    if (!config) throw new BadRequestException('Aucun acte de naissance uploadé');
-
-    let data: { fileId: string } = { fileId: '' };
-    try {
-      data = JSON.parse(config.value).fileId;
-    } catch {
-      throw new BadRequestException('État de vérification invalide');
-    }
-
-    return this.birthCert.manualVerify(auth.id, data.fileId, dto);
+    const { fileId, ...extractedData } = dto;
+    return this.birthCert.verifyUploadedDocument(auth.id, fileId, extractedData);
   }
 
   /**

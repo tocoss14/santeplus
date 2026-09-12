@@ -123,7 +123,7 @@ export default function Landing() {
                     <span className="text-sm font-bold text-white/50">/ mois</span>
                   </div>
                   <p className="mt-1 font-mono text-xs text-white/40">soit {simProduct ? fcfa(simTotal) : '—'} / an · Famille {adults} adulte{adults > 1 ? 's' : ''}{children ? ` + ${children} enfant${children > 1 ? 's' : ''}` : ''}</p>
-                  <Link to="/register" className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-sm font-bold text-ink hover:bg-sand transition">
+                    <Link to={simProduct ? `/register?productId=${simProduct.id}` : '/register'} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-sm font-bold text-ink hover:bg-sand transition">
                     Souscrire cette formule <span aria-hidden>→</span>
                   </Link>
                   <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-white/30">Tarifs indicatifs · Devis détaillé à l’étape suivante</p>

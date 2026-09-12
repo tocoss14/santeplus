@@ -4,6 +4,10 @@ import { api } from '../../api';
 import { fcfa, CATEGORY_LABELS, PROVIDER_TYPES } from '../../format';
 import { ErrorBanner, Field } from '../../components/ui';
 
+export function claimDocumentTypes(fileCount: number, firstDocType: string): string[] {
+  return Array.from({ length: fileCount }, (_, index) => (index === 0 ? firstDocType : 'OTHER'));
+}
+
 export default function NewClaim() {
   const navigate = useNavigate();
   const [contracts, setContracts] = useState<any[]>([]);
@@ -40,6 +44,7 @@ export default function NewClaim() {
         careDate: form.careDate,
         items: items.filter(i => i.categoryId && Number(i.amountRequested) > 0)
           .map(i => ({ categoryId: i.categoryId, amountRequested: Number(i.amountRequested) })),
+        docTypes: claimDocumentTypes(files.length, docType),
       }));
       for (const f of files) fd.append('documents', f);
       const res = await api.post<any>('/claims', fd);
@@ -131,7 +136,7 @@ export default function NewClaim() {
               {files.map(f => <li key={f.name}>📎 {f.name} ({Math.round(f.size / 1024)} Ko)</li>)}
             </ul>
           )}
-          <Field label="Type du premier document">
+          <Field label="Type du premier document" hint="La soumission exige une facture. Les autres fichiers sont classés comme pièces complémentaires.">
             <select className="input" value={docType} onChange={e => setDocType(e.target.value)}>
               <option value="INVOICE">Facture</option>
               <option value="PRESCRIPTION">Ordonnance</option>
@@ -145,7 +150,7 @@ export default function NewClaim() {
         <button className="btn-outline flex-1" disabled={busy} onClick={() => submit(false)}>Enregistrer en brouillon</button>
         <button
           className="btn-primary flex-[2]"
-          disabled={busy || !files.some(() => docType === 'INVOICE') && files.length === 0}
+          disabled={busy || files.length === 0 || docType !== 'INVOICE'}
           onClick={() => submit(true)}
         >
           {busy ? 'Envoi…' : 'Soumettre ma demande'}

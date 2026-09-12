@@ -1,9 +1,23 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { EmptyState, ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { ConfirmModal, EmptyState, ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
 
 const SAMPLE_CSV = 'Nom;Prénom;DateNaissance;Téléphone;Email;Fonction;Ayants droit;Statut\nDOSSA;Paul;12/03/1991;+22997445501;paul.dossa@exemple.bj;Chauffeur;Conjoint:DOSSA Alice,04/07/1993;ACTIF\nAGBO;Rita;25/09/1988;;rita.agbo@exemple.bj;Comptable;Enfant:AGBO Marc,10/10/2015;RADIE';
+
+function downloadCsvTemplate() {
+  const blob = new Blob([`${SAMPLE_CSV}\n`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'modele-salaries.csv';
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 200);
+}
 
 export default function Employees() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -15,6 +29,8 @@ export default function Employees() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [radiateTarget, setRadiateTarget] = useState<any | null>(null);
+  const [exitTarget, setExitTarget] = useState<any | null>(null);
+  const [exitBusy, setExitBusy] = useState(false);
   const [showRadiated, setShowRadiated] = useState(true);
 
   const load = () => {
@@ -47,10 +63,19 @@ export default function Employees() {
     }
   }
 
-  async function exitEmployee(id: string, name: string) {
-    if (!confirm(`Confirmer la sortie de ${name} ? Sa couverture sera résiliée.`)) return;
-    await api.patch(`/company/me/employees/${id}`);
-    load();
+  async function exitEmployee() {
+    if (!exitTarget) return;
+    setExitBusy(true);
+    setError(null);
+    try {
+      await api.patch(`/company/me/employees/${exitTarget.id}`);
+      setExitTarget(null);
+      load();
+    } catch (err: any) {
+      setError(err?.message ?? 'Sortie impossible');
+    } finally {
+      setExitBusy(false);
+    }
   }
 
   async function radiateEmployee(id: string, effectiveAt?: string, reason?: string) {
@@ -95,7 +120,7 @@ export default function Employees() {
                       {e.status === 'ACTIVE' && (
                         <>
                           <button onClick={() => setRadiateTarget(e)} className="text-xs text-orange-600 hover:underline">Radier</button>
-                          <button onClick={() => exitEmployee(e.id, `${e.firstName} ${e.lastName}`)} className="text-xs text-red-600 hover:underline">Sortie</button>
+                          <button onClick={() => setExitTarget(e)} className="text-xs text-red-600 hover:underline">Sortie</button>
                         </>
                       )}
                       {e.status !== 'ACTIVE' && <span className="text-xs text-slate-400">Radié</span>}
@@ -109,19 +134,31 @@ export default function Employees() {
       )}
 
       <AddModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => { setAddOpen(false); load(); }} />
+      <ConfirmModal
+        open={Boolean(exitTarget)}
+        title="Confirmer la sortie"
+        message={exitTarget ? `Confirmer la sortie de ${exitTarget.firstName} ${exitTarget.lastName} ? Sa couverture sera résiliée.` : ''}
+        confirmLabel="Confirmer la sortie"
+        busy={exitBusy}
+        error={error}
+        onClose={() => { if (!exitBusy) setExitTarget(null); }}
+        onConfirm={exitEmployee}
+      />
 
       <RadiateModal open={!!radiateTarget} onClose={() => setRadiateTarget(null)} employee={radiateTarget} onDone={async (effectiveAt, reason) => { if (radiateTarget) { await radiateEmployee(radiateTarget.id, effectiveAt, reason); setRadiateTarget(null); } }} />
 
       <Modal open={importOpen} onClose={() => setImportOpen(false)} title="Importer des salariés (CSV)" wide>
         <div className="space-y-3 text-sm">
           <p className="text-slate-500">
+            Séparateur accepté : point-virgule ou virgule. Les accents et espaces des en-têtes sont ignorés.
             Colonnes acceptées : <code className="rounded bg-slate-100 px-1">Nom; Prénom; DateNaissance; Téléphone; Email; Fonction; Ayants droit; Statut</code>.
-            Les ayants droit s’écrivent : <code className="rounded bg-slate-100 px-1">Conjoint:Nom Prénom,JJ/MM/AAAA; Enfant:Nom Prénom,JJ/MM/AAAA</code>.
+            Les ayants droit s’écrivent : <code className="rounded bg-slate-100 px-1">Conjoint:Nom Prénom,JJ/MM/AAAA|Enfant:Nom Prénom,JJ/MM/AAAA</code>.
             Colonne <code className="rounded bg-slate-100 px-1">Statut</code> : si valeur <code className="rounded bg-slate-100 px-1">RADIE</code> / <code className="rounded bg-slate-100 px-1">RADIÉ</code> / <code className="rounded bg-slate-100 px-1">RADIE(E)</code>, le salarié est immédiatement radié après création.
             Le système détecte les doublons et erreurs avant l’importation.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button className="btn-outline btn-sm" onClick={() => setCsvText(SAMPLE_CSV)}>Charger un exemple</button>
+            <button className="btn-outline btn-sm" onClick={downloadCsvTemplate}>Télécharger le modèle</button>
             <label className="btn-outline btn-sm cursor-pointer">
               📎 Choisir un fichier…
               <input

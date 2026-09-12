@@ -195,6 +195,7 @@ const createClaimSchema = z.object({
   providerId: z.string().optional(),
   careDate: z.coerce.date(),
   items: z.array(itemSchema).min(1),
+  docTypes: z.array(z.enum(['INVOICE', 'PRESCRIPTION', 'OTHER'])).optional(),
 });
 
 const approveSchema = z.object({

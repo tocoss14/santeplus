@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate, CATEGORY_LABELS } from '../../format';
 import { ErrorBanner, Field, Spinner } from '../../components/ui';
@@ -6,7 +7,8 @@ import QrScanner from '../../components/QrScanner';
 import { printDocument, escapeHtml } from '../../print';
 
 export default function VerifyCard() {
-  const [token, setToken] = useState('');
+  const [searchParams] = useSearchParams();
+  const [token, setToken] = useState(searchParams.get('token') ?? '');
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,6 +36,11 @@ export default function VerifyCard() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (searchParams.get('token')) void verify(searchParams.get('token') ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="mx-auto max-w-xl space-y-4">

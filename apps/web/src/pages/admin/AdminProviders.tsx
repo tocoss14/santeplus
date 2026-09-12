@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { PROVIDER_TYPES } from '../../format';
-import { Badge, ErrorBanner, Field, Modal, Spinner } from '../../components/ui';
+import { Badge, ConfirmModal, ErrorBanner, Field, Modal, Spinner } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import BulkProviderImport from '../../components/BulkProviderImport';
 import { printReport, exportCsv } from '../../printReport';
@@ -18,6 +18,10 @@ export default function AdminProviders() {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<any | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectBusy, setRejectBusy] = useState(false);
+  const [rejectError, setRejectError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [tab, setTab] = useState<'all' | 'pending'>('all');
 
@@ -43,11 +47,23 @@ export default function AdminProviders() {
     load();
   };
 
-  const rejectRegistration = async (id: string) => {
-    const reason = prompt('Raison du rejet :');
-    if (!reason) return;
-    await api.post(`/admin/providers/${id}/reject-registration`, { reason });
-    load();
+  const rejectRegistration = async () => {
+    if (!rejectTarget || rejectReason.trim().length < 3) {
+      setRejectError('Indiquez un motif d’au moins trois caractères.');
+      return;
+    }
+    setRejectBusy(true);
+    setRejectError(null);
+    try {
+      await api.post(`/admin/providers/${rejectTarget.id}/reject-registration`, { reason: rejectReason.trim() });
+      setRejectTarget(null);
+      setRejectReason('');
+      load();
+    } catch (err: any) {
+      setRejectError(err?.message ?? 'Rejet impossible');
+    } finally {
+      setRejectBusy(false);
+    }
   };
 
   return (
@@ -139,7 +155,10 @@ export default function AdminProviders() {
                     <button className="btn-primary btn-sm" onClick={() => approveRegistration(p.id)}>
                       ✅ Approuver
                     </button>
-                    <button className="btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectRegistration(p.id)}>
+                    <button
+                      className="btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => { setRejectTarget(p); setRejectReason(''); setRejectError(null); }}
+                    >
                       ❌ Rejeter
                     </button>
                   </div>
@@ -149,6 +168,20 @@ export default function AdminProviders() {
           )}
         </div>
       )}
+
+      <Modal
+        open={Boolean(rejectTarget)}
+        onClose={() => { if (!rejectBusy) { setRejectTarget(null); setRejectReason(''); setRejectError(null); } }}
+        title={`Rejeter ${rejectTarget?.name ?? 'ce prestataire'}`}
+      >
+        <Field label="Motif du rejet">
+          <input className="input" value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Pièces manquantes, informations inexactes…" />
+        </Field>
+        {rejectError && <p className="mt-2 text-sm text-red-600">{rejectError}</p>}
+        <button className="btn-danger w-full mt-3" disabled={rejectBusy || rejectReason.trim().length < 3} onClick={rejectRegistration}>
+          {rejectBusy ? 'Rejet…' : 'Confirmer le rejet'}
+        </button>
+      </Modal>
 
       {/* Liste des prestataires */}
       {tab === 'all' && (

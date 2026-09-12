@@ -16,6 +16,8 @@ export default function AdminProducts() {
   const [catalog, setCatalog] = useState<any[]>([]);
   const [partners, setPartners] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
+  const [thresholds, setThresholds] = useState<Record<string, string>>({});
+  const [thresholdError, setThresholdError] = useState<string | null>(null);
 
   const load = () => {
     void api.get('/admin/products').then(setItems).catch(() => setItems([]));
@@ -61,17 +63,27 @@ export default function AdminProducts() {
                       type="number"
                       className="input py-1 text-sm"
                       placeholder="vide = 150 000"
-                      defaultValue={p.thirdPartyAuthThreshold ?? ''}
-                      id={`thr-${p.id}`}
+                      value={thresholds[p.id] ?? (p.thirdPartyAuthThreshold ?? '')}
+                      onChange={e => {
+                        setThresholds(values => ({ ...values, [p.id]: e.target.value }));
+                        setThresholdError(null);
+                      }}
                     />
                     <button
                       className="btn-outline btn-sm whitespace-nowrap"
                       onClick={async () => {
-                        const el = document.getElementById(`thr-${p.id}`) as HTMLInputElement;
-                        const v = el.value.trim() === '' ? null : Number(el.value);
-                        if (v !== null && (Number.isNaN(v) || v < 0)) { alert('Seuil invalide'); return; }
-                        await api.patch(`/admin/products/${p.id}`, { thirdPartyAuthThreshold: v });
-                        load();
+                        const raw = (thresholds[p.id] ?? String(p.thirdPartyAuthThreshold ?? '')).trim();
+                        const v = raw === '' ? null : Number(raw);
+                        if (v !== null && (Number.isNaN(v) || v < 0)) {
+                          setThresholdError('Seuil invalide : saisissez un montant positif ou laissez vide.');
+                          return;
+                        }
+                        try {
+                          await api.patch(`/admin/products/${p.id}`, { thirdPartyAuthThreshold: v });
+                          load();
+                        } catch (err: any) {
+                          setThresholdError(err?.message ?? 'Enregistrement impossible');
+                        }
                       }}
                     >
                       OK
@@ -79,6 +91,7 @@ export default function AdminProducts() {
                   </div>
                 </Field></div>
               </div>
+              {thresholdError && <p className="mt-1 text-xs text-red-600">{thresholdError}</p>}
               <button
                 className="btn-outline btn-sm mt-3 w-full"
                 onClick={() =>

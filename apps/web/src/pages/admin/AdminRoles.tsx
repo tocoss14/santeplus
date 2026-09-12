@@ -11,9 +11,12 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Contrats: ['contracts.viewAll', 'contracts.manage'],
   Remboursements: ['claims.viewAll', 'claims.decide'],
   Paiements: ['payments.viewAll', 'payments.manage'],
-  Administration: ['stats.admin', 'audit.view', 'roles.manage', 'config.manage'],
+  Distributeurs: ['distributors.read', 'distributors.manage'],
+  Commissions: ['commissions.read', 'commissions.manage'],
+  Facturation: ['billing.view', 'billing.manage'],
+  Administration: ['stats.admin', 'accounting.view', 'referential.manage', 'cts.view', 'cts.manage', 'audit.view', 'roles.manage', 'config.manage'],
   'Espace entreprise': ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],
-  'Prestataire': ['provider.verify', 'provider.thirdparty'],
+  'Prestataire': ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe', 'provider.emergencyOverride'],
 };
 
 export default function AdminRoles() {

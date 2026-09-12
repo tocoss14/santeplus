@@ -1,3 +1,4 @@
+import { Children, cloneElement, isValidElement, useId } from 'react';
 import { statusLabel, statusStyle } from '../format';
 
 export function Badge({ children, tone }: { children: React.ReactNode; tone?: string }) {
@@ -54,12 +55,63 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   );
 }
 
-export function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
+export function ConfirmModal({
+  open,
+  title,
+  message,
+  confirmLabel = 'Confirmer',
+  busy = false,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  busy?: boolean;
+  error?: string | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <p className="text-sm text-slate-600">{message}</p>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      <div className="mt-4 flex gap-2">
+        <button className="btn-outline flex-1" disabled={busy} onClick={onClose}>Annuler</button>
+        <button className="btn-danger flex-1" disabled={busy} onClick={onConfirm}>
+          {busy ? 'Confirmation…' : confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+export function Field({ label, children, error, hint }: { label: string; children: React.ReactNode; error?: string; hint?: string }) {
+  const generatedId = useId();
+  let controlId: string | undefined;
+  let control = children;
+  try {
+    const onlyChild = Children.only(children);
+    if (
+      isValidElement<{ id?: string }>(onlyChild) &&
+      typeof onlyChild.type === 'string' &&
+      ['input', 'select', 'textarea'].includes(onlyChild.type)
+    ) {
+      controlId = onlyChild.props.id ?? `${generatedId}-control`;
+      control = cloneElement(onlyChild, { id: controlId });
+    }
+  } catch {
+    control = children;
+  }
+
   return (
     <div className="mb-3.5">
-      <label className="label">{label}</label>
-      {children}
+      <label className="label" htmlFor={controlId}>{label}</label>
+      {control}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {!error && hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
   );
 }

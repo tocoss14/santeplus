@@ -34,8 +34,11 @@ export class BirthCertificateService {
    */
   async uploadBirthCertificate(
     userId: string,
-    file: Express.Multer.File,
+    file: Express.Multer.File | undefined,
   ): Promise<{ fileId: string; documentType: string }> {
+    if (!file) {
+      throw new BadRequestException('Fichier acte de naissance requis');
+    }
     // Vérifier le type MIME
     const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
     if (!allowedMimes.includes(file.mimetype)) {
@@ -59,6 +62,29 @@ export class BirthCertificateService {
         sha256: saved.sha256,
         ownerId: userId,
         documentType: 'BIRTH_CERTIFICATE',
+      },
+    });
+
+    // Conserver le pointeur vers le document téléversé. Tout nouvel upload invalide
+    // une vérification antérieure : l'utilisateur doit revérifier ce document précis.
+    await this.prisma.systemConfig.upsert({
+      where: { key: `birth_cert_verify_${userId}` },
+      create: {
+        key: `birth_cert_verify_${userId}`,
+        value: JSON.stringify({
+          fileId: fileObj.id,
+          uploadedAt: new Date(),
+          result: null,
+          verifiedAt: null,
+        }),
+      },
+      update: {
+        value: JSON.stringify({
+          fileId: fileObj.id,
+          uploadedAt: new Date(),
+          result: null,
+          verifiedAt: null,
+        }),
       },
     });
 
@@ -150,6 +176,22 @@ export class BirthCertificateService {
     });
   }
 
+  private async getState(userId: string): Promise<{
+    fileId?: string;
+    result?: VerificationResult | null;
+    verifiedAt?: string | null;
+  } | null> {
+    const config = await this.prisma.systemConfig.findUnique({
+      where: { key: `birth_cert_verify_${userId}` },
+    });
+    if (!config) return null;
+    try {
+      return JSON.parse(config.value);
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Récupère le statut de vérification
    */
@@ -159,33 +201,39 @@ export class BirthCertificateService {
     result?: VerificationResult;
     verifiedAt?: Date;
   }> {
-    const config = await this.prisma.systemConfig.findUnique({
-      where: { key: `birth_cert_verify_${userId}` },
-    });
+    const data = await this.getState(userId);
+    if (!data) return { verified: false };
 
-    if (!config) return { verified: false };
-
-    try {
-      const data = JSON.parse(config.value);
-      return {
-        verified: data.result?.match === true,
-        fileId: data.fileId,
-        result: data.result,
-        verifiedAt: data.verifiedAt ? new Date(data.verifiedAt) : undefined,
-      };
-    } catch {
-      return { verified: false };
-    }
+    return {
+      verified: data.result?.match === true,
+      fileId: data.fileId,
+      result: data.result ?? undefined,
+      verifiedAt: data.verifiedAt ? new Date(data.verifiedAt) : undefined,
+    };
   }
 
   /**
-   * Vérification manuelle par admin (si OCR échoue ou non disponible)
+   * Vérifie les données recopiées depuis le document téléversé.
+   * Le document doit appartenir à l'utilisateur et correspondre au dernier upload.
    */
-  async manualVerify(
+  async verifyUploadedDocument(
     userId: string,
     fileId: string,
     extractedData: BirthCertificateData,
   ): Promise<VerificationResult> {
+    if (!fileId) throw new BadRequestException('Identifiant du document requis');
+
+    const state = await this.getState(userId);
+    if (!state?.fileId) throw new BadRequestException('Aucun acte de naissance uploadé');
+    if (state.fileId !== fileId) {
+      throw new BadRequestException('Ce document a été remplacé : téléversez-le à nouveau avant vérification');
+    }
+
+    const file = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
+    if (!file || file.ownerId !== userId || file.documentType !== 'BIRTH_CERTIFICATE') {
+      throw new BadRequestException('Document acte de naissance introuvable');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { firstName: true, lastName: true, birthDate: true },
@@ -194,11 +242,10 @@ export class BirthCertificateService {
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     if (!user.birthDate) throw new BadRequestException('Date de naissance manquante sur le profil utilisateur');
 
-    // Type assertion since we checked birthDate is not null
     const provided = {
       firstName: user.firstName,
       lastName: user.lastName,
-      birthDate: user.birthDate!,
+      birthDate: user.birthDate as Date,
     };
 
     const result = this.verifyData(extractedData, provided);

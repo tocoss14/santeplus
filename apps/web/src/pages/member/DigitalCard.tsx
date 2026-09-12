@@ -2,18 +2,25 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, API_BASE, fileUrl } from '../../api';
-import { fmtDate } from '../../format';
-import { Spinner, StatusBadge } from '../../components/ui';
+import { cardQrPayload, fmtDate } from '../../format';
+import { ConfirmModal, Spinner, StatusBadge } from '../../components/ui';
 
 export default function DigitalCard() {
   const [card, setCard] = useState<any>(null);
+  const [contracts, setContracts] = useState<any[]>([]);
   const [contractId, setContractId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [rotateBusy, setRotateBusy] = useState(false);
+  const [rotateError, setRotateError] = useState<string | null>(null);
 
-  const load = () => {
+  const load = (selectedId?: string | null) => {
     api.get<any[]>('/contracts/mine')
       .then(async list => {
-        const target = list.find(c => ['ACTIVE', 'SUSPENDED', 'PENDING_PAYMENT'].includes(c.status)) ?? list[0];
+        setContracts(list);
+        const target = list.find(c => c.id === (selectedId ?? contractId))
+          ?? list.find(c => ['ACTIVE', 'SUSPENDED', 'PENDING_PAYMENT'].includes(c.status))
+          ?? list[0];
         if (!target) throw new Error('Aucun contrat');
         setContractId(target.id);
         setCard(await api.get(`/contracts/${target.id}/card`));
@@ -29,6 +36,25 @@ export default function DigitalCard() {
   return (
     <div className="mx-auto max-w-md space-y-4">
       <h1 className="text-xl font-bold">Ma carte d’assuré</h1>
+      {contracts.length > 1 && (
+        <label className="label">
+          Contrat affiché
+          <select
+            className="input mt-1"
+            value={contractId ?? ''}
+            onChange={e => {
+              setCard(null);
+              load(e.target.value);
+            }}
+          >
+            {contracts.map(contract => (
+              <option key={contract.id} value={contract.id}>
+                {contract.number} · {contract.product?.name ?? ''} · {contract.status}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-teal-500 p-5 text-white shadow-lg">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
@@ -62,7 +88,7 @@ export default function DigitalCard() {
           </div>
           <div className="mt-4 flex justify-end">
             <div className="rounded-xl bg-white p-2.5 shadow">
-              <QRCodeSVG value={card.qrPayload} size={104} level="M" />
+              <QRCodeSVG value={cardQrPayload(card.cardToken)} size={104} level="M" />
               <p className="mt-1 text-center text-[8px] font-semibold text-slate-400">VÉRIFICATION OFFICIELLE</p>
             </div>
           </div>
@@ -85,16 +111,33 @@ export default function DigitalCard() {
         </a>
       )}
 
-      <button
-        className="btn-outline w-full"
-        onClick={async () => {
-          if (!confirm('Régénérer le code ? L’ancien sera immédiatement invalide.')) return;
-          await api.post(`/contracts/${(await api.get('/contracts/mine'))[0].id}/rotate-token`);
-          load();
-        }}
-      >
+      <button className="btn-outline w-full" onClick={() => { setRotateError(null); setRotateOpen(true); }}>
         🔄 Régénérer le QR code (sécurité)
       </button>
+
+      <ConfirmModal
+        open={rotateOpen}
+        title="Régénérer le QR code"
+        message="L’ancien code sera immédiatement invalide. Les prestataires devront scanner la nouvelle carte."
+        confirmLabel="Régénérer"
+        busy={rotateBusy}
+        error={rotateError}
+        onClose={() => { if (!rotateBusy) setRotateOpen(false); }}
+        onConfirm={async () => {
+          if (!contractId) return;
+          setRotateBusy(true);
+          setRotateError(null);
+          try {
+            await api.post(`/contracts/${contractId}/rotate-token`);
+            setRotateOpen(false);
+            load(contractId);
+          } catch (err: any) {
+            setRotateError(err?.message ?? 'Régénération impossible');
+          } finally {
+            setRotateBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -9,17 +9,38 @@ function qs(obj: Record<string, any>) {
 }
 
 export default function MobileProviderHome() {
-  const [stats, setStats] = useState<any>(null);
+  const [dashboard, setDashboard] = useState<any>(null);
   const [pendingTp, setPendingTp] = useState<any[]>([]);
   const [recentFactures, setRecentFactures] = useState<any[]>([]);
 
   useEffect(() => {
-    api.get('/provider/me/stats').then(setStats).catch(() => {});
-    api.get(`/provider/me/third-party?${qs({ status: 'PENDING', limit: 5 })}`).then(r => setPendingTp(r.items ?? r)).catch(() => {});
-    api.get(`/provider/me/batch-invoices?${qs({ limit: 5 })}`).then(r => setRecentFactures(r.items ?? r)).catch(() => {});
+    api.get('/provider/dashboard').then(setDashboard).catch(() => setDashboard({ error: true }));
+    api.get(`/provider/thirdparty?${qs({ status: 'PENDING' })}`).then(response => {
+      const items = response?.items ?? response ?? [];
+      setPendingTp(items.map((item: any) => ({
+        id: item.id,
+        patientName: item.patient ?? 'Patient',
+        actName: item.actLabel ?? 'Acte',
+        amount: item.totalRequested ?? item.totalApproved ?? 0,
+        status: item.status,
+      })).slice(0, 5));
+    }).catch(() => setPendingTp([]));
+    api.get('/provider/batch-invoices').then(response => {
+      const items = Array.isArray(response) ? response : response?.items ?? [];
+      setRecentFactures(items.slice(0, 3));
+    }).catch(() => setRecentFactures([]));
   }, []);
 
-  if (!stats) return <Spinner />;
+  if (!dashboard) return <Spinner />;
+  if (dashboard.error) {
+    return (
+      <div className="px-4">
+        <div className="card-p text-center text-sm text-red-700">Espace prestataire indisponible.</div>
+      </div>
+    );
+  }
+
+  const openInvoices = recentFactures.filter(invoice => ['DRAFT', 'SUBMITTED'].includes(invoice.status)).length;
 
   const statColor = (color: string) => ({
     amber: 'bg-amber-50 border-amber-200',
@@ -43,9 +64,9 @@ export default function MobileProviderHome() {
       {/* Stats principales */}
       <div className="grid grid-cols-2 gap-3">
         <StatBox label="En attente" value={pendingTp.length} icon="⏳" color="amber" />
-        <StatBox label="Approuvés aujourd'hui" value={stats.approvedToday ?? 0} icon="✅" color="emerald" />
-        <StatBox label="Montant validé" value={fcfa(stats.approvedAmount ?? 0)} icon="💰" color="brand" />
-        <StatBox label="Factures en cours" value={stats.openInvoices ?? 0} icon="📄" color="blue" />
+        <StatBox label="Patients aujourd’hui" value={dashboard.today?.patients ?? 0} icon="✅" color="emerald" />
+        <StatBox label="Couvert aujourd’hui" value={fcfa(dashboard.today?.totalCovered ?? 0)} icon="💰" color="brand" />
+        <StatBox label="Factures en cours" value={openInvoices} icon="📄" color="blue" />
       </div>
 
       {/* Tiers payant en attente */}
@@ -105,12 +126,12 @@ export default function MobileProviderHome() {
             <p className="font-medium text-brand-800">Scanner QR</p>
             <p className="text-xs text-slate-500">Ordonnance / Carte</p>
           </Link>
-          <Link to="/prestataire/mobile/tp/new" className="card-p p-4 text-center">
+          <Link to="/prestataire/mobile/tp/nouvelle" className="card-p p-4 text-center">
             <div className="text-3xl mb-1">➕</div>
             <p className="font-medium">Nouveau TP</p>
             <p className="text-xs text-slate-500">Créer tiers payant</p>
           </Link>
-          <Link to="/prestataire/mobile/factures/new" className="card-p p-4 text-center">
+          <Link to="/prestataire/mobile/factures/nouvelle" className="card-p p-4 text-center">
             <div className="text-3xl mb-1">📄</div>
             <p className="font-medium">Nouvelle facture</p>
             <p className="text-xs text-slate-500">Générer batch</p>

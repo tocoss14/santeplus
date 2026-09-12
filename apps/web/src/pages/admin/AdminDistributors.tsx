@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { Badge, ErrorBanner, Field, Modal, Spinner, StatCard } from '../../components/ui';
+import { Badge, ConfirmModal, ErrorBanner, Field, Modal, Spinner, StatCard } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 
@@ -28,6 +28,8 @@ export default function AdminDistributors() {
   const [editing, setEditing] = useState<any | null>(null);
   const [detail, setDetail] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<any | null>(null);
+  const [suspendBusy, setSuspendBusy] = useState(false);
   const [tab, setTab] = useState<'list' | 'stats'>('list');
 
   const items = data?.items ?? null;
@@ -73,10 +75,19 @@ export default function AdminDistributors() {
     load();
   };
 
-  const handleSuspend = async (id: string) => {
-    if (!confirm('Suspendre ce distributeur ?')) return;
-    await api.post(`/admin/distributors/${id}/suspend`);
-    load();
+  const handleSuspend = async () => {
+    if (!suspendTarget) return;
+    setSuspendBusy(true);
+    setError(null);
+    try {
+      await api.post(`/admin/distributors/${suspendTarget.id}/suspend`);
+      setSuspendTarget(null);
+      load();
+    } catch (err: any) {
+      setError(err?.message ?? 'Suspension impossible');
+    } finally {
+      setSuspendBusy(false);
+    }
   };
 
   const viewDetail = async (id: string) => {
@@ -213,7 +224,7 @@ export default function AdminDistributors() {
                             <button className="text-xs text-emerald-600 hover:underline" onClick={() => handleActivate(d.id)}>Activer</button>
                           )}
                           {d.status === 'ACTIVE' && (
-                            <button className="text-xs text-red-600 hover:underline" onClick={() => handleSuspend(d.id)}>Suspendre</button>
+                            <button className="text-xs text-red-600 hover:underline" onClick={() => setSuspendTarget(d)}>Suspendre</button>
                           )}
                         </div>
                       </td>
@@ -225,6 +236,17 @@ export default function AdminDistributors() {
           )}
 
           {data && <Pagination page={data.page} pages={data.pages} total={data.total} onChange={setPage} />}
+
+          <ConfirmModal
+            open={Boolean(suspendTarget)}
+            title="Suspendre un distributeur"
+            message={suspendTarget ? `Suspendre ${suspendTarget.name ?? 'ce distributeur'} ? Ses recrutements seront bloqués.` : ''}
+            confirmLabel="Suspendre"
+            busy={suspendBusy}
+            error={error}
+            onClose={() => { if (!suspendBusy) setSuspendTarget(null); }}
+            onConfirm={handleSuspend}
+          />
         </>
       )}
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { Spinner, StatusBadge } from '../../components/ui';
+import { ConfirmModal, Spinner, StatusBadge } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
@@ -13,6 +13,9 @@ export default function AdminContracts() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
+  const [pendingAction, setPendingAction] = useState<{ id: string; action: string; number: string } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = () => {
     const params = new URLSearchParams();
@@ -31,10 +34,19 @@ export default function AdminContracts() {
     return () => clearTimeout(t);
   }, [status, q, from, to, page]);
 
-  async function act(id: string, action: string) {
-    if (!confirm(`Confirmer l’action « ${action} » sur ce contrat ?`)) return;
-    await api.post(`/admin/contracts/${id}/${action}`, {});
-    load();
+  async function act() {
+    if (!pendingAction) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await api.post(`/admin/contracts/${pendingAction.id}/${pendingAction.action}`, {});
+      setPendingAction(null);
+      load();
+    } catch (err: any) {
+      setActionError(err?.message ?? 'Action impossible');
+    } finally {
+      setActionBusy(false);
+    }
   }
 
   return (
@@ -114,11 +126,11 @@ export default function AdminContracts() {
                   <td className="td text-right space-x-2 whitespace-nowrap">
                     {c.status === 'ACTIVE' && (
                       <>
-                        <button onClick={() => act(c.id, 'suspend')} className="text-xs text-red-600 hover:underline">Suspendre</button>
-                        <button onClick={() => act(c.id, 'terminate')} className="text-xs text-slate-500 hover:underline">Résilier</button>
+                        <button onClick={() => setPendingAction({ id: c.id, action: 'suspend', number: c.number })} className="text-xs text-red-600 hover:underline">Suspendre</button>
+                        <button onClick={() => setPendingAction({ id: c.id, action: 'terminate', number: c.number })} className="text-xs text-slate-500 hover:underline">Résilier</button>
                       </>
                     )}
-                    {c.status === 'SUSPENDED' && <button onClick={() => act(c.id, 'activate')} className="text-xs text-emerald-600 hover:underline">Réactiver</button>}
+                    {c.status === 'SUSPENDED' && <button onClick={() => setPendingAction({ id: c.id, action: 'activate', number: c.number })} className="text-xs text-emerald-600 hover:underline">Réactiver</button>}
                   </td>
                 </tr>
               ))}
@@ -129,6 +141,17 @@ export default function AdminContracts() {
       )}
 
       {data && <Pagination page={data.page} pages={data.pages} total={data.total} onChange={setPage} />}
+
+      <ConfirmModal
+        open={Boolean(pendingAction)}
+        title="Confirmer l’action contrat"
+        message={pendingAction ? `Appliquer « ${pendingAction.action} » au contrat ${pendingAction.number} ? Cette action sera journalisée.` : ''}
+        confirmLabel="Confirmer"
+        busy={actionBusy}
+        error={actionError}
+        onClose={() => { if (!actionBusy) { setPendingAction(null); setActionError(null); } }}
+        onConfirm={act}
+      />
     </div>
   );
 }

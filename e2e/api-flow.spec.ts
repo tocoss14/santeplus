@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { uid, registerMember, loginAs, cookieNames } from './helpers';
 
-test.describe('Parcours particulier: register → quote → subscribe → pay → carte', () => {
+test.describe('Parcours particulier: register → acte de naissance → quote → subscribe → pay → carte → dépense', () => {
   const email = `e2e_${uid()}@test.bj`;
 
   test('flow complet', async () => {
@@ -15,7 +15,28 @@ test.describe('Parcours particulier: register → quote → subscribe → pay �
     const access = (await ctx.storageState()).cookies.find(c => c.name === 'sp_access');
     expect(access?.httpOnly).toBe(true);
 
-    // 2. Quote
+    // 2. Acte de naissance obligatoire : upload, comparaison document/profil, gate
+    const me = await (await ctx.get('/api/auth/me')).json();
+    const birthCertificate = Buffer.from('%PDF-1.4\n% acte de naissance de test\n', 'utf8');
+    const uploadRes = await ctx.post('/api/subscription/birth-certificate/upload', {
+      multipart: { file: { name: 'acte-naissance.pdf', mimeType: 'application/pdf', buffer: birthCertificate } },
+    });
+    expect(uploadRes.ok()).toBeTruthy();
+    const upload = await uploadRes.json();
+    expect(upload.fileId).toBeTruthy();
+
+    const verifyRes = await ctx.post('/api/subscription/birth-certificate/verify', {
+      data: { fileId: upload.fileId, firstName: me.firstName, lastName: me.lastName, birthDate: me.birthDate },
+    });
+    expect(verifyRes.ok()).toBeTruthy();
+    const verification = await verifyRes.json();
+    expect(verification.match).toBe(true);
+
+    const statusRes = await ctx.get('/api/subscription/birth-certificate/status');
+    expect(statusRes.ok()).toBeTruthy();
+    expect((await statusRes.json()).verified).toBe(true);
+
+    // 3. Quote
     const productsRes = await ctx.get('/api/products?clientType=INDIVIDUAL');
     expect(productsRes.ok()).toBeTruthy();
     const products = await productsRes.json();
@@ -33,7 +54,7 @@ test.describe('Parcours particulier: register → quote → subscribe → pay �
     expect(quoteData.adhesion).toBeDefined();
     expect(quoteData.adhesion.adhesionFee).toBe(3000); // 1 pers × 3000
 
-    // 3. Subscribe
+    // 4. Subscribe
     const subRes = await ctx.post('/api/subscription/subscribe', {
       data: { productId, frequency: 'MONTHLY', beneficiaries: [], selectedGuarantees: [] },
     });
@@ -43,7 +64,7 @@ test.describe('Parcours particulier: register → quote → subscribe → pay �
     expect(sub.adhesion.adhesionFee).toBe(3000);
     expect(sub.firstPayment.totalFirstPayment).toBeGreaterThan(sub.firstPayment.amount);
 
-    // 4. Pay (initiate + mock confirm)
+    // 5. Pay (initiate + mock confirm)
     const initRes = await ctx.post('/api/payments/initiate', {
       data: { contractId: sub.contractId, method: 'MOCK_MOMO' },
     });
@@ -58,7 +79,7 @@ test.describe('Parcours particulier: register → quote → subscribe → pay �
     const conf = await confirmRes.json();
     expect(conf.status).toBe('SUCCEEDED');
 
-    // 5. Carte
+    // 6. Carte
     const contractsRes = await ctx.get('/api/contracts/mine');
     expect(contractsRes.ok()).toBeTruthy();
     const contracts = await contractsRes.json();
@@ -72,6 +93,30 @@ test.describe('Parcours particulier: register → quote → subscribe → pay �
     const card = await cardRes.json();
     expect(card.cardToken).toBeTruthy();
     expect(card.qrPayload).toContain(card.cardToken);
+
+    // 7. Dépense : brouillon avec facture typée, puis soumission
+    const categories = await (await ctx.get('/api/claims/categories')).json();
+    const invoice = Buffer.from('%PDF-1.4\n% facture de test\n', 'utf8');
+    const claimRes = await ctx.post('/api/claims', {
+      multipart: {
+        payload: JSON.stringify({
+          contractId: sub.contractId,
+          careDate: new Date().toISOString().slice(0, 10),
+          items: [{ categoryId: categories[0].category, amountRequested: 10000 }],
+          docTypes: ['INVOICE'],
+        }),
+        documents: { name: 'facture.pdf', mimeType: 'application/pdf', buffer: invoice },
+      },
+    });
+    expect(claimRes.ok()).toBeTruthy();
+    const claim = await claimRes.json();
+    const claimDetail = await (await ctx.get(`/api/claims/${claim.id}`)).json();
+    expect(claimDetail.documents[0].docType).toBe('INVOICE');
+
+    const submitRes = await ctx.post(`/api/claims/${claim.id}/submit`, { data: {} });
+    expect(submitRes.ok()).toBeTruthy();
+    const submitted = await (await ctx.get(`/api/claims/${claim.id}`)).json();
+    expect(submitted.status).toBe('SUBMITTED');
 
     await ctx.dispose();
   });

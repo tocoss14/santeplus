@@ -67,8 +67,9 @@ function GuaranteeSlider({ option, value, onChange }: { option: GuaranteeOption;
               max={option.maxRate}
               step={5}
               value={value.rate}
+              aria-label={`Taux de couverture ${CATEGORY_LABELS[option.categoryId] ?? option.categoryName}`}
               onChange={e => onChange({ ...value, rate: Number(e.target.value) })}
-              className="w-full accent-brand-600"
+              className="h-8 w-full accent-brand-600"
             />
             <div className="flex justify-between text-xs text-slate-400">
               <span>{option.minRate}% (économique)</span>
@@ -88,8 +89,9 @@ function GuaranteeSlider({ option, value, onChange }: { option: GuaranteeOption;
               max={option.maxLimit}
               step={option.limitStep}
               value={value.annualLimit}
+              aria-label={`Plafond annuel ${CATEGORY_LABELS[option.categoryId] ?? option.categoryName}`}
               onChange={e => onChange({ ...value, annualLimit: Number(e.target.value) })}
-              className="w-full accent-brand-600"
+              className="h-8 w-full accent-brand-600"
             />
             <div className="flex justify-between text-xs text-slate-400">
               <span>{fcfa(option.minLimit)}</span>
@@ -121,7 +123,9 @@ export default function SubscribeWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [products, setProducts] = useState<any[] | null>(null);
-  const [productId, setProductId] = useState<string>((location.state as any)?.productId ?? '');
+  const [productId, setProductId] = useState<string>(
+    (location.state as any)?.productId ?? new URLSearchParams(location.search).get('productId') ?? '',
+  );
   const [frequency, setFrequency] = useState('ANNUAL');
   const [selectedGuarantees, setSelectedGuarantees] = useState<SelectedGuarantee[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BenefDraft[]>([]);
@@ -141,7 +145,11 @@ export default function SubscribeWizard() {
 
   // Acte de naissance
   const [birthCertFile, setBirthCertFile] = useState<File | null>(null);
+  const [birthCertFileId, setBirthCertFileId] = useState<string | null>(null);
   const [birthCertPreview, setBirthCertPreview] = useState<string | null>(null);
+  const [birthCertDoc, setBirthCertDoc] = useState({ firstName: '', lastName: '', birthDate: '' });
+  const [birthCertAttested, setBirthCertAttested] = useState(false);
+  const [birthCertResult, setBirthCertResult] = useState<any | null>(null);
   const [birthCertVerified, setBirthCertVerified] = useState(false);
   const [birthCertVerifying, setBirthCertVerifying] = useState(false);
   const [birthCertError, setBirthCertError] = useState<string | null>(null);
@@ -291,7 +299,6 @@ export default function SubscribeWizard() {
   function handleBirthCert(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Validate file
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       setBirthCertError('Format non supporté. PDF, JPG, PNG ou WebP uniquement.');
@@ -302,47 +309,60 @@ export default function SubscribeWizard() {
       return;
     }
     setBirthCertFile(file);
+    setBirthCertFileId(null);
     setBirthCertPreview(URL.createObjectURL(file));
+    setBirthCertResult(null);
     setBirthCertVerified(false);
     setBirthCertError(null);
   }
 
+  function updateBirthCertDoc(patch: Partial<typeof birthCertDoc>) {
+    setBirthCertDoc(doc => ({ ...doc, ...patch }));
+    setBirthCertResult(null);
+    setBirthCertVerified(false);
+  }
+
   async function verifyBirthCert() {
-    if (!birthCertFile) return;
+    if (!birthCertFile) {
+      setBirthCertError('Ajoutez votre acte de naissance avant la vérification.');
+      return;
+    }
+    if (!birthCertDoc.firstName.trim() || !birthCertDoc.lastName.trim() || !birthCertDoc.birthDate) {
+      setBirthCertError('Recopiez le prénom, le nom et la date de naissance visibles sur l’acte.');
+      return;
+    }
+    if (!birthCertAttested) {
+      setBirthCertError('Vous devez attester avoir recopié exactement le document.');
+      return;
+    }
+
     setBirthCertVerifying(true);
     setBirthCertError(null);
     try {
-      // Upload file
-      const fd = new FormData();
-      fd.append('file', birthCertFile);
-      const uploadRes = await api.post('/subscription/birth-certificate/upload', fd);
-      
-      // For now, we simulate verification by asking user to confirm data matches
-      // In production, this would call OCR or manual review endpoint
-      // We'll do a simple client-side check against user profile
-      const userRes = await api.get<{ firstName: string; lastName: string; birthDate: string }>('/auth/me');
-      
-      // Store verification result (in real app, backend would do OCR comparison)
-      // For now, we'll mark as verified if user confirms
-      // This is a simplified version - real implementation would use OCR
-      const confirmMatch = window.confirm(
-        `Confirmez-vous que l'acte de naissance contient :\n` +
-        `Nom : ${userRes.lastName}\n` +
-        `Prénom : ${userRes.firstName}\n` +
-        `Date de naissance : ${userRes.birthDate}\n\n` +
-        `Si oui, cliquez sur OK. Sinon, annulez et corrigez votre profil.`
-      );
-      
-      if (confirmMatch) {
-        // Call backend to record verification
-        await api.post('/subscription/birth-certificate/verify', {
-          firstName: userRes.firstName,
-          lastName: userRes.lastName,
-          birthDate: userRes.birthDate,
-        });
+      let fileId = birthCertFileId;
+      if (!fileId) {
+        const fd = new FormData();
+        fd.append('file', birthCertFile);
+        const uploadRes = await api.post<{ fileId: string }>('/subscription/birth-certificate/upload', fd);
+        fileId = uploadRes.fileId;
+        setBirthCertFileId(fileId);
+      }
+
+      const result = await api.post<any>('/subscription/birth-certificate/verify', {
+        fileId,
+        firstName: birthCertDoc.firstName.trim(),
+        lastName: birthCertDoc.lastName.trim(),
+        birthDate: birthCertDoc.birthDate,
+      });
+      setBirthCertResult(result);
+
+      if (result?.match) {
         setBirthCertVerified(true);
       } else {
-        setBirthCertError('Vérification annulée. Les données ne correspondent pas.');
+        const warnings = Array.isArray(result?.warnings) && result.warnings.length
+          ? result.warnings.join(' ')
+          : 'Les informations recopiées ne correspondent pas à votre profil.';
+        setBirthCertError(warnings);
       }
     } catch (err: any) {
       setBirthCertError(err?.message ?? 'Erreur lors de la vérification');
@@ -434,9 +454,12 @@ export default function SubscribeWizard() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-6 flex items-center gap-1.5">
+      <p className="mb-2 text-xs font-semibold text-brand-700 sm:hidden" aria-live="polite">
+        Étape {step + 1} sur {STEPS.length} : {STEPS[step]}
+      </p>
+      <div className="mb-6 flex items-center gap-1.5 overflow-x-auto pb-1" role="list" aria-label="Progression de la souscription">
         {STEPS.map((s, i) => (
-          <div key={s} className="flex flex-1 items-center gap-1.5">
+          <div key={s} className="flex min-w-[48px] flex-1 items-center gap-1.5" role="listitem" aria-current={i === step ? 'step' : undefined}>
             <span
               className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${
                 i <= step ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-500'
@@ -473,14 +496,14 @@ export default function SubscribeWizard() {
         </div>
       )}
 
-      {/* Étape 1 : Acte de naissance (NOUVEAU) */}
+      {/* Étape 2 : Acte de naissance */}
       {step === 1 && (
         <div className="space-y-4">
           <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
             <p className="font-semibold">📄 Acte de naissance obligatoire</p>
             <p className="mt-1">
-              Pour valider votre identité, vous devez fournir une copie de votre acte de naissance.
-              Le système vérifiera que les informations correspondent à votre profil.
+              Téléversez votre acte de naissance, puis recopiez exactement le prénom, le nom et la date
+              de naissance visibles sur le document. Le backend les compare à votre profil avant la suite.
             </p>
           </div>
 
@@ -509,7 +532,19 @@ export default function SubscribeWizard() {
               onChange={handleBirthCert}
             />
             {birthCertPreview && !birthCertVerified && (
-              <button type="button" onClick={() => { setBirthCertFile(null); setBirthCertPreview(null); }} className="text-xs text-red-500 hover:underline">
+              <button
+                type="button"
+                onClick={() => {
+                  setBirthCertFile(null);
+                  setBirthCertFileId(null);
+                  setBirthCertPreview(null);
+                  setBirthCertDoc({ firstName: '', lastName: '', birthDate: '' });
+                  setBirthCertAttested(false);
+                  setBirthCertResult(null);
+                  setBirthCertError(null);
+                }}
+                className="text-xs text-red-500 hover:underline"
+              >
                 Retirer le fichier
               </button>
             )}
@@ -522,15 +557,50 @@ export default function SubscribeWizard() {
                 <span className="text-2xl">⚠️</span>
                 <div>
                   <p className="font-semibold text-amber-800">Vérification requise</p>
-                  <p className="text-xs text-amber-700">Le système doit comparer les données de l'acte avec votre profil.</p>
+                  <p className="text-xs text-amber-700">Recopiez fidèlement les données visibles sur le document téléversé.</p>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Prénom sur l’acte">
+                  <input
+                    className="input"
+                    value={birthCertDoc.firstName}
+                    onChange={e => updateBirthCertDoc({ firstName: e.target.value })}
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="Nom sur l’acte">
+                  <input
+                    className="input"
+                    value={birthCertDoc.lastName}
+                    onChange={e => updateBirthCertDoc({ lastName: e.target.value })}
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+              <Field label="Date de naissance sur l’acte">
+                <input
+                  type="date"
+                  className="input"
+                  value={birthCertDoc.birthDate}
+                  onChange={e => updateBirthCertDoc({ birthDate: e.target.value })}
+                />
+              </Field>
+              <label className="flex items-start gap-2 text-xs text-amber-800">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={birthCertAttested}
+                  onChange={e => setBirthCertAttested(e.target.checked)}
+                />
+                <span>J’atteste avoir recopié exactement le document téléversé. Une fausse déclaration peut entraîner le rejet de la souscription.</span>
+              </label>
               <button
                 className="btn-primary w-full"
                 disabled={birthCertVerifying}
                 onClick={verifyBirthCert}
               >
-                {birthCertVerifying ? '⟳ Vérification en cours…' : 'Lancer la vérification'}
+                {birthCertVerifying ? 'Vérification en cours…' : 'Lancer la vérification'}
               </button>
               {birthCertError && (
                 <p className="text-sm text-red-600">{birthCertError}</p>
@@ -547,7 +617,10 @@ export default function SubscribeWizard() {
                   <p className="text-xs">Les informations correspondent à votre profil.</p>
                 </div>
               </div>
-              <p className="text-xs text-emerald-700">Vous pouvez maintenant continuer.</p>
+              <p className="text-xs text-emerald-700">
+                Correspondance : {birthCertResult ? `${Math.round(birthCertResult.confidence * 100)} %` : '100 %'}.
+                Vous pouvez maintenant continuer.
+              </p>
             </div>
           )}
 

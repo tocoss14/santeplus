@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth';
 import InstallPrompt from '../components/InstallPrompt';
@@ -5,6 +6,7 @@ import CookieBanner from '../components/CookieBanner';
 
 export default function PublicLayout() {
   const { me } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
@@ -21,6 +23,15 @@ export default function PublicLayout() {
             <a href="/#faq" className="rounded-lg px-3 py-2 hover:bg-slate-100">FAQ</a>
           </nav>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-outline btn-sm md:hidden"
+              aria-expanded={menuOpen}
+              aria-controls="public-navigation"
+              onClick={() => setMenuOpen(open => !open)}
+            >
+              Menu
+            </button>
             {me ? (
               <Link to={homeFor(me.role)} className="btn-primary btn-sm">Mon espace</Link>
             ) : (
@@ -31,8 +42,27 @@ export default function PublicLayout() {
             )}
           </div>
         </div>
+        {menuOpen && (
+          <nav id="public-navigation" className="border-t border-slate-200 bg-white px-4 py-2 md:hidden">
+            {[
+              { to: '/offres', label: 'Nos formules' },
+              { to: '/reseau', label: 'Réseau de soins' },
+              { to: '/cga', label: 'Conditions Générales' },
+              { to: '/simulateur', label: 'Simulateur' },
+            ].map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
       </header>
-      <main className="flex-1">
+      <main className="flex-1 pb-28">
         <Outlet />
       </main>
       <footer className="border-t border-slate-200 bg-white">

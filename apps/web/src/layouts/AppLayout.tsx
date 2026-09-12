@@ -43,6 +43,8 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/admin/roles', label: 'Rôles', icon: '🔐' },
       { to: '/admin/technical-result', label: 'Résultat technique', icon: '📊' },
       { to: '/admin/accounting', label: 'Comptabilité', icon: '📒' },
+      { to: '/admin/analytics', label: 'Analytique', icon: '📈' },
+      { to: '/admin/billing', label: 'Facturation', icon: '🧾' },
       { to: '/admin/cts', label: 'Comptes techniques', icon: '📉' },
       { to: '/admin/fraud', label: 'Fraude', icon: '🕵️' },
       { to: '/admin/audit', label: 'Audit', icon: '📜' },
@@ -93,7 +95,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
                 `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-slate-600 hover:bg-slate-100'}`
               }
             >
-              <span>{item.icon}</span>
+              <span aria-hidden="true">{item.icon}</span>
               {item.label}
             </NavLink>
           ))}
@@ -131,18 +133,20 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
           <Outlet />
         </main>
 
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex border-t border-slate-200 bg-white">
-          {menu.items.slice(0, 5).map(item => (
+        <nav aria-label="Navigation principale" className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex overflow-x-auto border-t border-slate-200 bg-white">
+          {menu.items.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${isActive ? 'text-brand-700' : 'text-slate-400'}`
+                `flex min-w-[72px] flex-none flex-col items-center gap-0.5 px-2 py-2 text-[10px] font-medium ${
+                  isActive ? 'text-brand-700' : 'text-slate-400'
+                }`
               }
             >
-              <span className="text-lg leading-none">{item.icon}</span>
-              {item.label}
+              <span aria-hidden="true" className="text-lg leading-none">{item.icon}</span>
+              <span className="max-w-[72px] truncate">{item.label}</span>
             </NavLink>
           ))}
         </nav>

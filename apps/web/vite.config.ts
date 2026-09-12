@@ -39,7 +39,17 @@ export default defineConfig({
             options: { cacheName: 'gstatic-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
           },
           {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            // Ne mettre en cache que les référentiels publics. Les contrats, soins,
+            // remboursements, paiements et écrans authentifiés restent NetworkOnly afin
+            // de ne jamais afficher de données personnelles ou financières périmées.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/') && [
+              '/api/products',
+              '/api/providers',
+              '/api/branches',
+              '/api/diseases',
+              '/api/acts',
+              '/api/claims/categories',
+            ].some(path => url.pathname === path || url.pathname.startsWith(`${path}/`)),
             handler: 'NetworkFirst',
             options: { cacheName: 'api-cache', networkTimeoutSeconds: 5, expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 }, cacheableResponse: { statuses: [0, 200] } },
           },

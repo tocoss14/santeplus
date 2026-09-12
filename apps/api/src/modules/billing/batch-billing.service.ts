@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.module';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { ref } from '../../common/utils';
@@ -417,6 +417,99 @@ export class BatchBillingService {
         paidAmount: input.paidAmount,
         difference,
       },
+    });
+  }
+
+  private async providerIdForUser(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { providerId: true },
+    });
+    if (!user?.providerId) {
+      throw new ForbiddenException('Aucun établissement rattaché à ce compte');
+    }
+    return user.providerId;
+  }
+
+  /**
+   * Factures groupées du prestataire connecté. Le providerId est toujours dérivé
+   * du compte authentifié : un prestataire ne peut ni lister ni créer pour un autre.
+   */
+  async providerBatchInvoices(userId: string, status?: string) {
+    return this.listBatchInvoices(await this.providerIdForUser(userId), status);
+  }
+
+  async providerBatchInvoice(userId: string, batchInvoiceId: string) {
+    const providerId = await this.providerIdForUser(userId);
+    const invoice = await this.getBatchInvoice(batchInvoiceId);
+    if (!invoice || invoice.providerId !== providerId) {
+      throw new NotFoundException('Facture groupée introuvable');
+    }
+    return invoice;
+  }
+
+  async createProviderBatchInvoice(
+    userId: string,
+    input: { periodStart: Date; periodEnd: Date },
+  ) {
+    return this.createBatchInvoice({
+      ...(input as { periodStart: Date; periodEnd: Date; claimIds?: string[] }),
+      providerId: await this.providerIdForUser(userId),
+      claimIds: [],
+    });
+  }
+
+  async submitProviderBatchInvoice(userId: string, batchInvoiceId: string) {
+    const providerId = await this.providerIdForUser(userId);
+    const invoice = await this.prisma.batchInvoice.findUnique({ where: { id: batchInvoiceId } });
+    if (!invoice || invoice.providerId !== providerId) {
+      throw new NotFoundException('Facture groupée introuvable');
+    }
+    return this.submitBatchInvoice({ batchInvoiceId });
+  }
+
+  async providerRejections(userId: string, batchInvoiceId?: string, status?: string) {
+    const providerId = await this.providerIdForUser(userId);
+    const invoices = await this.prisma.batchInvoice.findMany({
+      where: { providerId, ...(batchInvoiceId ? { id: batchInvoiceId } : {}) },
+      select: { id: true },
+    });
+    const invoiceIds = new Set(invoices.map(invoice => invoice.id));
+    const rejections = await this.listRejections(batchInvoiceId, status);
+    return rejections.filter(rejection => invoiceIds.has(rejection.batchInvoiceId));
+  }
+
+  private async providerRejection(userId: string, rejectionId: string) {
+    const providerId = await this.providerIdForUser(userId);
+    const rejection = await this.prisma.rejection.findUnique({
+      where: { id: rejectionId },
+      include: { batchInvoice: { select: { providerId: true } } },
+    });
+    if (!rejection || rejection.batchInvoice.providerId !== providerId) {
+      throw new NotFoundException('Rejet introuvable');
+    }
+    return rejection;
+  }
+
+  async acknowledgeProviderRejection(userId: string, rejectionId: string) {
+    const rejection = await this.providerRejection(userId, rejectionId);
+    if (rejection.status !== 'OPEN') {
+      throw new BadRequestException(`Rejet ${rejection.status} — accusé impossible`);
+    }
+    return this.prisma.rejection.update({
+      where: { id: rejectionId },
+      data: { status: 'ACKNOWLEDGED' },
+    });
+  }
+
+  async disputeProviderRejection(userId: string, rejectionId: string, resolutionNote: string) {
+    const rejection = await this.providerRejection(userId, rejectionId);
+    if (!['OPEN', 'ACKNOWLEDGED'].includes(rejection.status)) {
+      throw new BadRequestException(`Rejet ${rejection.status} — contestation impossible`);
+    }
+    return this.prisma.rejection.update({
+      where: { id: rejectionId },
+      data: { status: 'DISPUTED', disputedAt: new Date(), resolutionNote },
     });
   }
 

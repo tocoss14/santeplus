@@ -1,23 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { encryptMedical } from '../src/common/crypto';
+import { DEFAULT_ROLE_PERMISSIONS } from '../src/common/permissions';
 
 const prisma = new PrismaClient();
-
-const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
-  SUPER_ADMIN: ['*'],
-  INSURANCE_MANAGER: [
-    'members.read', 'members.manage', 'companies.read', 'providers.read', 'providers.manage',
-    'contracts.viewAll', 'contracts.manage', 'claims.viewAll', 'claims.decide',
-    'payments.viewAll', 'payments.manage', 'stats.admin', 'cts.view', 'cts.manage',
-    'billing.view', 'billing.manage',
-    'analytics.view',
-  ],
-  SUPPORT_AGENT: ['members.read', 'providers.read', 'claims.viewAll', 'contracts.viewAll'],
-  COMPANY_ADMIN: ['company.dashboard', 'company.employees.manage', 'company.claims.view', 'company.contracts.manage'],
-  MEMBER: [],
-  PROVIDER: ['provider.verify', 'provider.thirdparty', 'provider.staff', 'provider.prescribe', 'provider.emergencyOverride', 'billing.view'],
-};
 
 function daysFromNow(n: number): Date {
   const d = new Date();

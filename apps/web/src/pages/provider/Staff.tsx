@@ -6,6 +6,7 @@ import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../component
 export default function Staff() {
   const [items, setItems] = useState<any[] | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [passwordTarget, setPasswordTarget] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = () => api.get('/provider/staff').then(setItems).catch(e => { setError(e?.message); setItems([]); });
@@ -16,11 +17,10 @@ export default function Staff() {
     load();
   }
 
-  async function resetPassword(u: any) {
-    const pwd = prompt(`Nouveau mot de passe pour ${u.firstName} ${u.lastName} (8 caractères min.) :`);
-    if (!pwd || pwd.length < 8) return;
-    await api.patch(`/provider/staff/${u.id}`, { newPassword: pwd });
-    alert('Mot de passe mis à jour.');
+  async function resetPassword(id: string, newPassword: string) {
+    await api.patch(`/provider/staff/${id}`, { newPassword });
+    setPasswordTarget(null);
+    load();
   }
 
   return (
@@ -45,7 +45,7 @@ export default function Staff() {
                   <td className="td text-xs">{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : 'jamais'}</td>
                   <td className="td"><StatusBadge status={u.status} /></td>
                   <td className="td text-right space-x-3 whitespace-nowrap">
-                    <button onClick={() => resetPassword(u)} className="text-xs text-brand-700 hover:underline">Mot de passe</button>
+                    <button onClick={() => setPasswordTarget(u)} className="text-xs text-brand-700 hover:underline">Mot de passe</button>
                     <button onClick={() => toggle(u)} className="text-xs text-red-600 hover:underline">{u.status === 'ACTIVE' ? 'Suspendre' : 'Réactiver'}</button>
                   </td>
                 </tr>
@@ -56,7 +56,53 @@ export default function Staff() {
       )}
 
       <AddStaffModal open={addOpen} onClose={() => setAddOpen(false)} onDone={load} />
+      <PasswordModal
+        user={passwordTarget}
+        onClose={() => setPasswordTarget(null)}
+        onSave={password => resetPassword(passwordTarget.id, password)}
+      />
     </div>
+  );
+}
+
+function PasswordModal({ user, onClose, onSave }: { user: any | null; onClose: () => void; onSave: (password: string) => Promise<void> }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setPassword('');
+      setError(null);
+    }
+  }, [user]);
+
+  const save = async () => {
+    if (password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onSave(password);
+    } catch (err: any) {
+      setError(err?.message ?? 'Mise à jour impossible');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={Boolean(user)} onClose={onClose} title={`Mot de passe — ${user?.firstName ?? ''} ${user?.lastName ?? ''}`}>
+      <ErrorBanner message={error} />
+      <Field label="Nouveau mot de passe">
+        <input type="password" className="input" value={password} onChange={e => setPassword(e.target.value)} placeholder="8 caractères min." />
+      </Field>
+      <button className="btn-primary w-full" disabled={busy || password.length < 8} onClick={save}>
+        {busy ? 'Mise à jour…' : 'Mettre à jour'}
+      </button>
+    </Modal>
   );
 }
 

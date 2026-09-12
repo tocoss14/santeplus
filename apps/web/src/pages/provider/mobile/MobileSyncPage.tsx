@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { getQueue, clearQueue, syncQueue } from '../../../lib/offlineQueue';
 import { fmtDate } from '../../../format';
-import { Spinner, StatusBadge } from '../../../components/ui';
+import { ConfirmModal, Spinner, StatusBadge } from '../../../components/ui';
 
 export default function MobileSyncPage() {
   const [queue, setQueue] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     loadQueue();
@@ -37,10 +39,15 @@ export default function MobileSyncPage() {
   };
 
   const handleClear = async () => {
-    if (!confirm('Vider la file d\'attente ? Les éléments non synchronisés seront perdus.')) return;
-    await clearQueue();
-    await loadQueue();
-    setResult('File vidée');
+    setClearing(true);
+    try {
+      await clearQueue();
+      await loadQueue();
+      setClearOpen(false);
+      setResult('File vidée');
+    } finally {
+      setClearing(false);
+    }
   };
 
   return (
@@ -82,7 +89,16 @@ export default function MobileSyncPage() {
                 </div>
               ))}
             </div>
-            <button onClick={handleClear} className="btn-outline btn-sm w-full mt-2">Vider la file</button>
+            <button onClick={() => setClearOpen(true)} className="btn-outline btn-sm w-full mt-2">Vider la file</button>
+            <ConfirmModal
+              open={clearOpen}
+              title="Vider la file d’attente"
+              message="Les délivrances non synchronisées seront définitivement perdues. Synchronisez d’abord si possible."
+              confirmLabel="Vider quand même"
+              busy={clearing}
+              onClose={() => { if (!clearing) setClearOpen(false); }}
+              onConfirm={handleClear}
+            />
           </div>
         )}
 
@@ -93,25 +109,6 @@ export default function MobileSyncPage() {
         )}
       </div>
 
-      {/* Debug / Test */}
-      <details className="card-p">
-        <summary className="font-medium text-sm cursor-pointer">Test hors-ligne (dev)</summary>
-        <div className="mt-2 space-y-2 text-xs">
-          <button className="btn-outline btn-sm w-full" onClick={async () => {
-            const { enqueueDeliveryWithHash } = await import('../../../lib/offlineQueue');
-            await enqueueDeliveryWithHash({ endpoint: '/provider/verify-qr', body: { token: 'TEST-OFFLINE', type: 'PRESCRIPTION' } }, 'provider');
-            await loadQueue();
-          }}>
-            Ajouter item test
-          </button>
-          <button className="btn-outline btn-sm w-full" onClick={async () => {
-            await clearQueue();
-            await loadQueue();
-          }}>
-            Vider file
-          </button>
-        </div>
-      </details>
     </div>
   );
 }

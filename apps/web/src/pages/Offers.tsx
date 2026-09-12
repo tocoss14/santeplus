@@ -29,7 +29,7 @@ export default function Offers() {
               <h3 className={`font-bold text-lg ${p.code === 'CONF' ? '' : 'text-brand-800'}`}>{p.name}</h3>
               <p className={`mt-2 text-2xl font-extrabold ${p.code === 'CONF' ? '' : 'text-brand-700'}`}>{fcfa(p.basePremiumAnnual)}</p>
               <p className={`text-xs ${p.code === 'CONF' ? 'text-brand-100' : 'text-slate-400'}`}>par an — assuré principal</p>
-              <Link to="/app/souscrire" state={{ productId: p.id }} className={`mt-4 w-full ${p.code === 'CONF' ? 'btn bg-white text-brand-800 hover:bg-brand-50' : 'btn-primary'}`}>
+              <Link to={`/app/souscrire?productId=${p.id}`} state={{ productId: p.id }} className={`mt-4 w-full ${p.code === 'CONF' ? 'btn bg-white text-brand-800 hover:bg-brand-50' : 'btn-primary'}`}>
                 Souscrire
               </Link>
             </div>

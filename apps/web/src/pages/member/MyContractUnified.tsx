@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link } from 'react-router-dom';
 import { api, API_BASE } from '../../api';
-import { fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
+import { cardQrPayload, fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
 import { CtsSummary, FundCallList } from '../../components/CtsCards';
 
@@ -18,22 +18,30 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 export default function MyContractUnified() {
   const [tab, setTab] = useState<Tab>('contrat');
   const [contracts, setContracts] = useState<any[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [cts, setCts] = useState<any[] | null>(null);
 
   useEffect(() => {
-    api.get<any[]>('/contracts/mine').then(async list => {
+    api.get<any[]>('/contracts/mine').then(list => {
       setContracts(list);
-      if (list.length) {
-        const d = await api.get(`/contracts/${list[0].id}`);
-        setDetail(d);
-        const pmts = await api.get<any[]>('/payments/mine').catch(() => []);
-        setPayments(pmts);
-      }
+      if (list.length && !selectedId) setSelectedId(list[0].id);
     }).catch(() => setContracts([]));
     api.get<any[]>('/contracts/mine/cts').then(setCts).catch(() => setCts([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setDetail(null);
+    setPayments([]);
+    api.get(`/contracts/${selectedId}`).then(async d => {
+      setDetail(d);
+      const pmts = await api.get<any[]>('/payments/mine').catch(() => []);
+      setPayments(pmts.filter((payment: any) => !payment.contractId || payment.contractId === selectedId));
+    }).catch(() => setDetail({ error: true }));
+  }, [selectedId]);
 
   // Poll payment status after redirect from FedaPay/CinetPay
   useEffect(() => {
@@ -80,6 +88,17 @@ export default function MyContractUnified() {
 
   return (
     <div className="space-y-4">
+      {contracts.length > 1 && (
+        <Field label="Contrat affiché">
+          <select className="input" value={selectedId ?? ''} onChange={e => setSelectedId(e.target.value)}>
+            {contracts.map(contract => (
+              <option key={contract.id} value={contract.id}>
+                {contract.number} · {contract.product?.name ?? ''} · {statusLabel(contract.status)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       {/* Onglets */}
       <div className="flex rounded-xl bg-slate-100 p-1 gap-1">
         {TABS.map(t => (
@@ -97,10 +116,16 @@ export default function MyContractUnified() {
       </div>
 
       {/* Contenu */}
-      {tab === 'contrat' && detail && <ContractTab detail={detail} />}
-      {tab === 'paiements' && detail && <PaymentsTab detail={detail} payments={payments} />}
-      {tab === 'carte' && detail && <CardTab detail={detail} />}
-      {tab === 'compte' && <CtsTab rows={cts} />}
+      {detail?.error ? (
+        <ErrorBanner message="Contrat introuvable. Sélectionnez un autre contrat." />
+      ) : (
+        <>
+          {tab === 'contrat' && detail && <ContractTab detail={detail} />}
+          {tab === 'paiements' && detail && <PaymentsTab detail={detail} payments={payments} />}
+          {tab === 'carte' && detail && <CardTab detail={detail} />}
+          {tab === 'compte' && <CtsTab rows={cts} />}
+        </>
+      )}
     </div>
   );
 }
@@ -135,6 +160,22 @@ function ContractTab({ detail }: { detail: any }) {
   const daysLeft = detail.endDate
     ? Math.ceil((new Date(detail.endDate).getTime() - Date.now()) / 86400000)
     : null;
+  const [renewBusy, setRenewBusy] = useState(false);
+  const [renewError, setRenewError] = useState<string | null>(null);
+
+  const renew = async () => {
+    setRenewBusy(true);
+    setRenewError(null);
+    try {
+      await api.post(`/contracts/${detail.id}/renew`);
+      window.location.reload();
+    } catch (err: any) {
+      setRenewError(err?.message ?? 'Renouvellement impossible');
+    } finally {
+      setRenewBusy(false);
+    }
+  };
+  const historical = ['EXPIRED', 'TERMINATED'].includes(detail.status);
 
   return (
     <div className="space-y-4">
@@ -142,7 +183,16 @@ function ContractTab({ detail }: { detail: any }) {
         <PendingPaymentCard contract={detail} onPaid={() => window.location.reload()} />
       )}
 
-      {['ACTIVE', 'SUSPENDED'].includes(detail.status) && (
+      {historical && (
+        <div className="card-p bg-slate-50 border-slate-200">
+          <p className="font-semibold">Contrat {statusLabel(detail.status).toLowerCase()}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Ce contrat n’est plus actif, mais son historique, ses garanties et ses documents restent consultables ci-dessous.
+          </p>
+        </div>
+      )}
+
+      {['ACTIVE', 'SUSPENDED', 'EXPIRED', 'TERMINATED'].includes(detail.status) && (
         <>
           <div className="card-p">
             <div className="flex flex-wrap items-center gap-3">
@@ -159,11 +209,9 @@ function ContractTab({ detail }: { detail: any }) {
             {daysLeft != null && daysLeft <= 30 && (
               <div className="mt-3 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
                 <p className="text-sm font-medium text-orange-800">⚠️ Expire dans {daysLeft} jours</p>
-                <button
-                  className="btn-primary btn-sm mt-2"
-                  onClick={async () => { await api.post(`/contracts/${detail.id}/renew`); window.location.reload(); }}
-                >
-                  Renouveler
+                {renewError && <p className="mt-1 text-sm text-red-700">{renewError}</p>}
+                <button className="btn-primary btn-sm mt-2" disabled={renewBusy} onClick={renew}>
+                  {renewBusy ? 'Renouvellement…' : 'Renouveler'}
                 </button>
               </div>
             )}
@@ -293,12 +341,11 @@ function CardTab({ detail }: { detail: any }) {
 
       <div className="card-p text-center">
         <div className="flex justify-center">
-          <QRCodeSVG value={JSON.stringify({ card: detail.cardToken })} size={180} />
+          <QRCodeSVG value={cardQrPayload(detail.cardToken)} size={180} />
         </div>
         <p className="mt-2 text-xs font-semibold text-slate-400">
           Présentez ce QR chez un prestataire partenaire
         </p>
-        <p className="mt-1 text-[10px] text-slate-300 font-mono break-all">Token : {detail.cardToken}</p>
       </div>
 
       <div className="card-p">

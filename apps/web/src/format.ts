@@ -67,6 +67,9 @@ const STATUS_STYLES: Record<string, string> = {
 export const statusLabel = (s: string): string => STATUS_LABELS[s] ?? s;
 export const statusStyle = (s: string): string => STATUS_STYLES[s] ?? 'bg-slate-100 text-slate-600';
 
+/** Charge utile QR canonique comprise par `/provider/verify` (`{ t: jeton }`). */
+export const cardQrPayload = (cardToken: string): string => JSON.stringify({ t: cardToken });
+
 /**
  * Statuts d'ordonnance, libellés §5 (techniques inchangés côté API).
  * Note : CRÉÉE n'a pas d'état technique distinct — l'émission par un

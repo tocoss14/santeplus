@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { postAuthTarget, useAuth } from '../auth';
 import { ErrorBanner, Field } from '../components/ui';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -17,15 +19,7 @@ export default function Login() {
     setError(null);
     try {
       const me = await login(email, password);
-      const homes: Record<string, string> = {
-        MEMBER: '/app',
-        COMPANY_ADMIN: '/entreprise',
-        SUPER_ADMIN: '/admin',
-        INSURANCE_MANAGER: '/admin',
-        SUPPORT_AGENT: '/admin/claims',
-        PROVIDER: '/prestataire',
-      };
-      navigate(homes[me.role] ?? '/');
+      navigate(postAuthTarget(me.role, from));
     } catch (err: any) {
       setError(err?.message ?? 'Connexion impossible');
     } finally {

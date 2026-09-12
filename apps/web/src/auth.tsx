@@ -85,3 +85,8 @@ export const ROLE_HOME: Record<string, string> = {
   MEMBER: '/app',
   PROVIDER: '/prestataire',
 };
+
+export function postAuthTarget(role: string, from?: string | null): string {
+  if (from && from.startsWith('/')) return from;
+  return ROLE_HOME[role] ?? '/';
+}

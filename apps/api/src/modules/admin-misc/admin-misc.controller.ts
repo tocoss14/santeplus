@@ -71,10 +71,20 @@ export class AdminMiscController {
 
   @Get('audit')
   @RequirePermissions('audit.view')
-  async audit(@Query('page') page = '1', @Query('q') q?: string, @Query('userId') userId?: string, @Query('from') from?: string, @Query('to') to?: string) {
+  async audit(
+    @Query('page') page = '1',
+    @Query('q') q?: string,
+    @Query('entity') entity?: string,
+    @Query('action') action?: string,
+    @Query('userId') userId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const where: any = {};
     if (userId) where.userId = userId;
-    if (q) where.OR = [{ action: { contains: q } }, { entityType: { contains: q } }];
+    if (entity) where.entityType = { contains: entity };
+    if (action) where.action = { contains: action };
+    if (q) where.OR = [{ action: { contains: q } }, { entityType: { contains: q } }, { entityId: { contains: q } }];
     if (from || to) {
       where.createdAt = {};
       if (from) where.createdAt.gte = new Date(from);
@@ -90,7 +100,19 @@ export class AdminMiscController {
       }),
       this.prisma.auditLog.count({ where }),
     ]);
-    return { items, total, page: Number(page), pages: Math.ceil(total / 30) };
+    return {
+      items: items.map(item => ({
+        ...item,
+        entity: item.entityType,
+        details: item.meta,
+        user: item.user
+          ? { ...item.user, name: `${item.user.firstName} ${item.user.lastName}`.trim() }
+          : null,
+      })),
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / 30),
+    };
   }
 
   @Get('config')

@@ -68,6 +68,23 @@ const reconcileSchema = z.object({
   paidAmount: z.number().int().min(0),
 });
 
+const acknowledgeProviderRejectionSchema = z.object({
+  rejectionId: z.string().min(5),
+});
+
+const disputeProviderRejectionSchema = z.object({
+  rejectionId: z.string().min(5),
+  resolutionNote: z.string().min(5).max(500),
+});
+
+const createProviderBatchSchema = z.object({
+  periodStart: z.coerce.date(),
+  periodEnd: z.coerce.date(),
+}).refine(
+  value => value.periodEnd >= value.periodStart,
+  'La fin de période doit être postérieure ou égale au début',
+);
+
 @Controller('billing')
 @UseInterceptors(AuditInterceptor)
 export class BatchBillingController {
@@ -173,8 +190,72 @@ export class BatchBillingController {
   }
 }
 
+@Controller('provider')
+@UseInterceptors(AuditInterceptor)
+export class ProviderBillingController {
+  constructor(private billing: BatchBillingService) {}
+
+  @Get('batch-invoices')
+  @RequirePermissions('provider.thirdparty')
+  async providerBatchInvoices(@CurrentUser() auth: AuthUser, @Query('status') status?: string) {
+    return this.billing.providerBatchInvoices(auth.id, status);
+  }
+
+  @Get('batch-invoices/:id')
+  @RequirePermissions('provider.thirdparty')
+  async providerBatchInvoice(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
+    return this.billing.providerBatchInvoice(auth.id, id);
+  }
+
+  @Post('batch-invoices')
+  @RequirePermissions('provider.thirdparty')
+  async createProviderBatchInvoice(
+    @CurrentUser() auth: AuthUser,
+    @Body(new ZodPipe(createProviderBatchSchema)) dto: any,
+  ) {
+    return this.billing.createProviderBatchInvoice(auth.id, dto);
+  }
+
+  @Post('batch-invoices/submit')
+  @RequirePermissions('provider.thirdparty')
+  async submitProviderBatchInvoice(
+    @CurrentUser() auth: AuthUser,
+    @Body(new ZodPipe(submitBatchSchema)) dto: any,
+  ) {
+    return this.billing.submitProviderBatchInvoice(auth.id, dto.batchInvoiceId);
+  }
+
+  @Get('rejections')
+  @RequirePermissions('provider.thirdparty')
+  async providerRejections(
+    @CurrentUser() auth: AuthUser,
+    @Query('batchInvoiceId') batchInvoiceId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.billing.providerRejections(auth.id, batchInvoiceId, status);
+  }
+
+  @Post('rejections/acknowledge')
+  @RequirePermissions('provider.thirdparty')
+  async acknowledgeProviderRejection(
+    @CurrentUser() auth: AuthUser,
+    @Body(new ZodPipe(acknowledgeProviderRejectionSchema)) dto: any,
+  ) {
+    return this.billing.acknowledgeProviderRejection(auth.id, dto.rejectionId);
+  }
+
+  @Post('rejections/dispute')
+  @RequirePermissions('provider.thirdparty')
+  async disputeProviderRejection(
+    @CurrentUser() auth: AuthUser,
+    @Body(new ZodPipe(disputeProviderRejectionSchema)) dto: any,
+  ) {
+    return this.billing.disputeProviderRejection(auth.id, dto.rejectionId, dto.resolutionNote);
+  }
+}
+
 @Module({
-  controllers: [BatchBillingController],
+  controllers: [BatchBillingController, ProviderBillingController],
   providers: [BatchBillingService],
   exports: [BatchBillingService],
 })

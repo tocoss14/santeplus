@@ -4,6 +4,7 @@ import { computeQuote, computeFlexibleQuote, buildSchedule, Frequency, QuotePers
 import { ref, memberNumber, secureToken, startOfDay } from '../../common/utils';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { CtsService } from '../cts/cts.service';
+import { BirthCertificateService } from './birth-certificate.service';
 import { contractActivatedEmail, smsTemplates } from '../../common/notifications/email-templates';
 
 export interface BeneficiaryDraft {
@@ -22,6 +23,7 @@ export class SubscriptionService {
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
+    private birthCertificates: BirthCertificateService,
     @Optional() private cts?: CtsService,
   ) {}
 
@@ -114,6 +116,11 @@ export class SubscriptionService {
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.birthDate) throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de souscrire');
+
+    const birthCertificate = await this.birthCertificates.getVerificationStatus(userId);
+    if (!birthCertificate.verified) {
+      throw new BadRequestException('Acte de naissance vérifié requis avant la souscription');
+    }
 
     const activeContract = await this.prisma.contract.findFirst({
       where: { principalUserId: userId, status: { in: ['ACTIVE', 'PENDING_PAYMENT', 'DRAFT', 'SUSPENDED'] }, kind: 'INDIVIDUAL' },

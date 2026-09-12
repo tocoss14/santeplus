@@ -21,7 +21,7 @@ export default function MobileFacturesPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/provider/me/batch-invoices?${qs({ status: status || undefined })}`);
+      const res = await api.get(`/provider/batch-invoices?${qs({ status: status || undefined })}`);
       setFactures(res.items ?? res);
     } catch (e) {
       setFactures([]);
@@ -46,7 +46,7 @@ export default function MobileFacturesPage() {
     <div className="px-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="font-bold text-lg">Factures groupées</h1>
-        <Link to="/prestataire/mobile/factures/new" className="btn-primary btn-sm">+ Nouvelle</Link>
+        <Link to="/prestataire/mobile/factures/nouvelle" className="btn-primary btn-sm">+ Nouvelle</Link>
       </div>
 
       {/* Filtres */}

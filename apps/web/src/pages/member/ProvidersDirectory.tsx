@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api';
 import { PROVIDER_TYPES } from '../../format';
-import { EmptyState, Spinner } from '../../components/ui';
+import { EmptyState, ErrorBanner, Spinner } from '../../components/ui';
 
 export default function ProvidersDirectory() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -11,6 +11,7 @@ export default function ProvidersDirectory() {
   const [cities, setCities] = useState<string[]>([]);
   const [nearOnly, setNearOnly] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   useEffect(() => {
     api.get('/providers/cities').then(setCities).catch(() => {});
@@ -29,13 +30,17 @@ export default function ProvidersDirectory() {
   }, [q, type, city, nearOnly, coords]);
 
   function locate() {
-    if (!navigator.geolocation) return alert('Géolocalisation non disponible');
+    if (!navigator.geolocation) {
+      setGeoError('Géolocalisation non disponible sur cet appareil.');
+      return;
+    }
+    setGeoError(null);
     navigator.geolocation.getCurrentPosition(
       pos => {
         setCoords({ lat: +pos.coords.latitude.toFixed(4), lng: +pos.coords.longitude.toFixed(4) });
         setNearOnly(true);
       },
-      () => alert('Position indisponible'),
+      () => setGeoError('Position indisponible. Vérifiez l’autorisation de localisation, puis réessayez.'),
       { timeout: 8000 },
     );
   }
@@ -43,6 +48,7 @@ export default function ProvidersDirectory() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Réseau de soins partenaires</h1>
+      <ErrorBanner message={geoError} />
 
       <div className="card-p space-y-3">
         <input className="input" placeholder="Rechercher : pharmacie près de moi, clinique à Cotonou…" value={q} onChange={e => setQ(e.target.value)} />

@@ -120,14 +120,14 @@ describe('estimateClaim', () => {
     waitingPeriodDays: 30,
     excludedCategories: ['OPTICAL'],
     rules: [
-      { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80, deductibleType: 'NONE', deductibleValue: 0 },
-      { categoryId: 'PHARMACY', annualLimit: 250000, rate: 70, deductibleType: 'FIXED', deductibleValue: 5000 },
-      { categoryId: 'OPTICAL', annualLimit: 100000, rate: 60, deductibleType: 'PERCENT', deductibleValue: 10 },
+      { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80 },
+      { categoryId: 'PHARMACY', annualLimit: 250000, rate: 70 },
+      { categoryId: 'OPTICAL', annualLimit: 100000, rate: 60 },
     ],
     usedPerCategory: {},
   };
 
-  it('calcule taux et franchise (sans copay si non défini)', () => {
+  it('calcule taux sans franchise (sans copay si non défini)', () => {
     const r = estimateClaim(
       ctx,
       new Date('2026-06-10'),
@@ -137,8 +137,8 @@ describe('estimateClaim', () => {
       ],
     );
     expect(r.items[0].amountApproved).toBe(400000);
-    expect(r.items[1].deductibleApplied).toBe(5000);
-    expect(r.items[1].amountApproved).toBe(Math.round((50000 - 5000) * 0.7));
+    expect(r.items[1].deductibleApplied).toBe(0);
+    expect(r.items[1].amountApproved).toBe(Math.round(50000 * 0.7));
     expect(r.items[1].copayApplied).toBe(0);
     expect(r.totals.approved).toBe(r.items[0].amountApproved + r.items[1].amountApproved);
     expect(r.ok).toBe(true);
@@ -148,8 +148,8 @@ describe('estimateClaim', () => {
     const ctxWithCopay: ClaimCtx = {
       ...ctx,
       rules: [
-        { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80, deductibleType: 'NONE', deductibleValue: 0, copayRate: 20 },
-        { categoryId: 'PHARMACY', annualLimit: 250000, rate: 70, deductibleType: 'FIXED', deductibleValue: 5000, copayRate: 15 },
+        { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80, copayRate: 20 },
+        { categoryId: 'PHARMACY', annualLimit: 250000, rate: 70, copayRate: 15 },
       ],
     };
     const r = estimateClaim(ctxWithCopay, new Date('2026-06-10'), [
@@ -165,7 +165,7 @@ describe('estimateClaim', () => {
     const ctxWithFee: ClaimCtx = {
       ...ctx,
       rules: [
-        { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80, deductibleType: 'NONE', deductibleValue: 0, maxUnitPrice: 100000 },
+        { categoryId: 'HOSPITALIZATION', annualLimit: 3000000, rate: 80, maxUnitPrice: 100000 },
       ],
     };
     const r = estimateClaim(ctxWithFee, new Date('2026-06-10'), [
@@ -261,8 +261,8 @@ describe('computeFlexibleQuote', () => {
     minAge: 0,
     maxAge: 65,
     guaranteeOptions: [
-      { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 25000, minRate: 60, maxRate: 95, minLimit: 1000000, maxLimit: 10000000, limitStep: 500000, mandatory: true, customizable: true, deductibleType: 'NONE' as const, deductibleValue: 0, copayRate: 15 },
-      { categoryId: 'PHARMACY', categoryName: 'Pharmacie', basePrice: 12000, minRate: 50, maxRate: 85, minLimit: 100000, maxLimit: 500000, limitStep: 25000, mandatory: true, customizable: true, deductibleType: 'NONE' as const, deductibleValue: 0, copayRate: 15 },
+      { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 25000, minRate: 60, maxRate: 95, minLimit: 1000000, maxLimit: 10000000, limitStep: 500000, mandatory: true, customizable: true, copayRate: 15 },
+      { categoryId: 'PHARMACY', categoryName: 'Pharmacie', basePrice: 12000, minRate: 50, maxRate: 85, minLimit: 100000, maxLimit: 500000, limitStep: 25000, mandatory: true, customizable: true, copayRate: 15 },
     ],
   };
 

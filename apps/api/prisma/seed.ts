@@ -81,6 +81,10 @@ async function main() {
       { key: 'renewalAlertThreshold', value: '4' },
       { key: 'adhesionFeePerPerson', value: '3000' },
       { key: 'adhesionFeeEnterpriseCap', value: '100000' },
+      { key: 'solidarity.enabled', value: 'true' },
+      { key: 'solidarity.surplusShare', value: '0.2' },
+      { key: 'solidarity.individualFundCallCap', value: '100000' },
+      { key: 'solidarity.maxCoveragePerContract', value: '500000' },
       { key: 'retention.enabled', value: 'true' },
       { key: 'retention.careRecordDays', value: '3650' },
       { key: 'retention.auditDays', value: '1095' },
@@ -212,6 +216,7 @@ async function main() {
     pricePerChildAnnual: 48000, // 4 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 120000,
     globalAnnualCap: 500000, // Plafond annuel global par assuré
+    oopAnnualCap: 200000, // Plafond annuel de reste à charge (valeur de démonstration, à valider actuariellement)
     ageLoadings: [
       { minAge: 0, maxAge: 30, factor: 1.0 },
       { minAge: 31, maxAge: 45, factor: 1.1 },
@@ -228,7 +233,7 @@ async function main() {
     }),
     guarantees: [
       // Hospitalisation : 60%, plafond 150 000 FCFA/an, maxUnitPrice 45 000/jour
-      { category: 'HOSPITALIZATION', limit: 150000, rate: 60, minRate: 60, maxRate: 60, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 40, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 45000 },
+      { category: 'HOSPITALIZATION', limit: 150000, rate: 60, minRate: 60, maxRate: 60, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 40, maxUnitPrice: 45000 },
       // Consultation généraliste : 70%, plafond par acte 10 000 FCFA
       { category: 'CONSULTATION', limit: 100000, rate: 70, minRate: 70, maxRate: 70, minLimit: 100000, maxLimit: 100000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 10000 },
       // Pharmacie : 60%, plafond 15 000 FCFA/mois (180 000/an), maxUnitPrice 15 000/ordonnance
@@ -256,6 +261,7 @@ async function main() {
     pricePerChildAnnual: 108000, // 9 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 200000,
     globalAnnualCap: 1200000, // Plafond annuel global par assuré
+    oopAnnualCap: 150000, // Plafond annuel de reste à charge (valeur de démonstration, à valider actuariellement)
     ageLoadings: [
       { minAge: 0, maxAge: 30, factor: 1.0 },
       { minAge: 31, maxAge: 45, factor: 1.15 },
@@ -273,7 +279,7 @@ async function main() {
     }),
     guarantees: [
       // Hospitalisation médecine générale : 75%, plafond 500 000 FCFA/an, maxUnitPrice 45 000/jour
-      { category: 'HOSPITALIZATION', limit: 500000, rate: 75, minRate: 75, maxRate: 75, minLimit: 500000, maxLimit: 500000, limitStep: 0, customizable: false, copayRate: 25, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 45000 },
+      { category: 'HOSPITALIZATION', limit: 500000, rate: 75, minRate: 75, maxRate: 75, minLimit: 500000, maxLimit: 500000, limitStep: 0, customizable: false, copayRate: 25, maxUnitPrice: 45000 },
       // Consultation généraliste : 80%, maxUnitPrice 12 000/acte
       { category: 'CONSULTATION', limit: 144000, rate: 80, minRate: 80, maxRate: 80, minLimit: 144000, maxLimit: 144000, limitStep: 0, customizable: false, copayRate: 20, maxUnitPrice: 12000 },
       // Pharmacie : 70%, maxUnitPrice 30 000/ordonnance
@@ -282,12 +288,12 @@ async function main() {
       { category: 'LABORATORY', limit: 75000, rate: 70, minRate: 70, maxRate: 70, minLimit: 75000, maxLimit: 75000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 15000 },
       // Soins spécialisés : 70%, maxUnitPrice 15 000/acte
       { category: 'SPECIALIZED', limit: 200000, rate: 70, minRate: 70, maxRate: 70, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 15000 },
-      // Maternité : forfait 200 000 FCFA
-      { category: 'MATERNITY', limit: 200000, rate: 100, minRate: 100, maxRate: 100, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 200000 },
+      // Maternité : forfait 200 000 FCFA, sans copay explicite
+      { category: 'MATERNITY', limit: 200000, rate: 100, minRate: 100, maxRate: 100, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, copayRate: 0, maxUnitPrice: 200000 },
       // Dentaire : 60%, maxUnitPrice 15 000/acte
       { category: 'DENTAL', limit: 40000, rate: 60, minRate: 60, maxRate: 60, minLimit: 40000, maxLimit: 40000, limitStep: 0, customizable: false, copayRate: 40, maxUnitPrice: 15000 },
-      // Optique : forfait 30 000 FCFA tous les 2 ans
-      { category: 'OPTICAL', limit: 30000, rate: 100, minRate: 100, maxRate: 100, minLimit: 30000, maxLimit: 30000, limitStep: 0, customizable: false, maxUnitPrice: 30000 },
+      // Optique : forfait 30 000 FCFA tous les 2 ans, sans copay explicite
+      { category: 'OPTICAL', limit: 30000, rate: 100, minRate: 100, maxRate: 100, minLimit: 30000, maxLimit: 30000, limitStep: 0, customizable: false, copayRate: 0, maxUnitPrice: 30000 },
     ],
   });
 
@@ -303,6 +309,7 @@ async function main() {
     pricePerChildAnnual: 240000, // 20 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 150000, // Entente préalable à partir de 150 000 FCFA
     globalAnnualCap: 3000000, // Plafond annuel global par assuré
+    oopAnnualCap: 100000, // Plafond annuel de reste à charge (valeur de démonstration, à valider actuariellement)
     ageLoadings: [
       { minAge: 0, maxAge: 30, factor: 1.0 },
       { minAge: 31, maxAge: 45, factor: 1.15 },
@@ -321,7 +328,7 @@ async function main() {
     }),
     guarantees: [
       // Hospitalisation (toutes cliniques) : 90%, plafond 1 500 000 FCFA/an, maxUnitPrice 45 000/jour
-      { category: 'HOSPITALIZATION', limit: 1500000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1500000, maxLimit: 1500000, limitStep: 0, customizable: false, copayRate: 10, deductibleType: 'FIXED', deductibleValue: 10000, maxUnitPrice: 45000 },
+      { category: 'HOSPITALIZATION', limit: 1500000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1500000, maxLimit: 1500000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 45000 },
       // Consultations (généraliste + spécialiste) : 90%, maxUnitPrice 25 000/acte
       { category: 'CONSULTATION', limit: 300000, rate: 90, minRate: 90, maxRate: 90, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 25000 },
       // Pharmacie : 90%, maxUnitPrice 40 000/ordonnance
@@ -350,6 +357,7 @@ async function main() {
     pricePerChildAnnual: 48000, // 4 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 150000,
     globalAnnualCap: 500000, // Plafond annuel global par salarié
+    oopAnnualCap: 150000, // Plafond annuel de reste à charge (valeur de démonstration, à valider actuariellement)
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 23, otherAllowed: false, maxBeneficiaries: 6 },
     eligibilityConditions: JSON.stringify({
@@ -361,15 +369,15 @@ async function main() {
     }),
     guarantees: [
       // Hospitalisation : 70%, plafond 350 000 FCFA/an
-      { category: 'HOSPITALIZATION', limit: 350000, rate: 70, minRate: 70, maxRate: 70, minLimit: 350000, maxLimit: 350000, limitStep: 0, customizable: false, copayRate: 30, deductibleType: 'FIXED', deductibleValue: 10000 },
+      { category: 'HOSPITALIZATION', limit: 350000, rate: 70, minRate: 70, maxRate: 70, minLimit: 350000, maxLimit: 350000, limitStep: 0, customizable: false, copayRate: 30 },
       // Consultations : 70%, plafond 10 000 FCFA/acte
       { category: 'CONSULTATION', limit: 120000, rate: 70, minRate: 70, maxRate: 70, minLimit: 120000, maxLimit: 120000, limitStep: 0, customizable: false, copayRate: 30 },
       // Pharmacie : 70%, plafond 25 000 FCFA/mois (300 000/an)
       { category: 'PHARMACY', limit: 300000, rate: 70, minRate: 70, maxRate: 70, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 30 },
       // Analyses : 70%, plafond 50 000 FCFA/an
       { category: 'LABORATORY', limit: 50000, rate: 70, minRate: 70, maxRate: 70, minLimit: 50000, maxLimit: 50000, limitStep: 0, customizable: false, copayRate: 30 },
-      // Maternité : forfait 150 000 FCFA, carence 10 mois
-      { category: 'MATERNITY', limit: 150000, rate: 100, minRate: 100, maxRate: 100, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, deductibleType: 'FIXED', deductibleValue: 10000 },
+      // Maternité : forfait 150 000 FCFA, carence 10 mois, sans copay explicite
+      { category: 'MATERNITY', limit: 150000, rate: 100, minRate: 100, maxRate: 100, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 0 },
     ],
     exclusions: [
       { categoryId: 'DENTAL', description: 'Soins dentaires non couverts par le contrat Entreprise Performance' },
@@ -389,6 +397,7 @@ async function main() {
     pricePerChildAnnual: 96000, // 8 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 100000, // Entente préalable plus stricte
     globalAnnualCap: 1200000, // Plafond annuel global par salarié
+    oopAnnualCap: 100000, // Plafond annuel de reste à charge (valeur de démonstration, à valider actuariellement)
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 25, otherAllowed: false, maxBeneficiaries: 8 },
     eligibilityConditions: JSON.stringify({
@@ -401,7 +410,7 @@ async function main() {
     }),
     guarantees: [
       // Hospitalisation (toutes cliniques) : 90%, plafond 1 000 000 FCFA/an, entente préalable
-      { category: 'HOSPITALIZATION', limit: 1000000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1000000, maxLimit: 1000000, limitStep: 0, customizable: false, copayRate: 10, deductibleType: 'FIXED', deductibleValue: 10000 },
+      { category: 'HOSPITALIZATION', limit: 1000000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1000000, maxLimit: 1000000, limitStep: 0, customizable: false, copayRate: 10 },
       // Consultations : 90%, plafond 20 000 FCFA/acte
       { category: 'CONSULTATION', limit: 240000, rate: 90, minRate: 90, maxRate: 90, minLimit: 240000, maxLimit: 240000, limitStep: 0, customizable: false, copayRate: 10 },
       // Pharmacie : 85%, plafond 40 000 FCFA/mois (480 000/an)

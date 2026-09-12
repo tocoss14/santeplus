@@ -15,6 +15,16 @@ export interface BeneficiaryDraft {
   relation: 'SPOUSE' | 'CHILD' | 'OTHER';
 }
 
+export interface GuaranteeChangeEstimateInput {
+  productId: string;
+  categoryId: string;
+  requestedRate?: number | null;
+  requestedAnnualLimit?: number | null;
+  reason: string;
+  frequency: Frequency;
+  beneficiaries?: Array<{ birthDate: Date; relation: 'SPOUSE' | 'CHILD' | 'OTHER' }>;
+}
+
 const DEFAULT_ADHESION_PER_PERSON = 3000;
 const DEFAULT_ADHESION_ENTERPRISE_CAP = 100000;
 
@@ -64,8 +74,8 @@ export class SubscriptionService {
         limitStep: pg.limitStep ?? 50000,
         mandatory: pg.mandatory ?? true,
         customizable: pg.customizable ?? false,
-        deductibleType: pg.deductibleType ?? 'NONE',
-        deductibleValue: pg.deductibleValue ?? 0,
+        rate: pg.rate ?? pg.minRate ?? 50,
+        annualLimit: pg.annualLimit ?? pg.maxLimit ?? 0,
         copayRate: pg.copayRate ?? 15,
       })),
     };
@@ -90,6 +100,102 @@ export class SubscriptionService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.birthDate) throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de simuler');
     return this.quote(productId, user.birthDate, beneficiaries as BeneficiaryDraft[], frequency, selectedGuarantees);
+  }
+
+  async requestGuaranteeChange(userId: string, input: GuaranteeChangeEstimateInput) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.birthDate) {
+      throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de demander une modification');
+    }
+
+    const product = await this.getActiveProduct(input.productId);
+    if (product.clientType !== 'INDIVIDUAL') {
+      throw new BadRequestException('Produit réservé aux entreprises');
+    }
+
+    const pricing = this.parseProduct(product);
+    const option = pricing.guaranteeOptions?.find((item: any) => item.categoryId === input.categoryId);
+    if (!option) throw new BadRequestException('Garantie introuvable pour cette formule');
+
+    const currentRate = option.rate ?? option.minRate;
+    const currentLimit = option.annualLimit ?? option.maxLimit;
+    const requestedRate = input.requestedRate ?? currentRate;
+    const requestedLimit = input.requestedAnnualLimit ?? currentLimit;
+    if (requestedRate === currentRate && requestedLimit === currentLimit) {
+      throw new BadRequestException('La demande est identique aux garanties actuelles de la formule');
+    }
+    if (requestedRate < option.minRate || requestedRate > option.maxRate) {
+      throw new BadRequestException(`Le taux demandé doit être compris entre ${option.minRate} % et ${option.maxRate} %`);
+    }
+    if (requestedLimit < option.minLimit || requestedLimit > option.maxLimit) {
+      throw new BadRequestException(`Le plafond demandé doit être compris entre ${option.minLimit} et ${option.maxLimit} FCFA`);
+    }
+
+    const persons: QuotePerson[] = [
+      { birthDate: user.birthDate, relation: 'PRINCIPAL' },
+      ...(input.beneficiaries ?? []).map((item: { birthDate: Date; relation: 'SPOUSE' | 'CHILD' | 'OTHER' }) => ({
+        birthDate: item.birthDate,
+        relation: item.relation,
+      })),
+    ];
+    const currentSelection = (pricing.guaranteeOptions ?? []).map((item: any) => ({
+      categoryId: item.categoryId,
+      rate: item.rate ?? item.minRate,
+      annualLimit: item.annualLimit ?? item.maxLimit,
+    }));
+    const requestedSelection = currentSelection.map((item: any) =>
+      item.categoryId === option.categoryId
+        ? { ...item, rate: requestedRate, annualLimit: requestedLimit }
+        : item,
+    );
+    const current = computeFlexibleQuote(pricing, persons, input.frequency, currentSelection);
+    const projected = computeFlexibleQuote(pricing, persons, input.frequency, requestedSelection);
+    if (current.errors.length) throw new BadRequestException({ message: current.errors[0], errors: current.errors });
+    if (projected.errors.length || !projected.quote) {
+      throw new BadRequestException({ message: projected.errors[0] ?? 'Estimation impossible', errors: projected.errors });
+    }
+
+    const managers = await this.prisma.user.findMany({
+      where: { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER'] }, status: 'ACTIVE' },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    if (!managers.length) throw new BadRequestException('Aucun gestionnaire disponible pour traiter la demande');
+
+    const reference = ref('GMD');
+    const baselineAnnual = current.quote!.totalAnnual;
+    const projectedAnnual = projected.quote.totalAnnual;
+    const request = {
+      reference,
+      product: { id: product.id, name: product.name, code: product.code },
+      category: { id: option.categoryId, name: option.categoryName ?? option.categoryId },
+      current: { rate: currentRate, annualLimit: currentLimit },
+      requested: { rate: requestedRate, annualLimit: requestedLimit },
+      frequency: input.frequency,
+      baselineAnnual,
+      projectedAnnual,
+      deltaAnnual: projectedAnnual - baselineAnnual,
+      reason: input.reason,
+      requester: { id: user.id, name: `${user.firstName} ${user.lastName}`, email: user.email },
+      beneficiaryCount: persons.length - 1,
+    };
+
+    await this.dispatch.dispatchToMany(
+      managers.map((manager: any) => manager.id),
+      {
+        topic: 'GUARANTEE_CHANGE_REQUEST',
+        title: `Demande de garantie ${reference} — ${product.name}`,
+        body: `${request.requester.name} demande ${request.category.name} : ${currentRate}% / ${currentLimit} FCFA → ${requestedRate}% / ${requestedLimit} FCFA. Prime estimée : ${baselineAnnual} → ${projectedAnnual} FCFA/an (${request.deltaAnnual >= 0 ? '+' : ''}${request.deltaAnnual} FCFA). Motif : ${input.reason}`,
+        meta: request,
+      },
+    );
+    await this.dispatch.dispatchToUser(userId, {
+      topic: 'GUARANTEE_CHANGE_REQUEST_SENT',
+      title: `Demande ${reference} transmise`,
+      body: `Votre demande a été transmise à un gestionnaire. Impact estimé : ${baselineAnnual} → ${projectedAnnual} FCFA/an pour l’assuré principal.`,
+      meta: request,
+    }).catch(() => {});
+
+    return { ...request, managersNotified: managers.length };
   }
 
   async validateBeneficiaryRules(productId: string, existingCount: number, draft: BeneficiaryDraft) {

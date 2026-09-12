@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { fcfa, CATEGORY_LABELS } from '../format';
+import { fcfa, netCoverageLabel, CATEGORY_LABELS } from '../format';
 
 export default function Offers() {
   const [products, setProducts] = useState<any[]>([]);
@@ -40,7 +40,7 @@ export default function Offers() {
                   <div key={g.id} className="flex items-baseline justify-between gap-3 text-sm border-b border-dashed border-slate-100 pb-1.5">
                     <span>{CATEGORY_LABELS[g.guarantee.category] ?? g.guarantee.name}</span>
                     <span className="shrink-0 text-xs text-slate-500">
-                      {g.rate}% {g.annualLimit != null && `· plafond ${fcfa(g.annualLimit)}`}
+                      {g.rate}% brut · net {netCoverageLabel(g.rate, g.copayRate)} {g.annualLimit != null && `· plafond ${fcfa(g.annualLimit)}`}
                     </span>
                   </div>
                 ))}
@@ -48,6 +48,7 @@ export default function Offers() {
               <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                 {p.insurerPartner?.name && <span>Porté par <b>{p.insurerPartner.name}</b></span>}
                 {p.waitingPeriodDays > 0 && <span>Délai de carence : {p.waitingPeriodDays} j</span>}
+                {p.oopAnnualCap != null && <span className="font-semibold text-emerald-700">Reste à charge max/an : {fcfa(p.oopAnnualCap)}</span>}
                 <button onClick={() => setDetail(p)} className="font-semibold text-brand-700 hover:underline">Détails & exclusions</button>
               </div>
             </div>
@@ -72,18 +73,19 @@ export default function Offers() {
             </div>
             <h4 className="label mt-4">Garanties</h4>
             <table className="w-full text-sm">
-              <thead><tr><th className="th">Garantie</th><th className="th">Taux</th><th className="th">Plafond annuel</th><th className="th">Franchise</th></tr></thead>
+              <thead><tr><th className="th">Garantie</th><th className="th">Taux brut</th><th className="th">Net estimé</th><th className="th">Plafond annuel</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {detail.guarantees.map((g: any) => (
                   <tr key={g.id}>
                     <td className="td">{CATEGORY_LABELS[g.guarantee.category]}</td>
                     <td className="td">{g.rate}%</td>
+                    <td className="td font-semibold text-emerald-700">{netCoverageLabel(g.rate, g.copayRate)}</td>
                     <td className="td">{g.annualLimit == null ? 'Illimité' : fcfa(g.annualLimit)}</td>
-                    <td className="td">{g.deductibleType === 'NONE' ? '—' : g.deductibleType === 'FIXED' ? fcfa(g.deductibleValue) : `${g.deductibleValue}%`}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <p className="mt-2 text-xs text-slate-500">Net estimé avant barème, plafonds et plafond annuel de reste à charge.</p>
             {detail.exclusions?.length > 0 && (
               <>
                 <h4 className="label mt-4">Exclusions</h4>
@@ -94,6 +96,7 @@ export default function Offers() {
             )}
             <h4 className="label mt-4">Conditions</h4>
             <ul className="list-disc pl-5 text-sm text-slate-600">
+              {detail.oopAnnualCap != null && <li className="font-semibold text-emerald-700">Reste à charge maximum : {fcfa(detail.oopAnnualCap)}/an pour les soins éligibles</li>}
               <li>Âge : de {detail.minAge} à {detail.maxAge} ans</li>
               <li>Délai de carence : {detail.waitingPeriodDays > 0 ? `${detail.waitingPeriodDays} jours` : 'aucun'}</li>
               <li>Ayants droit autorisés : conjoint{detail.beneficiaryRules?.childMaxAge ? `, enfants < ${detail.beneficiaryRules.childMaxAge} ans` : ''}</li>

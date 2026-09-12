@@ -31,6 +31,7 @@ export default function AdminClaims() {
 
   return (
     <div className="space-y-4">
+      <AutoApprovalCard />
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold mr-auto">Demandes de remboursement</h1>
         <select className="input w-auto" value={status} onChange={e => setStatus(e.target.value)}>
@@ -124,6 +125,77 @@ export default function AdminClaims() {
   );
 }
 
+function AutoApprovalCard() {
+  const [visible, setVisible] = useState(false);
+  const [threshold, setThreshold] = useState('0');
+  const [auditPercent, setAuditPercent] = useState('10');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.get<Record<string, any>>('/admin/config')
+      .then(cfg => {
+        setThreshold(String(cfg.autoApproveThreshold ?? 0));
+        setAuditPercent(String(cfg.autoApproveAuditPercent ?? 10));
+        setVisible(true);
+      })
+      .catch(() => setVisible(false));
+  }, []);
+
+  if (!visible) return null;
+
+  const save = async () => {
+    const thresholdValue = Number(threshold);
+    const auditValue = Number(auditPercent);
+    if (!Number.isInteger(thresholdValue) || thresholdValue < 0 || thresholdValue > 100000) {
+      setError('Seuil invalide : entier entre 0 et 100 000 FCFA (0 = désactivé).');
+      return;
+    }
+    if (!Number.isFinite(auditValue) || auditValue < 0 || auditValue > 100) {
+      setError('Audit invalide : pourcentage entre 0 et 100.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await api.post('/admin/config', {
+        autoApproveThreshold: thresholdValue,
+        autoApproveAuditPercent: Math.round(auditValue),
+      });
+      setSaved(true);
+    } catch (err: any) {
+      setError(err?.message ?? 'Enregistrement impossible');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card-p space-y-3 border-brand-200">
+      <h2 className="font-semibold">Approbation automatique des petits dossiers</h2>
+      <p className="text-xs text-slate-500">
+        Réservée aux remboursements propres, sans drapeau, avec facture. Le seuil est plafonné à 100 000 FCFA.
+        Un échantillon des dossiers auto-approuvés est signalé pour contrôle a posteriori avant paiement.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Seuil (FCFA, 0 = désactivé)">
+          <input type="number" className="input" min={0} max={100000} value={threshold} onChange={e => { setThreshold(e.target.value); setSaved(false); }} />
+        </Field>
+        <Field label="Audit a posteriori (%)">
+          <input type="number" className="input" min={0} max={100} value={auditPercent} onChange={e => { setAuditPercent(e.target.value); setSaved(false); }} />
+        </Field>
+      </div>
+      {error && <ErrorBanner message={error} />}
+      {saved && <p className="text-xs font-medium text-emerald-700">Paramètres enregistrés.</p>}
+      <button className="btn-primary btn-sm" disabled={busy} onClick={save}>
+        {busy ? 'Enregistrement…' : 'Enregistrer'}
+      </button>
+    </div>
+  );
+}
+
 function ReviewModal({ claimId, onClose, onChanged }: { claimId: string; onClose: () => void; onChanged: () => void }) {
   const [claim, setClaim] = useState<any>(null);
   const [note, setNote] = useState('');
@@ -208,14 +280,13 @@ function ReviewModal({ claimId, onClose, onChanged }: { claimId: string; onClose
       <div className="mt-4">
         <p className="label">Prestations {editable && '(montants ajustables)'}</p>
         <table className="w-full text-sm">
-          <thead><tr><th className="th">Catégorie</th><th className="th">Éligible</th><th className="th">Taux</th><th className="th">Franchise</th><th className="th">Approuvé</th></tr></thead>
+          <thead><tr><th className="th">Catégorie</th><th className="th">Éligible</th><th className="th">Taux</th><th className="th">Approuvé</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {claim.items.map((it: any) => (
               <tr key={it.id}>
                 <td className="td">{it.categoryLabel}</td>
                 <td className="td">{fcfa(it.amountEligible)}</td>
                 <td className="td">{it.rateApplied != null ? `${it.rateApplied}%` : '—'}</td>
-                <td className="td">{it.deductibleApplied ? fcfa(it.deductibleApplied) : '—'}</td>
                 <td className="td w-32">
       {claim.kind === 'THIRDPARTY' ? (
         claim.status === 'AUTH_REQUIRED' ? (

@@ -41,6 +41,8 @@ const productBaseSchema = z
     pricePerChildAnnual: z.number().int().min(0).default(0),
     frequencyFactors: z.record(z.number()).optional(),
     waitingPeriodDays: z.number().int().min(0).max(365).default(0),
+    globalAnnualCap: z.number().int().min(0).default(5000000),
+    oopAnnualCap: z.number().int().min(1).max(10000000).nullable().optional(),
     eligibilityConditions: z.string().max(2000).optional(),
     renewalConditions: z.string().max(2000).optional(),
     status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).default('DRAFT'),
@@ -51,24 +53,24 @@ const productBaseSchema = z
     ctsConfig: ctsConfigSchema.optional(),
     guarantees: z
       .array(
-        z.object({
-          guaranteeId: z.string(),
-          annualLimit: z.number().int().nullable(),
-          familyLimit: z.number().int().min(0).nullable().optional(),
-          rate: z.number().int().min(0).max(100).nullable().optional(),
-          minRate: z.number().int().min(0).max(100).default(50),
-          maxRate: z.number().int().min(0).max(100).default(95),
-          minLimit: z.number().int().min(0).default(0),
-          maxLimit: z.number().int().min(0).default(10000000),
-          limitStep: z.number().int().min(1000).default(50000),
-          pricePerLimitStep: z.number().int().min(0).default(0),
-          deductibleType: z.enum(['NONE', 'FIXED', 'PERCENT']).default('NONE'),
-          deductibleValue: z.number().int().min(0).default(0),
-          copayRate: z.number().int().min(0).max(50).default(15),
-          maxUnitPrice: z.number().int().nullable().optional(),
-          mandatory: z.boolean().default(true),
-          customizable: z.boolean().default(false),
-        }),
+        z
+          .object({
+            guaranteeId: z.string(),
+            annualLimit: z.number().int().nullable(),
+            familyLimit: z.number().int().min(0).nullable().optional(),
+            rate: z.number().int().min(0).max(100).nullable().optional(),
+            minRate: z.number().int().min(0).max(100).default(50),
+            maxRate: z.number().int().min(0).max(100).default(95),
+            minLimit: z.number().int().min(0).default(0),
+            maxLimit: z.number().int().min(0).default(10000000),
+            limitStep: z.number().int().min(1000).default(50000),
+            pricePerLimitStep: z.number().int().min(0).default(0),
+            copayRate: z.number().int().min(0).max(50).default(15),
+            maxUnitPrice: z.number().int().nullable().optional(),
+            mandatory: z.boolean().default(true),
+            customizable: z.boolean().default(false),
+          })
+          .strict(),
       )
       .optional(),
     exclusions: z.array(z.object({ categoryId: z.string().optional(), description: z.string() })).optional(),
@@ -127,8 +129,19 @@ export class ProductsService {
     return p;
   }
 
+  private assertOopCap(oopAnnualCap: number | null | undefined, globalAnnualCap: number) {
+    if (oopAnnualCap === undefined || oopAnnualCap === null) return;
+    if (!Number.isInteger(oopAnnualCap) || oopAnnualCap <= 0) {
+      throw new BadRequestException('Plafond de reste à charge invalide (entier strictement positif requis)');
+    }
+    if (globalAnnualCap > 0 && oopAnnualCap > globalAnnualCap) {
+      throw new BadRequestException('Le plafond de reste à charge doit être inférieur au plafond annuel global');
+    }
+  }
+
   async create(dto: any) {
     await this.assertCodeFree(dto.code);
+    this.assertOopCap(dto.oopAnnualCap, dto.globalAnnualCap ?? 5000000);
     const { guarantees, exclusions, frequencyFactors, beneficiaryRules, ctsConfig, ...rest } = dto;
     return this.prisma.$transaction(async tx => {
       const product = await tx.product.create({
@@ -150,7 +163,13 @@ export class ProductsService {
   }
 
   async update(id: string, dto: any) {
-    await this.getForAdmin(id);
+    const existing = await this.getForAdmin(id);
+    if (dto.oopAnnualCap !== undefined || dto.globalAnnualCap !== undefined) {
+      this.assertOopCap(
+        dto.oopAnnualCap !== undefined ? dto.oopAnnualCap : (existing as any).oopAnnualCap,
+        dto.globalAnnualCap ?? (existing as any).globalAnnualCap ?? 0,
+      );
+    }
     const { guarantees, exclusions, frequencyFactors, beneficiaryRules, ctsConfig, code, ...rest } = dto;
     return this.prisma.$transaction(async tx => {
       if (code && code !== (await tx.product.findUnique({ where: { id } }))!.code) await this.assertCodeFree(code);

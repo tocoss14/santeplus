@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
-import { Badge, ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, Spinner } from '../../components/ui';
 import FormulaComparisonTable from '../../components/FormulaComparisonTable';
 
 interface BenefDraft {
@@ -13,110 +13,36 @@ interface BenefDraft {
   relation: string;
 }
 
-interface SelectedGuarantee {
-  categoryId: string;
-  rate: number;
-  annualLimit: number;
+interface InitialProfile {
+  firstName: string;
+  lastName: string;
+  birthDate: string;
 }
 
 interface GuaranteeOption {
   categoryId: string;
   categoryName: string;
   basePrice: number;
+  rate: number;
+  annualLimit: number | null;
   minRate: number;
   maxRate: number;
   minLimit: number;
   maxLimit: number;
-  limitStep: number;
   mandatory: boolean;
   customizable: boolean;
+  copayRate: number;
 }
 
-const STEPS = ['Formule', 'Acte de naissance', 'Mes garanties', 'Photo', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
-
-function GuaranteeSlider({ option, value, onChange }: { option: GuaranteeOption; value: SelectedGuarantee; onChange: (v: SelectedGuarantee) => void }) {
-  const rateSteps = Math.min(10, option.maxRate - option.minRate);
-  const limitSteps = Math.floor((option.maxLimit - option.minLimit) / option.limitStep);
-
-  return (
-    <div className="card-p space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-semibold">{CATEGORY_LABELS[option.categoryId] ?? option.categoryName}</p>
-          <p className="text-xs text-slate-400">Coût de base : {fcfa(option.basePrice)}/an</p>
-        </div>
-        {option.mandatory && !option.customizable && (
-          <Badge tone="bg-slate-100 text-slate-500">Inclus</Badge>
-        )}
-        {option.customizable && (
-          <Badge tone="bg-brand-100 text-brand-700">Personnalisable</Badge>
-        )}
-      </div>
-
-      {option.customizable ? (
-        <>
-          {/* Taux de couverture */}
-          <div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600">Taux de couverture</span>
-              <span className="font-bold text-brand-700">{value.rate}%</span>
-            </div>
-            <input
-              type="range"
-              min={option.minRate}
-              max={option.maxRate}
-              step={5}
-              value={value.rate}
-              aria-label={`Taux de couverture ${CATEGORY_LABELS[option.categoryId] ?? option.categoryName}`}
-              onChange={e => onChange({ ...value, rate: Number(e.target.value) })}
-              className="h-8 w-full accent-brand-600"
-            />
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>{option.minRate}% (économique)</span>
-              <span>{option.maxRate}% (premium)</span>
-            </div>
-          </div>
-
-          {/* Plafond annuel */}
-          <div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600">Plafond annuel</span>
-              <span className="font-bold text-brand-700">{fcfa(value.annualLimit)}</span>
-            </div>
-            <input
-              type="range"
-              min={option.minLimit}
-              max={option.maxLimit}
-              step={option.limitStep}
-              value={value.annualLimit}
-              aria-label={`Plafond annuel ${CATEGORY_LABELS[option.categoryId] ?? option.categoryName}`}
-              onChange={e => onChange({ ...value, annualLimit: Number(e.target.value) })}
-              className="h-8 w-full accent-brand-600"
-            />
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>{fcfa(option.minLimit)}</span>
-              <span>{fcfa(option.maxLimit)}</span>
-            </div>
-          </div>
-
-          {/* Estimation du coût */}
-          <div className="rounded-lg bg-slate-50 p-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Coût estimé</span>
-              <span className="font-semibold">
-                {fcfa(Math.round(option.basePrice * (value.rate / 100) * (value.annualLimit / (option.minLimit || 100000))))}
-              </span>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="text-sm text-slate-500">
-          Taux : {option.minRate}% · Plafond : {fcfa(option.maxLimit)}
-        </div>
-      )}
-    </div>
-  );
+interface GuaranteeChangeDraft {
+  categoryId: string;
+  categoryName: string;
+  requestedRate: string;
+  requestedAnnualLimit: string;
+  reason: string;
 }
+
+const STEPS = ['Profil initial', 'Formule', 'Acte de naissance', 'Garanties incluses', 'Photo', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
 
 export default function SubscribeWizard() {
   const location = useLocation();
@@ -127,8 +53,13 @@ export default function SubscribeWizard() {
     (location.state as any)?.productId ?? new URLSearchParams(location.search).get('productId') ?? '',
   );
   const [frequency, setFrequency] = useState('ANNUAL');
-  const [selectedGuarantees, setSelectedGuarantees] = useState<SelectedGuarantee[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BenefDraft[]>([]);
+  const [initialProfile, setInitialProfile] = useState<InitialProfile>({ firstName: '', lastName: '', birthDate: '' });
+  const [initialProfileError, setInitialProfileError] = useState<string | null>(null);
+  const [guaranteeRequest, setGuaranteeRequest] = useState<GuaranteeChangeDraft | null>(null);
+  const [guaranteeRequestResult, setGuaranteeRequestResult] = useState<any | null>(null);
+  const [guaranteeRequestError, setGuaranteeRequestError] = useState<string | null>(null);
+  const [guaranteeRequestBusy, setGuaranteeRequestBusy] = useState(false);
   const [quote, setQuote] = useState<any>(null);
   const [flexibleDetails, setFlexibleDetails] = useState<any>(null);
   const [adhesion, setAdhesion] = useState<any>(null);
@@ -171,7 +102,7 @@ export default function SubscribeWizard() {
         if (list.length) {
           const contract = list[0];
           if (contract.status === 'ACTIVE') {
-            setStep(7); // Go to success
+            setStep(8); // Go to success
             setSubscription({ contractId: contract.id, number: contract.number });
           } else {
             // Poll payment status
@@ -186,15 +117,15 @@ export default function SubscribeWizard() {
                   const res = await api.get<{ status: string }>(`/payments/${last.id}/status`);
                   if (res.status === 'SUCCEEDED') {
                     clearInterval(poll);
-                    setStep(7);
+                    setStep(8);
                     setSubscription({ contractId: contract.id, number: contract.number });
                   } else if (res.status === 'FAILED') {
                     clearInterval(poll);
                     setError('Le paiement a échoué. Réessayez.');
-                    setStep(6);
+                    setStep(7);
 } else if (attempts >= 10) {
                     clearInterval(poll);
-                    setStep(6);
+                    setStep(7);
                     setError('Paiement en cours de traitement. Vérifiez votre contrat dans quelques minutes.');
                   }
                 } catch {
@@ -202,9 +133,9 @@ export default function SubscribeWizard() {
                 }
               }, 3000);
             } else if (last && last.status === 'SUCCEEDED') {
-              setStep(6);
+              setStep(7);
             } else {
-              setStep(5);
+              setStep(6);
             }
           }
         }
@@ -227,7 +158,7 @@ export default function SubscribeWizard() {
       setPaymentMethods(m);
       if (m[0]) setMethod(m[0].code);
     }).catch((e: any) => {
-      // Sans moyens de paiement l'étape 6 est dans une impasse — l'afficher.
+      // Sans moyens de paiement l'étape 7 est dans une impasse — l'afficher.
       setMethodsError(e?.message ?? 'Impossible de charger les moyens de paiement');
     });
   }, []);
@@ -241,39 +172,26 @@ export default function SubscribeWizard() {
       categoryId: pg.guarantee.category,
       categoryName: pg.guarantee.name,
       basePrice: pg.guarantee.basePrice ?? 0,
-      minRate: pg.minRate ?? 50,
-      maxRate: pg.maxRate ?? 95,
+      rate: pg.rate ?? pg.minRate ?? 0,
+      annualLimit: pg.annualLimit ?? null,
+      minRate: pg.minRate ?? 0,
+      maxRate: pg.maxRate ?? 100,
       minLimit: pg.minLimit ?? 0,
       maxLimit: pg.maxLimit ?? 10000000,
-      limitStep: pg.limitStep ?? 50000,
       mandatory: pg.mandatory ?? true,
       customizable: pg.customizable ?? false,
+      copayRate: pg.copayRate ?? 0,
     }));
   }, [product]);
 
-  // Initialiser les garanties sélectionnées quand le produit change
-  useEffect(() => {
-    if (guaranteeOptions.length > 0 && selectedGuarantees.length === 0) {
-      setSelectedGuarantees(guaranteeOptions.map(o => ({
-        categoryId: o.categoryId,
-        rate: Math.round((o.minRate + o.maxRate) / 2 / 5) * 5, // milieu de la plage, arrondi à 5
-        annualLimit: o.maxLimit, // plafond max par défaut
-      })));
-    }
-  }, [guaranteeOptions]);
-
-  function updateGuarantee(categoryId: string, patch: Partial<SelectedGuarantee>) {
-    setSelectedGuarantees(gs => gs.map(g => g.categoryId === categoryId ? { ...g, ...patch } : g));
-  }
-
-  async function computeQuote(bens: BenefDraft[], guars?: SelectedGuarantee[]) {
+  async function computeQuote(bens: BenefDraft[]) {
     setError(null);
     try {
       const res = await api.post('/subscription/quote', {
         productId,
         frequency,
         beneficiaries: bens.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
-        selectedGuarantees: guars,
+        selectedGuarantees: [],
       });
       setQuote(res.quote);
       setFlexibleDetails(res.flexibleDetails);
@@ -289,11 +207,59 @@ export default function SubscribeWizard() {
     setBeneficiaries(bs => bs.map((b, j) => (j === i ? { ...b, ...patch } : b)));
   }
 
-  const goStep2 = () => {
-    if (!productId) return setError('Choisissez une formule');
-    setStep(1); // Now goes to birth certificate step
-    setError(null);
-  };
+  function openGuaranteeRequest(option: GuaranteeOption) {
+    setGuaranteeRequest({
+      categoryId: option.categoryId,
+      categoryName: option.categoryName,
+      requestedRate: String(option.rate),
+      requestedAnnualLimit: option.annualLimit == null ? '' : String(option.annualLimit),
+      reason: '',
+    });
+    setGuaranteeRequestResult(null);
+    setGuaranteeRequestError(null);
+  }
+
+  function updateGuaranteeRequest(patch: Partial<GuaranteeChangeDraft>) {
+    setGuaranteeRequest(draft => (draft ? { ...draft, ...patch } : draft));
+    setGuaranteeRequestResult(null);
+  }
+
+  async function submitGuaranteeRequest() {
+    if (!guaranteeRequest || !product) return;
+    const requestedRate = guaranteeRequest.requestedRate.trim() === '' ? null : Number(guaranteeRequest.requestedRate);
+    const requestedAnnualLimit = guaranteeRequest.requestedAnnualLimit.trim() === '' ? null : Number(guaranteeRequest.requestedAnnualLimit);
+    if (guaranteeRequest.reason.trim().length < 10) {
+      setGuaranteeRequestError('Expliquez votre besoin en au moins dix caractères pour le gestionnaire.');
+      return;
+    }
+    const values = [requestedRate, requestedAnnualLimit];
+    if (
+      values.every(value => value == null) ||
+      values.some(value => value != null && (!Number.isInteger(value) || value < 0))
+    ) {
+      setGuaranteeRequestError('Indiquez au moins un taux ou un plafond demandé valide.');
+      return;
+    }
+
+    setGuaranteeRequestBusy(true);
+    setGuaranteeRequestError(null);
+    try {
+      const result = await api.post('/subscription/guarantee-change-requests', {
+        productId: product.id,
+        categoryId: guaranteeRequest.categoryId,
+        requestedRate,
+        requestedAnnualLimit,
+        reason: guaranteeRequest.reason.trim(),
+        frequency,
+        beneficiaries: beneficiaries.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
+      });
+      setGuaranteeRequestResult(result);
+    } catch (err: any) {
+      setGuaranteeRequestError(err?.message ?? 'Envoi impossible');
+    } finally {
+      setGuaranteeRequestBusy(false);
+    }
+  }
 
   // Gestion acte de naissance
   function handleBirthCert(e: React.ChangeEvent<HTMLInputElement>) {
@@ -335,6 +301,15 @@ export default function SubscribeWizard() {
       setBirthCertError('Vous devez attester avoir recopié exactement le document.');
       return;
     }
+    const checkedInitialProfile = {
+      firstName: initialProfile.firstName.trim(),
+      lastName: initialProfile.lastName.trim(),
+      birthDate: initialProfile.birthDate,
+    };
+    if (!checkedInitialProfile.firstName || !checkedInitialProfile.lastName || !checkedInitialProfile.birthDate) {
+      setBirthCertError('Les informations saisies à la première étape sont incomplètes. Retournez à l’étape précédente et renseignez-les exactement.');
+      return;
+    }
 
     setBirthCertVerifying(true);
     setBirthCertError(null);
@@ -353,17 +328,40 @@ export default function SubscribeWizard() {
         firstName: birthCertDoc.firstName.trim(),
         lastName: birthCertDoc.lastName.trim(),
         birthDate: birthCertDoc.birthDate,
+        initialProfile: checkedInitialProfile,
       });
       setBirthCertResult(result);
 
-      if (result?.match) {
+      const profileMatches = result?.match === true;
+      const initialComparison = result?.initialProfile;
+      const initialMatches = initialComparison?.match === true;
+      if (profileMatches && initialMatches) {
         setBirthCertVerified(true);
-      } else {
-        const warnings = Array.isArray(result?.warnings) && result.warnings.length
-          ? result.warnings.join(' ')
-          : 'Les informations recopiées ne correspondent pas à votre profil.';
-        setBirthCertError(warnings);
+        return;
       }
+
+      const problems: string[] = [];
+      if (!profileMatches) {
+        problems.push(
+          Array.isArray(result?.warnings) && result.warnings.length
+            ? result.warnings.join(' ')
+            : 'Les informations recopiées ne correspondent pas à votre profil.',
+        );
+      }
+      if (initialComparison && !initialMatches) {
+        const initialWarnings = Array.isArray(initialComparison.warnings) && initialComparison.warnings.length
+          ? ` ${initialComparison.warnings.join(' ')}`
+          : '';
+        problems.push(
+          'Les informations saisies au début ne correspondent pas à l’acte de naissance vérifié. ' +
+          'Retournez à la première étape et renseignez exactement le prénom, le nom et la date figurant sur votre acte de naissance ou votre carte d’identité.' +
+          initialWarnings,
+        );
+      } else if (!initialComparison) {
+        problems.push('La comparaison avec les informations saisies au début est impossible. Relancez la vérification.');
+      }
+      setBirthCertVerified(false);
+      setBirthCertError(problems.join(' '));
     } catch (err: any) {
       setBirthCertError(err?.message ?? 'Erreur lors de la vérification');
     } finally {
@@ -371,14 +369,34 @@ export default function SubscribeWizard() {
     }
   }
 
+  const goStep2 = () => {
+    if (!productId) return setError('Choisissez une formule');
+    setStep(2); // Acte de naissance
+    setError(null);
+  };
+
+  const goStep1 = () => {
+    if (!initialProfile.firstName.trim() || !initialProfile.lastName.trim() || !initialProfile.birthDate) {
+      setInitialProfileError('Tous les champs sont obligatoires.');
+      return;
+    }
+    setStep(1); // Goes to formula selection
+    setInitialProfileError(null);
+    setError(null);
+  };
+
   const goStep3 = () => {
-    // Passer à la photo (now step 3)
+    if (!birthCertVerified) {
+      setError('Vous devez d\'abord vérifier votre acte de naissance.');
+      return;
+    }
+    // Passer aux garanties (now step 3)
     setStep(3);
     setError(null);
   };
 
   const goStep4 = () => {
-    // Upload photo puis passer aux bénéficiaires
+    // La photo n'est pas bloquante : l'envoyer lorsqu'elle est fournie, puis passer aux bénéficiaires.
     if (photoFile) {
       const fd = new FormData();
       fd.append('photo', photoFile);
@@ -388,17 +406,17 @@ export default function SubscribeWizard() {
         setError(`Photo non enregistrée (${e?.message ?? 'erreur inconnue'}) — vous pourrez la renvoyer depuis votre profil.`);
       });
     }
-    setStep(4);
+    setStep(5);
     setError(null);
   };
 
   const goStep5 = async () => {
     // Passer au devis
     setBusy(true);
-    const ok = await computeQuote(beneficiaries, selectedGuarantees);
+    const ok = await computeQuote(beneficiaries);
     setBusy(false);
     if (ok) {
-      setStep(5);
+      setStep(6);
       setError(null);
     }
   };
@@ -411,11 +429,11 @@ export default function SubscribeWizard() {
         productId,
         frequency,
         beneficiaries,
-        selectedGuarantees,
+        selectedGuarantees: [],
       });
       setSubscription(res);
       setQuote(res.quote);
-      setStep(6);
+      setStep(7);
     } catch (e: any) {
       setError(e?.message ?? 'Souscription impossible');
     } finally {
@@ -439,7 +457,7 @@ export default function SubscribeWizard() {
       const conf = await api.post('/payments/mock/confirm', { paymentId: init.payment.id, outcome: 'SUCCESS' });
       if ((conf as any).status === 'SUCCEEDED') {
         setPaymentResult(init.payment);
-        setStep(7);
+        setStep(8);
       } else {
         setError('Le paiement a échoué. Réessayez.');
       }
@@ -475,13 +493,82 @@ export default function SubscribeWizard() {
 
       <ErrorBanner message={error} />
 
-      {/* Étape 1 : Formule — Tableau comparatif */}
+      {/* Étape 0 : Profil initial — Saisie exacte selon acte de naissance */}
       {step === 0 && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-brand-200 bg-brand-50 p-4">
+            <h3 className="mb-3 text-sm font-semibold text-brand-700 flex items-center gap-2">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Informations d'identité — À saisir exactement comme sur votre acte de naissance ou carte d'identité
+            </h3>
+            <p className="text-sm text-brand-600 mb-4">
+              Ces informations seront comparées à celles extraites de votre acte de naissance lors de la vérification.
+              Toute différence bloquera la souscription. Merci de recopier <strong>exactement</strong> : prénom(s), nom(s) et date de naissance.
+            </p>
+          </div>
+
+          <Field label="Prénom(s) *">
+            <input
+              type="text"
+              value={initialProfile.firstName}
+              onChange={e => { setInitialProfile(p => ({ ...p, firstName: e.target.value })); setInitialProfileError(null); }}
+              className="input"
+              placeholder="Ex: Jean-Pierre"
+              required
+              autoComplete="given-name"
+            />
+          </Field>
+
+          <Field label="Nom(s) *">
+            <input
+              type="text"
+              value={initialProfile.lastName}
+              onChange={e => { setInitialProfile(p => ({ ...p, lastName: e.target.value })); setInitialProfileError(null); }}
+              className="input"
+              placeholder="Ex: AGOSSOU"
+              required
+              autoComplete="family-name"
+            />
+          </Field>
+
+          <Field label="Date de naissance *">
+            <input
+              type="date"
+              value={initialProfile.birthDate}
+              onChange={e => { setInitialProfile(p => ({ ...p, birthDate: e.target.value })); setInitialProfileError(null); }}
+              className="input"
+              max={new Date().toISOString().split('T')[0]}
+              required
+            />
+          </Field>
+
+          {initialProfileError && <ErrorBanner message={initialProfileError} />}
+
+          <button
+            type="button"
+            onClick={goStep1}
+            disabled={busy || !initialProfile.firstName.trim() || !initialProfile.lastName.trim() || !initialProfile.birthDate}
+            className="btn-primary w-full"
+          >
+            {busy ? <Spinner /> : 'Continuer vers le choix de la formule'}
+          </button>
+        </div>
+      )}
+
+      {/* Étape 1 : Formule — Tableau comparatif */}
+      {step === 1 && (
         <div className="space-y-4">
           <FormulaComparisonTable
             products={products}
             selectedId={productId}
-            onSelect={id => { setProductId(id); setSelectedGuarantees([]); }}
+            onSelect={id => {
+              setProductId(id);
+              setGuaranteeRequest(null);
+              setGuaranteeRequestResult(null);
+              setGuaranteeRequestError(null);
+            }}
           />
           <Field label="Fréquence de paiement">
             <select className="input" value={frequency} onChange={e => setFrequency(e.target.value)}>
@@ -490,21 +577,35 @@ export default function SubscribeWizard() {
               <option value="MONTHLY">Mensuel</option>
             </select>
           </Field>
-          <button onClick={goStep2} disabled={!productId} className="btn-primary w-full">
-            {productId ? `Choisir ${products.find(p => p.id === productId)?.name ?? ''}` : 'Sélectionnez une formule ci-dessus'}
-          </button>
+          <div className="grid gap-2">
+            <button className="btn-outline w-full" onClick={() => setStep(0)}>Modifier mes informations d’identité</button>
+            <button onClick={goStep2} disabled={!productId} className="btn-primary w-full">
+              {productId ? `Choisir ${products.find(p => p.id === productId)?.name ?? ''}` : 'Sélectionnez une formule ci-dessus'}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Étape 2 : Acte de naissance */}
-      {step === 1 && (
+      {step === 2 && (
         <div className="space-y-4">
           <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
             <p className="font-semibold">📄 Acte de naissance obligatoire</p>
             <p className="mt-1">
               Téléversez votre acte de naissance, puis recopiez exactement le prénom, le nom et la date
-              de naissance visibles sur le document. Le backend les compare à votre profil avant la suite.
+              de naissance visibles sur le document. Le système compare ensuite ces informations à votre
+              profil et à l’identité saisie à la première étape avant d’autoriser la suite.
             </p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            <p className="font-semibold text-slate-700">Identité saisie à la première étape</p>
+            <p className="mt-1">
+              {initialProfile.firstName} {initialProfile.lastName} — né(e) le {initialProfile.birthDate || '—'}.
+            </p>
+            <button type="button" className="mt-1 font-medium text-brand-700 hover:underline" onClick={() => setStep(0)}>
+              Corriger cette identité
+            </button>
           </div>
 
           <div className="flex flex-col items-center gap-4">
@@ -614,7 +715,7 @@ export default function SubscribeWizard() {
                 <span className="text-2xl">✅</span>
                 <div>
                   <p className="font-semibold">Vérification réussie</p>
-                  <p className="text-xs">Les informations correspondent à votre profil.</p>
+                  <p className="text-xs">L’acte vérifié correspond à votre profil et à l’identité saisie au début.</p>
                 </div>
               </div>
               <p className="text-xs text-emerald-700">
@@ -625,55 +726,134 @@ export default function SubscribeWizard() {
           )}
 
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(0)}>Retour</button>
-            <button className="btn-primary flex-[2]" disabled={!birthCertVerified} onClick={() => setStep(2)}>Continuer</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
+            <button className="btn-primary flex-[2]" disabled={!birthCertVerified} onClick={goStep3}>Continuer</button>
           </div>
         </div>
       )}
 
-      {/* Étape 2 : Sélection des garanties (décalée) */}
-      {step === 2 && (
+      {/* Étape 3 : Garanties incluses dans la formule */}
+      {step === 3 && (
         <div className="space-y-4">
           <div className="rounded-lg bg-brand-50 p-4 text-sm text-brand-800">
-            <p className="font-semibold">🎯 Personnalisez vos garanties</p>
+            <p className="font-semibold">Garanties incluses — formule figée</p>
             <p className="mt-1">
-              Ajustez le <strong>taux de couverture</strong> et le <strong>plafond annuel</strong> pour chaque garantie.
-              Plus le taux/plafond est élevé, plus la prime est élevée — mais mieux vous êtes couvert.
+              Ces garanties sont fixées par la formule sélectionnée et ne peuvent pas être modifiées directement ici.
+              Si vous souhaitez un taux ou un plafond différent, envoyez une demande motivée à un gestionnaire.
             </p>
           </div>
 
-          {guaranteeOptions.map(o => {
-            const sel = selectedGuarantees.find(g => g.categoryId === o.categoryId);
-            if (!sel) return null;
-            return (
-              <GuaranteeSlider
-                key={o.categoryId}
-                option={o}
-                value={sel}
-                onChange={v => updateGuarantee(o.categoryId, v)}
-              />
-            );
-          })}
-
-          {/* Aperçu rapide du coût */}
-          {flexibleDetails && (
-            <div className="card-p bg-slate-50">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Prime estimée</span>
-                <span className="font-bold text-brand-700">{fcfa(flexibleDetails.totalAnnual)}/an</span>
-              </div>
-            </div>
+          {guaranteeOptions.length === 0 && (
+            <p className="text-sm text-slate-500">Aucune garantie n’est configurée pour cette formule.</p>
           )}
 
+          {guaranteeOptions.map(option => (
+            <div key={option.categoryId} className="card-p space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{CATEGORY_LABELS[option.categoryId] ?? option.categoryName}</p>
+                  <p className="text-xs text-slate-400">Coût de base : {fcfa(option.basePrice)}/an</p>
+                </div>
+                <span className="badge bg-slate-100 text-slate-600">Formule figée</span>
+              </div>
+              <dl className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-slate-50 p-2">
+                  <dt className="text-xs text-slate-500">Taux de couverture</dt>
+                  <dd className="font-semibold">{option.rate}%</dd>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-2">
+                  <dt className="text-xs text-slate-500">Plafond annuel</dt>
+                  <dd className="font-semibold">
+                    {option.annualLimit == null ? 'Selon conditions de la formule' : fcfa(option.annualLimit)}
+                  </dd>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-2">
+                  <dt className="text-xs text-slate-500">Co-paiement</dt>
+                  <dd className="font-semibold">{option.copayRate}%</dd>
+                </div>
+              </dl>
+              {option.customizable && (
+                <button type="button" className="btn-outline w-full" onClick={() => openGuaranteeRequest(option)}>
+                  Demander une modification
+                </button>
+              )}
+            </div>
+          ))}
+
+          {guaranteeRequest && (() => {
+            const selectedOption = guaranteeOptions.find(option => option.categoryId === guaranteeRequest.categoryId);
+            if (!selectedOption) return null;
+            return (
+              <div className="card-p space-y-3 border-brand-200">
+                <h3 className="font-semibold">
+                  Demande de modification — {CATEGORY_LABELS[selectedOption.categoryId] ?? selectedOption.categoryName}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Garantie actuelle : {selectedOption.rate}% · {selectedOption.annualLimit == null ? 'plafond selon conditions' : fcfa(selectedOption.annualLimit)}.
+                  Cette demande n’applique aucune modification immédiate : un gestionnaire l’examine et vous répond.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label={`Taux demandé (${selectedOption.minRate}–${selectedOption.maxRate} %)`}>
+                    <input
+                      type="number"
+                      className="input"
+                      min={selectedOption.minRate}
+                      max={selectedOption.maxRate}
+                      value={guaranteeRequest.requestedRate}
+                      onChange={e => updateGuaranteeRequest({ requestedRate: e.target.value })}
+                    />
+                  </Field>
+                  <Field label={`Plafond demandé (${fcfa(selectedOption.minLimit)}–${fcfa(selectedOption.maxLimit)})`}>
+                    <input
+                      type="number"
+                      className="input"
+                      min={selectedOption.minLimit}
+                      max={selectedOption.maxLimit}
+                      value={guaranteeRequest.requestedAnnualLimit}
+                      onChange={e => updateGuaranteeRequest({ requestedAnnualLimit: e.target.value })}
+                    />
+                  </Field>
+                </div>
+                <Field label="Motif de la demande">
+                  <textarea
+                    className="input min-h-20"
+                    value={guaranteeRequest.reason}
+                    onChange={e => updateGuaranteeRequest({ reason: e.target.value })}
+                    placeholder="Expliquez votre besoin médical ou familial en au moins dix caractères."
+                  />
+                </Field>
+                {guaranteeRequestError && <ErrorBanner message={guaranteeRequestError} />}
+                {guaranteeRequestResult && (
+                  <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+                    <p className="font-semibold">Demande {guaranteeRequestResult.reference} transmise</p>
+                    <p className="mt-1">
+                      Prime estimée : {fcfa(guaranteeRequestResult.baselineAnnual)}/an → {fcfa(guaranteeRequestResult.projectedAnnual)}/an
+                      ({guaranteeRequestResult.deltaAnnual >= 0 ? '+' : ''}{fcfa(guaranteeRequestResult.deltaAnnual)}).
+                      {guaranteeRequestResult.managersNotified} gestionnaire(s) notifié(s).
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button type="button" className="btn-outline flex-1" onClick={() => { setGuaranteeRequest(null); setGuaranteeRequestResult(null); setGuaranteeRequestError(null); }}>
+                    Fermer
+                  </button>
+                  <button type="button" className="btn-primary flex-[2]" disabled={guaranteeRequestBusy} onClick={submitGuaranteeRequest}>
+                    {guaranteeRequestBusy ? 'Envoi…' : 'Envoyer au gestionnaire'}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(1)}>Retour</button>
-            <button className="btn-primary flex-[2]" onClick={goStep3}>Continuer</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(2)}>Retour</button>
+            <button className="btn-primary flex-[2]" onClick={goStep4}>Continuer</button>
           </div>
         </div>
       )}
 
-      {/* Étape 3 : Photo d'identité */}
-      {step === 3 && (
+      {/* Étape 4 : Photo d'identité */}
+      {step === 4 && (
         <div className="space-y-4">
           <div className="rounded-lg bg-brand-50 p-4 text-sm text-brand-800">
             <p className="font-semibold">📸 Photo pour votre carte d'assuré</p>
@@ -703,14 +883,14 @@ export default function SubscribeWizard() {
             <p className="text-xs text-slate-400">JPG, PNG ou WebP — max 5 Mo</p>
           </div>
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(2)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(3)}>Retour</button>
             <button className="btn-primary flex-[2]" onClick={goStep4}>Continuer</button>
           </div>
         </div>
       )}
 
-      {/* Étape 4 : Bénéficiaires */}
-      {step === 4 && (
+      {/* Étape 5 : Bénéficiaires */}
+      {step === 5 && (
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
             Ajoutez vos ayants droit ({product?.beneficiaryRules?.maxBeneficiaries ?? 6} maximum).
@@ -753,14 +933,14 @@ export default function SubscribeWizard() {
             </button>
           )}
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(3)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(4)}>Retour</button>
             <button className="btn-primary flex-[2]" disabled={busy} onClick={goStep5}>{busy ? 'Calcul…' : 'Voir mon devis'}</button>
           </div>
         </div>
       )}
 
-      {/* Étape 5 : Devis */}
-      {step === 5 && quote && (
+      {/* Étape 6 : Devis */}
+      {step === 6 && quote && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Récapitulatif</h3>
@@ -813,14 +993,14 @@ export default function SubscribeWizard() {
             <p>• Contrat porté par {product?.insurerPartner?.name}. SantéPlus agit comme plateforme technologique.</p>
           </div>
           <div className="flex gap-2">
-            <button className="btn-outline flex-1" onClick={() => setStep(4)}>Retour</button>
+            <button className="btn-outline flex-1" onClick={() => setStep(5)}>Retour</button>
             <button className="btn-primary flex-[2]" disabled={busy} onClick={subscribe}>{busy ? 'Création…' : 'Valider ma souscription'}</button>
           </div>
         </div>
       )}
 
-      {/* Étape 6 : Paiement */}
-      {step === 6 && subscription && (
+      {/* Étape 7 : Paiement */}
+      {step === 7 && subscription && (
         <div className="space-y-4">
           <div className="card-p">
             <h3 className="font-semibold">Contrat {subscription.number} créé</h3>
@@ -853,8 +1033,8 @@ export default function SubscribeWizard() {
         </div>
       )}
 
-      {/* Étape 7 : Terminé */}
-      {step === 7 && (
+      {/* Étape 8 : Terminé */}
+      {step === 8 && (
         <div className="card-p text-center">
           <div className="text-5xl">🎉</div>
           <h2 className="mt-3 text-xl font-bold text-emerald-700">Paiement confirmé — contrat actif !</h2>

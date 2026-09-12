@@ -11,7 +11,7 @@ export interface BirthCertificateData {
   documentNumber?: string;
 }
 
-export interface VerificationResult {
+export interface VerificationComparison {
   match: boolean;
   confidence: number;
   details: {
@@ -21,6 +21,20 @@ export interface VerificationResult {
   };
   warnings: string[];
 }
+
+export interface VerificationResult extends VerificationComparison {
+  initialProfile?: VerificationComparison;
+}
+
+export interface InitialProfileData {
+  firstName: string;
+  lastName: string;
+  birthDate: Date;
+}
+
+export type VerifyUploadedDocumentInput = BirthCertificateData & {
+  initialProfile?: InitialProfileData;
+};
 
 @Injectable()
 export class BirthCertificateService {
@@ -114,7 +128,7 @@ export class BirthCertificateService {
   verifyData(
     extracted: BirthCertificateData,
     provided: { firstName: string; lastName: string; birthDate: Date },
-  ): VerificationResult {
+  ): VerificationComparison {
     const normalize = (s: string) =>
       s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 
@@ -219,7 +233,7 @@ export class BirthCertificateService {
   async verifyUploadedDocument(
     userId: string,
     fileId: string,
-    extractedData: BirthCertificateData,
+    data: VerifyUploadedDocumentInput,
   ): Promise<VerificationResult> {
     if (!fileId) throw new BadRequestException('Identifiant du document requis');
 
@@ -242,13 +256,25 @@ export class BirthCertificateService {
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     if (!user.birthDate) throw new BadRequestException('Date de naissance manquante sur le profil utilisateur');
 
+    const { initialProfile, ...extractedData } = data;
     const provided = {
       firstName: user.firstName,
       lastName: user.lastName,
       birthDate: user.birthDate as Date,
     };
 
-    const result = this.verifyData(extractedData, provided);
+    const profileResult = this.verifyData(extractedData, provided);
+    const initialProfileResult = initialProfile
+      ? this.verifyData(extractedData, {
+          firstName: initialProfile.firstName,
+          lastName: initialProfile.lastName,
+          birthDate: new Date(initialProfile.birthDate),
+        })
+      : undefined;
+    const result: VerificationResult = {
+      ...profileResult,
+      ...(initialProfileResult ? { initialProfile: initialProfileResult } : {}),
+    };
     await this.saveVerification(userId, fileId, provided, result);
 
     return result;

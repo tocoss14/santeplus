@@ -21,9 +21,9 @@ const ESSENTIELLE: ProductPricing = {
     { minAge: 51, maxAge: 65, factor: 1.3 },
   ],
   guaranteeOptions: [
-    { categoryId: 'CONSULTATION', categoryName: 'Consultations', basePrice: 8000, minRate: 50, maxRate: 90, minLimit: 50000, maxLimit: 200000, limitStep: 25000, mandatory: true, customizable: false, deductibleType: 'NONE', deductibleValue: 0, copayRate: 30 },
-    { categoryId: 'PHARMACY', categoryName: 'Pharmacie', basePrice: 10000, minRate: 50, maxRate: 85, minLimit: 100000, maxLimit: 300000, limitStep: 25000, mandatory: true, customizable: false, deductibleType: 'NONE', deductibleValue: 0, copayRate: 30 },
-    { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 15000, minRate: 50, maxRate: 90, minLimit: 500000, maxLimit: 2000000, limitStep: 250000, mandatory: true, customizable: false, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 30 },
+    { categoryId: 'CONSULTATION', categoryName: 'Consultations', basePrice: 8000, minRate: 50, maxRate: 90, minLimit: 50000, maxLimit: 200000, limitStep: 25000, mandatory: true, customizable: false, copayRate: 30 },
+    { categoryId: 'PHARMACY', categoryName: 'Pharmacie', basePrice: 10000, minRate: 50, maxRate: 85, minLimit: 100000, maxLimit: 300000, limitStep: 25000, mandatory: true, customizable: false, copayRate: 30 },
+    { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 15000, minRate: 50, maxRate: 90, minLimit: 500000, maxLimit: 2000000, limitStep: 250000, mandatory: true, customizable: false, copayRate: 30 },
   ],
 };
 
@@ -37,7 +37,7 @@ const CONFORT: ProductPricing = {
   waitingPeriodDays: 30,
   globalAnnualCap: 1200000,
   guaranteeOptions: [
-    { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 25000, minRate: 60, maxRate: 95, minLimit: 1000000, maxLimit: 5000000, limitStep: 500000, mandatory: true, customizable: false, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 20 },
+    { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 25000, minRate: 60, maxRate: 95, minLimit: 1000000, maxLimit: 5000000, limitStep: 500000, mandatory: true, customizable: false, copayRate: 20 },
   ],
 };
 
@@ -51,7 +51,7 @@ const EXCELLENCE: ProductPricing = {
   waitingPeriodDays: 30,
   globalAnnualCap: 3000000,
   guaranteeOptions: [
-    { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 40000, minRate: 70, maxRate: 95, minLimit: 2000000, maxLimit: 10000000, limitStep: 1000000, mandatory: true, customizable: false, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 10 },
+    { categoryId: 'HOSPITALIZATION', categoryName: 'Hospitalisation', basePrice: 40000, minRate: 70, maxRate: 95, minLimit: 2000000, maxLimit: 10000000, limitStep: 1000000, mandatory: true, customizable: false, copayRate: 10 },
   ],
 };
 
@@ -137,9 +137,9 @@ describe('Claim estimation pipeline', () => {
       waitingPeriodDays: 30,
       excludedCategories: ['OPTICAL', 'DENTAL', 'MATERNITY'],
       rules: [
-        { categoryId: 'CONSULTATION', annualLimit: 120000, rate: 70, deductibleType: 'NONE', deductibleValue: 0, copayRate: 30 },
-        { categoryId: 'PHARMACY', annualLimit: 180000, rate: 60, deductibleType: 'NONE', deductibleValue: 0, copayRate: 30 },
-        { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 60, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 40 },
+        { categoryId: 'CONSULTATION', annualLimit: 120000, rate: 70, copayRate: 30 },
+        { categoryId: 'PHARMACY', annualLimit: 180000, rate: 60, copayRate: 30 },
+        { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 60, copayRate: 40 },
         // SPECIALIZED intentionally omitted = not covered for Essentielle
       ],
       usedPerCategory: {},
@@ -173,15 +173,15 @@ describe('Claim estimation pipeline', () => {
     expect(r.items[0].amountApproved).toBe(4200); // 10000 * 60% = 6000, copay 30% = 1800, approved = 4200
   });
 
-  it('Essentielle: hospitalization with fixed deductible + copay', () => {
+  it('Essentielle: hospitalization with copay (no deductible)', () => {
     const ctx = essentielleCtx();
     const r = estimateClaim(ctx, new Date('2026-05-01'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 200000 },
     ]);
-    // eligible: 200000, deductible: 10000, after: 190000, rate 60%: 114000, copay 40%: 45600, approved: 68400
-    expect(r.items[0].deductibleApplied).toBe(10000);
-    expect(r.items[0].copayApplied).toBe(45600);
-    expect(r.items[0].amountApproved).toBe(68400);
+    // eligible: 200000, no deductible, rate 60%: 120000, copay 40%: 48000, approved: 72000
+    expect(r.items[0].deductibleApplied).toBe(0);
+    expect(r.items[0].copayApplied).toBe(48000);
+    expect(r.items[0].amountApproved).toBe(72000);
   });
 
   it('Essentielle: specialized not covered (no rule = excluded)', () => {
@@ -237,13 +237,13 @@ describe('Formule comparison: Confort vs Excellence', () => {
     const comfortCtx: ClaimCtx = {
       contractStatus: 'ACTIVE', startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'),
       waitingPeriodDays: 30, excludedCategories: [], globalAnnualCap: 1200000,
-      rules: [{ categoryId: 'HOSPITALIZATION', annualLimit: 5000000, rate: 75, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 20 }],
+      rules: [{ categoryId: 'HOSPITALIZATION', annualLimit: 5000000, rate: 75, copayRate: 20 }],
       usedPerCategory: {},
     };
     const excellenceCtx: ClaimCtx = {
       ...comfortCtx,
       globalAnnualCap: 3000000,
-      rules: [{ categoryId: 'HOSPITALIZATION', annualLimit: 10000000, rate: 90, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 10 }],
+      rules: [{ categoryId: 'HOSPITALIZATION', annualLimit: 10000000, rate: 90, copayRate: 10 }],
     };
 
     const claim = [{ categoryId: 'HOSPITALIZATION', amountRequested: 500000 }];
@@ -260,7 +260,7 @@ describe('Edge cases', () => {
     const ctx: ClaimCtx = {
       contractStatus: 'ACTIVE', startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'),
       waitingPeriodDays: 30, excludedCategories: [],
-      rules: [{ categoryId: 'PHARMACY', annualLimit: 100000, rate: 70, deductibleType: 'NONE', deductibleValue: 0 }],
+      rules: [{ categoryId: 'PHARMACY', annualLimit: 100000, rate: 70 }],
       usedPerCategory: {},
     };
     const r = estimateClaim(ctx, new Date('2026-06-01'), [
@@ -273,7 +273,7 @@ describe('Edge cases', () => {
     const ctx: ClaimCtx = {
       contractStatus: 'ACTIVE', startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'),
       waitingPeriodDays: 30, excludedCategories: [],
-      rules: [{ categoryId: 'HOSPITALIZATION', annualLimit: 500000, rate: 80, deductibleType: 'NONE', deductibleValue: 0 }],
+      rules: [{ categoryId: 'HOSPITALIZATION', annualLimit: 500000, rate: 80 }],
       usedPerCategory: { HOSPITALIZATION: 400000 },
     };
     const r = estimateClaim(ctx, new Date('2026-06-01'), [
@@ -288,7 +288,7 @@ describe('Edge cases', () => {
     const ctx: ClaimCtx = {
       contractStatus: 'ACTIVE', startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'),
       waitingPeriodDays: 0, excludedCategories: [],
-      rules: [{ categoryId: 'PHARMACY', annualLimit: 100000, rate: 70, deductibleType: 'NONE', deductibleValue: 0 }],
+      rules: [{ categoryId: 'PHARMACY', annualLimit: 100000, rate: 70 }],
       usedPerCategory: { PHARMACY: 95000 },
     };
     const r = estimateClaim(ctx, new Date('2026-06-01'), [

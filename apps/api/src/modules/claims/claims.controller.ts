@@ -10,7 +10,14 @@ import { PrismaService } from '../../common/prisma.module';
 import { ref } from '../../common/utils';
 import { sha256 } from '../../common/crypto';
 import { estimateClaim, CoverageRule, EstimationResult, CLAIM_STATUSES_CONSUMING_CAPS } from '../../domain/engine';
-import { assertClaimTransition, type ClaimAction } from '../../domain/claim-machine';
+import {
+  assertClaimTransition,
+  autoApprovalAuditSample,
+  isAutoApprovableClaim,
+  resolveAutoApproveAuditPercent,
+  resolveAutoApproveThreshold,
+  type ClaimAction,
+} from '../../domain/claim-machine';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { StorageService, FilesModule } from '../files/files.service';
 import { AccountingModule, AccountingService } from '../accounting/accounting.controller';
@@ -38,8 +45,6 @@ export class ClaimsService {
       annualLimit: pg.annualLimit,
       familyLimit: pg.familyLimit ?? null,
       rate: pg.rate,
-      deductibleType: pg.deductibleType,
-      deductibleValue: pg.deductibleValue,
       copayRate: pg.copayRate ?? 15,
       maxUnitPrice: pg.maxUnitPrice ?? null,
     }));
@@ -96,6 +101,10 @@ export class ClaimsService {
       select: { amountEligible: true, amountApproved: true },
     });
     const usedGlobal = allPriorItems.reduce((a, i) => a + (i.amountApproved ?? 0), 0);
+    const usedOop = allPriorItems.reduce(
+      (a, i) => a + Math.max(0, (i.amountEligible ?? 0) - (i.amountApproved ?? 0)),
+      0,
+    );
     const globalAnnualCap = contract.product.globalAnnualCap ?? 5000000;
 
     // Parser eligibilityConditions pour les délais spécifiques et limites spécialiste
@@ -141,6 +150,8 @@ export class ClaimsService {
         usedPersonPerCategory,
         globalAnnualCap: globalAnnualCap > 0 ? globalAnnualCap : undefined,
         usedGlobal,
+        oopAnnualCap: contract.product.oopAnnualCap ?? undefined,
+        usedOop,
         categoryWaitingPeriods: Object.keys(categoryWaitingPeriods).length > 0 ? categoryWaitingPeriods : undefined,
         specialistConsultationsUsed,
         specialistConsultationsPerYear: eligibility.specialistConsultationsPerYear ?? null,
@@ -340,13 +351,31 @@ export class ClaimsController {
     const contract = await this.loadContractForClaim(claim);
     const estimation = await this.claims.buildEstimation(contract, claim.careDate, claim.items.map(i => ({ categoryId: i.categoryLabel, amountRequested: i.amountRequested })),
       { beneficiaryId: claim.beneficiaryId, claimantUserId: claim.claimantUserId });
+
+    // Voie rapide : approbation automatique des petits dossiers propres.
+    // Seuil configurable via SystemConfig `autoApproveThreshold` (0 = désactivé,
+    // plafonné par sécurité). Audit a posteriori via `autoApproveAuditPercent`.
+    const autoApproveThreshold = resolveAutoApproveThreshold(
+      await this.getSystemConfig('autoApproveThreshold', '0'),
+    );
+    const autoApprovable = isAutoApprovableClaim(claim, estimation, autoApproveThreshold);
+    const autoAuditSample = autoApprovable
+      && autoApprovalAuditSample(
+        claim.id,
+        resolveAutoApproveAuditPercent(await this.getSystemConfig('autoApproveAuditPercent', '10')),
+      );
+    const submitFlags = autoApprovable
+      ? [...estimation.flags, 'AUTO_APPROVED', ...(autoAuditSample ? ['AUTO_APPROVED_AUDIT'] : [])]
+      : estimation.flags;
+
     const updated = await this.prisma.claim.update({
       where: { id: claim.id },
       data: {
-        status: 'SUBMITTED',
+        status: autoApprovable ? 'APPROVED' : 'SUBMITTED',
         submittedAt: new Date(),
         estimation: JSON.stringify(estimation),
-        flags: JSON.stringify(estimation.flags),
+        flags: JSON.stringify(submitFlags),
+        ...(autoApprovable ? { totalApproved: estimation.totals.approved, decidedById: null, decidedAt: new Date() } : {}),
       },
     });
     void updated;
@@ -358,15 +387,37 @@ export class ClaimsController {
         data: { amountEligible: e.amountEligible, rateApplied: e.rateApplied, deductibleApplied: e.deductibleApplied, amountApproved: e.amountApproved },
       });
     }
-    await this.claims.notifyManagers('CLAIM_SUBMITTED',
-      `Nouvelle demande de remboursement ${claim.reference}`,
-      `Montant demandÃ© : ${claim.totalRequested} FCFA. Ã€ traiter dans l'espace gestion.`);
-    await this.dispatch.dispatchToUser(auth.id, {
-      topic: 'CLAIM_RECEIVED',
-      title: `Demande ${claim.reference} reçue`,
-      body: 'Votre demande a été reçue et est en cours de traitement.',
-    });
-    return { ok: true };
+    if (autoApprovable) {
+      // CTS : engagement idempotent (non bloquant)
+      try {
+        await this.cts?.recordEngagement(claim.contractId, claim.id, estimation.totals.approved, {
+          beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
+        });
+      } catch {}
+      try { if (claim.providerId) await this.attachInvoice(claim.id); } catch {}
+      if (autoAuditSample) {
+        await this.claims.notifyManagers(
+          'CLAIM_AUTO_APPROVED_AUDIT',
+          `Contrôle a posteriori — ${claim.reference}`,
+          `Demande approuvée automatiquement : ${estimation.totals.approved} FCFA. Échantillon d'audit à contrôler avant paiement.`,
+        );
+      }
+      await this.dispatch.dispatchToUser(auth.id, {
+        topic: 'CLAIM_AUTO_APPROVED',
+        title: `Demande ${claim.reference} approuvée automatiquement`,
+        body: `Montant approuvé : ${estimation.totals.approved} FCFA. Paiement en préparation — vous serez notifié du versement.`,
+      });
+    } else {
+      await this.claims.notifyManagers('CLAIM_SUBMITTED',
+        `Nouvelle demande de remboursement ${claim.reference}`,
+        `Montant demandé : ${claim.totalRequested} FCFA. À traiter dans l'espace gestion.`);
+      await this.dispatch.dispatchToUser(auth.id, {
+        topic: 'CLAIM_RECEIVED',
+        title: `Demande ${claim.reference} reçue`,
+        body: 'Votre demande a été reçue et est en cours de traitement.',
+      });
+    }
+    return { ok: true, autoApproved: autoApprovable };
   }
 
   @Get('claims/mine')

@@ -1,4 +1,4 @@
-import { fcfa, CATEGORY_LABELS } from '../format';
+import { fcfa, netCoverageLabel, CATEGORY_LABELS } from '../format';
 
 interface Product {
   id: string;
@@ -10,13 +10,12 @@ interface Product {
   pricePerChildAnnual: number;
   waitingPeriodDays: number;
   globalAnnualCap?: number;
+  oopAnnualCap?: number | null;
   eligibilityConditions?: string;
   guarantees: {
     annualLimit: number | null;
     rate: number | null;
     copayRate: number;
-    deductibleType: string;
-    deductibleValue: number;
     maxUnitPrice?: number | null;
     guarantee: { category: string; name: string };
   }[];
@@ -55,7 +54,7 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
         <h2 className="text-lg font-bold">Comparez nos formules</h2>
         <p className="mt-1 text-sm text-brand-100">
           Choisissez la couverture qui correspond à vos besoins et votre budget.
-          Tous les tarifs sont en FCFA, tickets modérateurs inclus.
+          Tous les tarifs sont en FCFA. Le taux net estimé tient compte du ticket modérateur, avant barème et plafonds.
         </p>
       </div>
 
@@ -114,19 +113,16 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
               ))}
             </tr>
 
-            {/* Franchise hospitalisation */}
+            {/* Plafond annuel de reste à charge */}
             <tr className="bg-slate-50/50">
               <td className="sticky left-0 z-10 bg-slate-50/95 p-3 font-semibold text-slate-700">
-                🏥 Franchise hospitalisation
+                🛡️ Reste à charge max/an
               </td>
-              {products.map(p => {
-                const h = getGuarantee(p, 'HOSPITALIZATION');
-                return (
-                  <td key={p.id} className="p-3 text-center text-slate-600">
-                    {h?.deductibleType === 'FIXED' ? fcfa(h.deductibleValue) : '—'}
-                  </td>
-                );
-              })}
+              {products.map(p => (
+                <td key={p.id} className="p-3 text-center font-medium text-emerald-700">
+                  {p.oopAnnualCap ? fcfa(p.oopAnnualCap) : '—'}
+                </td>
+              ))}
             </tr>
 
             {/* Délai de carence */}
@@ -177,7 +173,10 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
                   }
                   return (
                     <td key={p.id} className="p-3 text-center">
-                      <div className="font-bold text-brand-700">{g.rate ?? 100}%</div>
+                      <div className="font-bold text-brand-700">{g.rate ?? 100}% brut</div>
+                      <div className="text-xs font-semibold text-emerald-700">
+                        Net estimé : {netCoverageLabel(g.rate ?? 100, g.copayRate)}
+                      </div>
                       {g.annualLimit && (
                         <div className="text-xs text-slate-500 mt-0.5">
                           Max {fcfa(g.annualLimit)}/an
@@ -267,10 +266,17 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
                     {p.globalAnnualCap ? fcfa(p.globalAnnualCap) : '—'}
                   </span>
                 </div>
+                <div className="rounded-lg bg-emerald-50 p-2 col-span-2">
+                  <span className="text-emerald-700">Reste à charge max/an</span>
+                  <span className="ml-1 font-bold text-emerald-800">
+                    {p.oopAnnualCap ? fcfa(p.oopAnnualCap) : '—'}
+                  </span>
+                </div>
                 {p.guarantees.map((g: any) => (
                   <div key={g.guarantee.category} className="rounded-lg bg-slate-50 p-2">
                     <span className="text-slate-400">{CATEGORY_LABELS[g.guarantee.category]?.split(' ')[0] ?? g.guarantee.category}</span>
-                    <span className="ml-1 font-bold text-slate-700">{g.rate ?? 100}%</span>
+                    <span className="ml-1 font-bold text-slate-700">{g.rate ?? 100}% brut</span>
+                    <span className="ml-1 font-semibold text-emerald-700">· net {netCoverageLabel(g.rate ?? 100, g.copayRate)}</span>
                   </div>
                 ))}
               </div>

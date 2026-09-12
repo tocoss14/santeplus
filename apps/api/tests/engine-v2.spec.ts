@@ -11,10 +11,10 @@ function baseCtx(overrides: Partial<ClaimCtx> = {}): ClaimCtx {
     waitingPeriodDays: 30,
     excludedCategories: ['OPTICAL'],
     rules: [
-      { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 75, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 20 },
-      { categoryId: 'PHARMACY', annualLimit: 180000, rate: 60, deductibleType: 'NONE', deductibleValue: 0, copayRate: 30 },
-      { categoryId: 'CONSULTATION', annualLimit: 120000, rate: 70, deductibleType: 'NONE', deductibleValue: 0, copayRate: 0 },
-      { categoryId: 'SPECIALIZED', annualLimit: 300000, rate: 50, deductibleType: 'NONE', deductibleValue: 0, copayRate: 0, maxUnitPrice: 25000 },
+      { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 75, copayRate: 20 },
+      { categoryId: 'PHARMACY', annualLimit: 180000, rate: 60, copayRate: 30 },
+      { categoryId: 'CONSULTATION', annualLimit: 120000, rate: 70, copayRate: 0 },
+      { categoryId: 'SPECIALIZED', annualLimit: 300000, rate: 50, copayRate: 0, maxUnitPrice: 25000 },
     ],
     usedPerCategory: {},
     ...overrides,
@@ -72,7 +72,7 @@ describe('categoryWaitingPeriods', () => {
   it('blocks MATERNITY during 10-month carence (300 days)', () => {
     const ctx = baseCtx({
       rules: [
-        { categoryId: 'MATERNITY', annualLimit: 400000, rate: 80, deductibleType: 'NONE', deductibleValue: 0, copayRate: 20 },
+        { categoryId: 'MATERNITY', annualLimit: 400000, rate: 80, copayRate: 20 },
       ],
       categoryWaitingPeriods: { MATERNITY: 300 },
     });
@@ -89,7 +89,7 @@ describe('categoryWaitingPeriods', () => {
   it('allows MATERNITY after 10-month carence', () => {
     const ctx = baseCtx({
       rules: [
-        { categoryId: 'MATERNITY', annualLimit: 400000, rate: 80, deductibleType: 'NONE', deductibleValue: 0, copayRate: 20 },
+        { categoryId: 'MATERNITY', annualLimit: 400000, rate: 80, copayRate: 20 },
       ],
       categoryWaitingPeriods: { MATERNITY: 300 },
     });
@@ -188,7 +188,7 @@ describe('advanced copay scenarios', () => {
   it('copay applied after rate calculation on covered amount', () => {
     const ctx = baseCtx({
       rules: [
-        { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 80, deductibleType: 'NONE', deductibleValue: 0, copayRate: 25 },
+        { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 80, copayRate: 25 },
       ],
     });
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
@@ -202,26 +202,26 @@ describe('advanced copay scenarios', () => {
     expect(r.items[0].outOfPocket).toBe(40000);
   });
 
-  it('copay + deductible combined', () => {
+  it('copay applied without deductible (franchises supprimées)', () => {
     const ctx = baseCtx({
       rules: [
-        { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 80, deductibleType: 'FIXED', deductibleValue: 10000, copayRate: 20 },
+        { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 80, copayRate: 20 },
       ],
     });
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 100000 },
     ]);
-    // eligible: 100000, deductible: 10000, after deductible: 90000, rate 80%: 72000, copay 20%: 14400, approved: 57600
-    expect(r.items[0].deductibleApplied).toBe(10000);
-    expect(r.items[0].copayApplied).toBe(14400);
-    expect(r.items[0].amountApproved).toBe(57600);
-    expect(r.items[0].outOfPocket).toBe(42400);
+    // eligible: 100000, no deductible (removed), rate 80%: 80000, copay 20%: 16000, approved: 64000
+    expect(r.items[0].deductibleApplied).toBe(0);
+    expect(r.items[0].copayApplied).toBe(16000);
+    expect(r.items[0].amountApproved).toBe(64000);
+    expect(r.items[0].outOfPocket).toBe(36000);
   });
 
   it('copay = 0 means no copay applied', () => {
     const ctx = baseCtx({
       rules: [
-        { categoryId: 'CONSULTATION', annualLimit: 120000, rate: 70, deductibleType: 'NONE', deductibleValue: 0, copayRate: 0 },
+        { categoryId: 'CONSULTATION', annualLimit: 120000, rate: 70, copayRate: 0 },
       ],
     });
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
@@ -237,7 +237,7 @@ describe('maxUnitPrice (fee schedule)', () => {
   it('caps amount at maxUnitPrice when request exceeds it', () => {
     const ctx = baseCtx({
       rules: [
-        { categoryId: 'SPECIALIZED', annualLimit: 300000, rate: 50, deductibleType: 'NONE', deductibleValue: 0, maxUnitPrice: 25000 },
+        { categoryId: 'SPECIALIZED', annualLimit: 300000, rate: 50, maxUnitPrice: 25000 },
       ],
     });
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
@@ -251,7 +251,7 @@ describe('maxUnitPrice (fee schedule)', () => {
   it('does not cap when request is below maxUnitPrice', () => {
     const ctx = baseCtx({
       rules: [
-        { categoryId: 'SPECIALIZED', annualLimit: 300000, rate: 50, deductibleType: 'NONE', deductibleValue: 0, maxUnitPrice: 25000 },
+        { categoryId: 'SPECIALIZED', annualLimit: 300000, rate: 50, maxUnitPrice: 25000 },
       ],
     });
     const r = estimateClaim(ctx, new Date('2026-06-15'), [

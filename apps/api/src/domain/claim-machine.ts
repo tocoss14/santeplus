@@ -50,3 +50,64 @@ export function assertClaimTransition(from: string, action: ClaimAction): void {
     throw new Error(`Action ${action} impossible depuis le statut ${from}`);
   }
 }
+
+/** Seuil maximal de sécurité pour l'approbation automatique (FCFA). */
+export const AUTO_APPROVE_MAX_THRESHOLD = 100000;
+
+export interface AutoApprovalClaim {
+  id: string;
+  kind: string;
+  totalRequested: number;
+}
+
+export interface AutoApprovalEstimation {
+  ok: boolean;
+  flags: string[];
+  totals: { approved: number };
+}
+
+/** Normalise le seuil configuré : entier positif, plafonné pour limiter le risque. */
+export function resolveAutoApproveThreshold(raw: unknown, max = AUTO_APPROVE_MAX_THRESHOLD): number {
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  if (!Number.isFinite(n)) return 0;
+  const value = Math.floor(n);
+  if (value <= 0) return 0;
+  return Math.min(value, max);
+}
+
+/** Normalise le pourcentage d'audit a posteriori (0-100). */
+export function resolveAutoApproveAuditPercent(raw: unknown, fallback = 10): number {
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+/**
+ * Éligibilité à l'approbation automatique : remboursement propre, sans aucun
+ * drapeau, sous le seuil configuré, avec un montant approuvé strictement positif.
+ */
+export function isAutoApprovableClaim(
+  claim: AutoApprovalClaim,
+  estimation: AutoApprovalEstimation,
+  threshold: number,
+): boolean {
+  return (
+    threshold > 0 &&
+    claim.kind === 'REIMBURSEMENT' &&
+    estimation.ok &&
+    estimation.flags.length === 0 &&
+    claim.totalRequested <= threshold &&
+    estimation.totals.approved > 0
+  );
+}
+
+/** Échantillonnage déterministe pour l'audit a posteriori des approbations auto. */
+export function autoApprovalAuditSample(claimId: string, percent: number): boolean {
+  if (percent <= 0) return false;
+  if (percent >= 100) return true;
+  let hash = 0;
+  for (let i = 0; i < claimId.length; i++) {
+    hash = (hash * 31 + claimId.charCodeAt(i)) >>> 0;
+  }
+  return hash % 100 < percent;
+}

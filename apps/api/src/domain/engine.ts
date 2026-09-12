@@ -53,8 +53,8 @@ export interface GuaranteeOption {
   limitStep: number;
   mandatory: boolean;
   customizable: boolean;
-  deductibleType: 'NONE' | 'FIXED' | 'PERCENT';
-  deductibleValue: number;
+  rate?: number | null;
+  annualLimit?: number | null;
   copayRate: number;
 }
 
@@ -374,9 +374,7 @@ export interface CoverageRule {
   /** Plafond foyer cumulé sur le contrat, toutes personnes confondues (§23). null = pas de cumul foyer. */
   familyLimit?: number | null;
   rate: number;
-  deductibleType: 'NONE' | 'FIXED' | 'PERCENT';
-  deductibleValue: number;
-  /** Co-paiement obligatoire (% que l'assuré paie de sa poche APRÈS déduction franchise+taux) */
+  /** Co-paiement obligatoire (% que l'assuré paie de sa poche après application du taux) */
   copayRate?: number;
   /** Plafond maximum par acte (barème médical) — null = pas de contrôle */
   maxUnitPrice?: number | null;
@@ -402,6 +400,10 @@ export interface ClaimCtx {
   globalAnnualCap?: number;
   /** Dépense totale déjà consommée sur l'année (toutes catégories) */
   usedGlobal?: number;
+  /** Plafond annuel de reste à charge par contrat (null/0 = désactivé) */
+  oopAnnualCap?: number | null;
+  /** Reste à charge déjà supporté sur l'année pour des soins éligibles */
+  usedOop?: number;
   /** Délais de carence spécifiques par catégorie (jours). Si défini, remplace waitingPeriodDays pour cette catégorie. Ex: { MATERNITY: 300 } = 10 mois pour maternité */
   categoryWaitingPeriods?: Record<string, number>;
   /** Nombre de consultations spécialiste déjà utilisées cette année */
@@ -422,10 +424,13 @@ export interface EstimationItem {
   amountRequested: number;
   amountEligible: number;
   rateApplied: number;
+  /** Historique uniquement : toujours 0 depuis la suppression des franchises. */
   deductibleApplied: number;
   copayApplied: number;
   amountApproved: number;
-  /** Montant restant à la charge de l'assuré (franchise + copay + dépassement) */
+  /** Part du reste à charge reprise par le plafond annuel de reste à charge. */
+  oopCapApplied: number;
+  /** Montant restant à la charge de l'assuré (copay + dépassement) */
   outOfPocket: number;
   reason?: 'EXCLUDED' | 'CAP_REACHED' | 'FAMILY_CAP_REACHED' | 'CONTRACT_INACTIVE' | 'OUT_OF_PERIOD' | 'WAITING_PERIOD' | 'GLOBAL_CAP_REACHED' | 'FEE_SCHEDULE_EXCEEDED';
 }
@@ -469,6 +474,11 @@ export function estimateClaim(
   }
   if (duplicateSuspect) flags.push('DUPLICATE_SUSPECT');
 
+  // Cumul du reste à charge supporté sur l'année pour des soins éligibles.
+  // Le plafond annuel borne ce que le patient paie : au-delà, l'assureur
+  // reprend la part de ticket modérateur restante (sans rouvrir les plafonds).
+  let cumulativeOop = Math.max(0, ctx.usedOop ?? 0);
+
   const estimationItems: EstimationItem[] = items.map(item => {
     if (blocked) {
       return {
@@ -478,6 +488,7 @@ export function estimateClaim(
         deductibleApplied: 0,
         copayApplied: 0,
         amountApproved: 0,
+        oopCapApplied: 0,
         outOfPocket: item.amountRequested,
         reason: blockedReason(flags),
       };
@@ -490,6 +501,7 @@ export function estimateClaim(
         deductibleApplied: 0,
         copayApplied: 0,
         amountApproved: 0,
+        oopCapApplied: 0,
         outOfPocket: item.amountRequested,
         reason: 'EXCLUDED',
       };
@@ -503,6 +515,7 @@ export function estimateClaim(
         deductibleApplied: 0,
         copayApplied: 0,
         amountApproved: 0,
+        oopCapApplied: 0,
         outOfPocket: item.amountRequested,
         reason: 'EXCLUDED',
       };
@@ -520,6 +533,7 @@ export function estimateClaim(
             deductibleApplied: 0,
             copayApplied: 0,
             amountApproved: 0,
+            oopCapApplied: 0,
             outOfPocket: item.amountRequested,
             reason: 'WAITING_PERIOD' as const,
           };
@@ -533,12 +547,13 @@ export function estimateClaim(
         return {
           ...item,
           amountEligible: 0,
-          rateApplied: rule.rate,
-          deductibleApplied: 0,
-          copayApplied: 0,
-          amountApproved: 0,
-          outOfPocket: item.amountRequested,
-          reason: 'CAP_REACHED' as const,
+            rateApplied: rule.rate,
+            deductibleApplied: 0,
+            copayApplied: 0,
+            amountApproved: 0,
+            oopCapApplied: 0,
+            outOfPocket: item.amountRequested,
+            reason: 'CAP_REACHED' as const,
         };
       }
     }
@@ -556,6 +571,7 @@ export function estimateClaim(
         deductibleApplied: 0,
         copayApplied: 0,
         amountApproved: 0,
+        oopCapApplied: 0,
         outOfPocket: item.amountRequested,
         reason: 'CAP_REACHED',
       };
@@ -570,6 +586,7 @@ export function estimateClaim(
         deductibleApplied: 0,
         copayApplied: 0,
         amountApproved: 0,
+        oopCapApplied: 0,
         outOfPocket: item.amountRequested,
         reason: 'FAMILY_CAP_REACHED',
       };
@@ -586,6 +603,7 @@ export function estimateClaim(
           deductibleApplied: 0,
           copayApplied: 0,
           amountApproved: 0,
+          oopCapApplied: 0,
           outOfPocket: item.amountRequested,
           reason: 'GLOBAL_CAP_REACHED',
         };
@@ -599,14 +617,8 @@ export function estimateClaim(
     }
 
     const eligible = Math.min(effectiveAmount, remaining, familyRemaining);
-    let deductible = 0;
-    if (rule.deductibleType === 'FIXED') deductible = Math.min(rule.deductibleValue, eligible);
-    else if (rule.deductibleType === 'PERCENT')
-      deductible = Math.min(Math.round((eligible * rule.deductibleValue) / 100), eligible);
-
-    // Calcul du taux de couverture
-    const afterDeductible = Math.max(0, eligible - deductible);
-    const coveredByRate = Math.max(0, Math.round((afterDeductible * rule.rate) / 100));
+    // Franchises supprimées : le taux de couverture s'applique sur la totalité éligible.
+    const coveredByRate = Math.max(0, Math.round((eligible * rule.rate) / 100));
 
     // Co-paiement obligatoire : l'assuré paie un % du montant couvert
     let copay = 0;
@@ -616,21 +628,35 @@ export function estimateClaim(
     const approved = Math.max(0, coveredByRate - copay);
 
     // Plafond agrégé : limiter si on dépasse le global cap
-    let finalApproved = approved;
+    let cappedApproved = approved;
+    let globalRemaining = Infinity;
     if (ctx.globalAnnualCap && ctx.globalAnnualCap > 0) {
       const usedGlobal = ctx.usedGlobal ?? 0;
-      const globalRemaining = Math.max(0, ctx.globalAnnualCap - usedGlobal);
-      finalApproved = Math.min(approved, globalRemaining);
+      globalRemaining = Math.max(0, ctx.globalAnnualCap - usedGlobal);
+      cappedApproved = Math.min(approved, globalRemaining);
     }
+
+    // Plafond annuel de reste à charge : le patient paie au maximum
+    // (plafond − déjà supporté) sur des soins éligibles ; l'assureur reprend
+    // le surplus, sans rouvrir les plafonds déjà atteints.
+    const costShareOop = Math.max(0, eligible - approved);
+    let oopCapApplied = 0;
+    if (ctx.oopAnnualCap != null && ctx.oopAnnualCap > 0 && costShareOop > 0) {
+      const affordableRemaining = Math.max(0, ctx.oopAnnualCap - cumulativeOop);
+      oopCapApplied = Math.max(0, costShareOop - affordableRemaining);
+      cumulativeOop += costShareOop - oopCapApplied;
+    }
+    const finalApproved = Math.min(cappedApproved + oopCapApplied, globalRemaining, eligible);
 
     const outOfPocket = item.amountRequested - finalApproved;
     return {
       ...item,
       amountEligible: eligible,
       rateApplied: rule.rate,
-      deductibleApplied: deductible,
+      deductibleApplied: 0,
       copayApplied: copay,
       amountApproved: finalApproved,
+      oopCapApplied,
       outOfPocket,
       ...(item.amountRequested > effectiveAmount && rule.maxUnitPrice ? { reason: 'FEE_SCHEDULE_EXCEEDED' as const } : {}),
     };

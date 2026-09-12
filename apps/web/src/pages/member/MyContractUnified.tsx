@@ -2,17 +2,15 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link } from 'react-router-dom';
 import { api, API_BASE } from '../../api';
-import { cardQrPayload, fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
+import { cardQrPayload, fcfa, fmtDate, netCoverageLabel, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
-import { CtsSummary, FundCallList } from '../../components/CtsCards';
 
-type Tab = 'contrat' | 'paiements' | 'carte' | 'compte';
+type Tab = 'contrat' | 'paiements' | 'carte';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'contrat', label: 'Contrat', icon: '📄' },
   { key: 'paiements', label: 'Échéancier', icon: '💳' },
   { key: 'carte', label: 'Carte', icon: '🪪' },
-  { key: 'compte', label: 'Compte technique', icon: '📊' },
 ];
 
 export default function MyContractUnified() {
@@ -21,14 +19,12 @@ export default function MyContractUnified() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
-  const [cts, setCts] = useState<any[] | null>(null);
 
   useEffect(() => {
     api.get<any[]>('/contracts/mine').then(list => {
       setContracts(list);
       if (list.length && !selectedId) setSelectedId(list[0].id);
     }).catch(() => setContracts([]));
-    api.get<any[]>('/contracts/mine/cts').then(setCts).catch(() => setCts([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -123,35 +119,8 @@ export default function MyContractUnified() {
           {tab === 'contrat' && detail && <ContractTab detail={detail} />}
           {tab === 'paiements' && detail && <PaymentsTab detail={detail} payments={payments} />}
           {tab === 'carte' && detail && <CardTab detail={detail} />}
-          {tab === 'compte' && <CtsTab rows={cts} />}
         </>
       )}
-    </div>
-  );
-}
-
-function CtsTab({ rows }: { rows: any[] | null }) {
-  if (!rows) return <Spinner />;
-  if (!rows.length)
-    return (
-      <div className="card-p text-center py-8">
-        <p className="text-sm text-slate-500">Aucun compte technique pour le moment.</p>
-      </div>
-    );
-  return (
-    <div className="space-y-4">
-      {rows.map(r => (
-        <div key={r.contractId} className="card-p space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-semibold">{r.number}</span>
-            <span className="text-slate-400">{r.productName ?? ''}</span>
-            <StatusBadge status={r.status} />
-            <span className="ml-auto text-xs text-slate-400">Renouvellement : {fmtDate(r.renewalDate)}</span>
-          </div>
-          <CtsSummary account={r.account} band={r.band} />
-          <FundCallList items={r.openFundCalls} />
-        </div>
-      ))}
     </div>
   );
 }
@@ -220,6 +189,11 @@ function ContractTab({ detail }: { detail: any }) {
           {/* Plafonds */}
           <div className="card-p">
             <h3 className="font-semibold mb-3">Plafonds & garanties</h3>
+            {detail.caps?.[0]?.oopAnnualCap != null && (
+              <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                Plafond annuel de reste à charge : {fcfa(detail.caps[0].oopAnnualCap)} pour les soins éligibles, hors dépassements et soins exclus.
+              </p>
+            )}
             <ul className="space-y-3">
               {detail.caps?.map((c: any) => {
                 const pct = c.annualLimit ? Math.min(100, Math.round((c.used / c.annualLimit) * 100)) : 0;
@@ -228,7 +202,7 @@ function ContractTab({ detail }: { detail: any }) {
                     <div className="flex items-baseline justify-between text-sm">
                       <span className="font-medium">{c.label}</span>
                       <span className="text-xs text-slate-500">
-                        taux {c.rate}% · reste {c.remaining == null ? 'illimité' : fcfa(c.remaining)}
+                        taux brut {c.rate}% · net {netCoverageLabel(c.rate, c.copayRate)} · reste {c.remaining == null ? 'illimité' : fcfa(c.remaining)}
                         {c.annualLimit != null && ` / ${fcfa(c.annualLimit)}`}
                       </span>
                     </div>

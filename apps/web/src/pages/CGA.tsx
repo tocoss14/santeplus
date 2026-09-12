@@ -1,4 +1,14 @@
 import { Link } from 'react-router-dom';
+import { netCoverageLabel } from '../format';
+
+function parseStaticPercent(value: string): number {
+  if (value.trim() === '—') return 0;
+  return Number(value.replace('%', '').replace(',', '.'));
+}
+
+function netStaticRate(rate: string, copay: string): string {
+  return netCoverageLabel(parseStaticPercent(rate), parseStaticPercent(copay));
+}
 
 const FORMULAS = [
   {
@@ -16,7 +26,7 @@ const FORMULAS = [
     waitingMaternity: 'Non couverte',
     guarantees: [
       { category: 'Consultation généraliste', rate: '70%', cap: '100 000/an', perAct: '10 000/acte', copay: '30%' },
-      { category: 'Hospitalisation', rate: '60%', cap: '150 000/an', perAct: '45 000/jour', copay: '40%', franchise: '10 000 fixe' },
+      { category: 'Hospitalisation', rate: '60%', cap: '150 000/an', perAct: '45 000/jour', copay: '40%' },
       { category: 'Pharmacie', rate: '60%', cap: '180 000/an', perAct: '15 000/ordonnance', copay: '40%' },
       { category: 'Analyses & labos', rate: '50%', cap: '30 000/an', perAct: '10 000/acte', copay: '50%' },
     ],
@@ -39,13 +49,13 @@ const FORMULAS = [
     waitingMaternity: '10 mois',
     guarantees: [
       { category: 'Consultation généraliste', rate: '80%', cap: '144 000/an', perAct: '12 000/acte', copay: '20%' },
-      { category: 'Hospitalisation', rate: '75%', cap: '500 000/an', perAct: '45 000/jour', copay: '25%', franchise: '10 000 fixe' },
+      { category: 'Hospitalisation', rate: '75%', cap: '500 000/an', perAct: '45 000/jour', copay: '25%' },
       { category: 'Pharmacie', rate: '70%', cap: '360 000/an', perAct: '30 000/ordonnance', copay: '30%' },
       { category: 'Analyses & imagerie', rate: '70%', cap: '75 000/an', perAct: '15 000/acte', copay: '30%' },
       { category: 'Soins spécialisés', rate: '70%', cap: '200 000/an', perAct: '15 000/acte', copay: '30%', limit: '5 consultations/an' },
-      { category: 'Maternité', rate: '100%', cap: '200 000 (forfait)', perAct: '—', copay: '—', franchise: '10 000 fixe' },
+      { category: 'Maternité', rate: '100%', cap: '200 000 (forfait)', perAct: '—', copay: '0%' },
       { category: 'Dentaire', rate: '60%', cap: '40 000/an', perAct: '15 000/acte', copay: '40%' },
-      { category: 'Optique', rate: '100%', cap: '30 000 / 2 ans', perAct: '—', copay: '—' },
+      { category: 'Optique', rate: '100%', cap: '30 000 / 2 ans', perAct: '—', copay: '0%' },
     ],
     exclusions: [],
     maxBeneficiaries: 8,
@@ -66,7 +76,7 @@ const FORMULAS = [
     waitingMaternity: '10 mois',
     guarantees: [
       { category: 'Consultations (gén. + spé.)', rate: '90%', cap: '300 000/an', perAct: '25 000/acte', copay: '10%' },
-      { category: 'Hospitalisation', rate: '90%', cap: '1 500 000/an', perAct: '45 000/jour', copay: '10%', franchise: '10 000 fixe' },
+      { category: 'Hospitalisation', rate: '90%', cap: '1 500 000/an', perAct: '45 000/jour', copay: '10%' },
       { category: 'Pharmacie', rate: '90%', cap: '600 000/an', perAct: '40 000/ordonnance', copay: '10%' },
       { category: 'Analyses, labos, imagerie', rate: '90%', cap: '250 000/an', perAct: '25 000/acte', copay: '10%' },
       { category: 'Soins spécialisés', rate: '90%', cap: '500 000/an', perAct: '25 000/acte', copay: '10%' },
@@ -93,11 +103,11 @@ const FORMULAS = [
     waitingHospitalization: '90 jours',
     waitingMaternity: '10 mois',
     guarantees: [
-      { category: 'Hospitalisation', rate: '70%', cap: '350 000/an', perAct: '45 000/jour', copay: '30%', franchise: '10 000 fixe' },
+      { category: 'Hospitalisation', rate: '70%', cap: '350 000/an', perAct: '45 000/jour', copay: '30%' },
       { category: 'Consultations', rate: '70%', cap: '120 000/an', perAct: '10 000/acte', copay: '30%' },
       { category: 'Pharmacie', rate: '70%', cap: '300 000/an', perAct: '25 000/ordonnance', copay: '30%' },
       { category: 'Analyses', rate: '70%', cap: '50 000/an', perAct: '10 000/acte', copay: '30%' },
-      { category: 'Maternité', rate: '100%', cap: '150 000 (forfait)', perAct: '—', copay: '—', franchise: '10 000 fixe' },
+      { category: 'Maternité', rate: '100%', cap: '150 000 (forfait)', perAct: '—', copay: '0%' },
     ],
     exclusions: ['Dentaire', 'Optique', 'Soins spécialisés'],
     maxBeneficiaries: 6,
@@ -117,7 +127,7 @@ const FORMULAS = [
     waitingHospitalization: '90 jours',
     waitingMaternity: '10 mois',
     guarantees: [
-      { category: 'Hospitalisation', rate: '90%', cap: '1 000 000/an', perAct: '45 000/jour', copay: '10%', franchise: '10 000 fixe' },
+      { category: 'Hospitalisation', rate: '90%', cap: '1 000 000/an', perAct: '45 000/jour', copay: '10%' },
       { category: 'Consultations', rate: '90%', cap: '240 000/an', perAct: '20 000/acte', copay: '10%' },
       { category: 'Pharmacie', rate: '85%', cap: '480 000/an', perAct: '40 000/ordonnance', copay: '15%' },
       { category: 'Analyses & imagerie', rate: '85%', cap: '150 000/an', perAct: '25 000/acte', copay: '15%' },
@@ -136,8 +146,8 @@ const FORMULAS = [
 const COST_CONTROL_MECHANISMS = [
   {
     title: '🎫 Ticket modérateur (Copay)',
-    description: "L'assuré paie toujours une partie des frais (10% à 50% selon la formule et la catégorie). Cela responsabilise l'assuré et freine la surconsommation de soins non nécessaires.",
-    detail: 'Exemple : une consultation à 15 000 FCFA avec un copay de 30% → la mutuelle rembourse 10 500 FCFA, l\'assuré paie 4 500 FCFA de sa poche.',
+    description: "L'assuré paie toujours une partie des frais (10% à 50% selon la formule et la catégorie). Le copay s'applique après le taux brut : un taux de 70% avec un copay de 30% correspond à un remboursement net estimé de 49%, avant barème et plafonds.",
+    detail: 'Exemple réaliste (Essentielle, consultation) : facture 15 000 FCFA, barème 10 000 FCFA, taux 70%, copay 30% → base éligible 10 000 FCFA, couverture 7 000 FCFA, copay 2 100 FCFA, remboursement 4 900 FCFA, reste à charge 10 100 FCFA dont 5 000 FCFA de dépassement. Exemple hospitalisation (taux 75%, copay 25%, facture 100 000 FCFA, sans franchise) : couverture 75 000 FCFA, copay 18 750 FCFA, remboursement 56 250 FCFA, reste à charge 43 750 FCFA.',
   },
   {
     title: '📋 Plafonds par acte (Barème médical)',
@@ -165,9 +175,9 @@ const COST_CONTROL_MECHANISMS = [
     detail: "Sans entente préalable, la mutuelle peut refuser le remboursement (sauf urgences vitales certifiées). C'est obligatoire sur Excellence et Cadre/VIP.",
   },
   {
-    title: '🏥 Franchise fixe',
-    description: "Montant fixe déduit du remboursement sur hospitalisation. L'assuré paie toujours cette franchise, quel que soit le montant de la facture.",
-    detail: 'Franchise de 10 000 FCFA sur hospitalisation (toutes formules). Sur une hospitalisation de 100 000 FCFA remboursée à 75%, la franchise réduit le remboursement de 10 000 FCFA supplémentaires.',
+    title: '🤝 Fonds de solidarité mutualiste',
+    description: "Une part des excédents de fin de contrat alimente un fonds commun qui couvre les déficits des assurés en difficulté. Les appels de fonds individuels sont plafonnés : au-delà, c'est la solidarité qui prend le relais, pas le malade seul.",
+    detail: 'Le déficit d’un contrat n’est jamais facturé automatiquement à l’assuré. Les couvertures du fonds sont tracées et publiées sous forme de ratio de solidarité.',
   },
   {
     title: '🔬 Limite consultations spécialiste',
@@ -313,29 +323,32 @@ export default function CGA() {
                     <thead>
                       <tr className="bg-slate-50">
                         <th className="p-2.5 text-left text-xs font-semibold text-slate-600">Catégorie</th>
-                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Taux</th>
+                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Taux brut</th>
+                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Net estimé</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Plafond/an</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Max par acte</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Copay</th>
-                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Franchise</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Limite</th>
                       </tr>
                     </thead>
                     <tbody>
                       {f.guarantees.map((g, idx) => (
                         <tr key={g.category} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                          <td className="p-2.5 font-medium text-slate-700">{g.category}</td>
-                          <td className="p-2.5 text-center font-bold text-brand-700">{g.rate}</td>
-                          <td className="p-2.5 text-center text-slate-600">{g.cap}</td>
+                        <td className="p-2.5 font-medium text-slate-700">{g.category}</td>
+                        <td className="p-2.5 text-center font-bold text-brand-700">{g.rate}</td>
+                        <td className="p-2.5 text-center font-semibold text-emerald-700">{netStaticRate(g.rate, g.copay)}</td>
+                        <td className="p-2.5 text-center text-slate-600">{g.cap}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.perAct}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.copay}</td>
-                          <td className="p-2.5 text-center text-slate-600">{g.franchise ?? '—'}</td>
                           <td className="p-2.5 text-center text-xs text-slate-500">{'limit' in g ? (g as any).limit ?? '—' : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Net estimé = taux brut × (100 − copay) / 100, avant barème par acte, plafonds annuels et plafond annuel de reste à charge.
+                </p>
               </div>
 
               {/* Exclusions */}
@@ -386,7 +399,7 @@ export default function CGA() {
         </div>
       </section>
 
-      {/* Calcul de la franchise */}
+      {/* Ordre de calcul d'un remboursement */}
       <section className="card-p space-y-4">
         <h2 className="text-xl font-bold text-slate-900">5. Ordre de calcul d'un remboursement</h2>
         <p className="text-sm text-slate-600">
@@ -401,10 +414,9 @@ export default function CGA() {
             { step: '5', title: 'Vérification du plafond annuel par catégorie', detail: 'Le plafond annuel de la catégorie doit avoir un reste disponible.' },
             { step: '6', title: 'Vérification du plafond annuel global', detail: 'La dépense totale de l\'assuré ne doit pas dépasser le stop-loss global.' },
             { step: '7', title: 'Bridage tarifaire (barème médical)', detail: 'Le montant est plafonné à la valeur de référence du barème (maxUnitPrice).' },
-            { step: '8', title: 'Application de la franchise', detail: 'La franchise fixe (ex: 10 000 F) est déduite du montant éligible.' },
-            { step: '9', title: 'Application du taux de couverture', detail: 'Le taux (ex: 70%, 80%, 90%) est appliqué sur le montant après franchise.' },
-            { step: '10', title: 'Application du ticket modérateur (copay)', detail: 'Le copay (ex: 10%, 20%, 30%) est déduit du montant couvert.' },
-            { step: '11', title: 'Vérification du global cap restant', detail: 'Le remboursement final est limité au plafond global annuel restant.' },
+            { step: '8', title: 'Application du taux de couverture', detail: 'Le taux (ex: 70%, 80%, 90%) est appliqué sur le montant éligible.' },
+            { step: '9', title: 'Application du ticket modérateur (copay)', detail: 'Le copay (ex: 10%, 20%, 30%) est déduit du montant couvert.' },
+            { step: '10', title: 'Vérification du global cap restant', detail: 'Le remboursement final est limité au plafond global annuel restant.' },
           ].map(s => (
             <li key={s.step} className="flex gap-3">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">

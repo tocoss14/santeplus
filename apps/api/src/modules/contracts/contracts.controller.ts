@@ -58,8 +58,8 @@ export class ContractsService {
         label: pg.guarantee.name,
         annualLimit: pg.annualLimit,
         rate: pg.rate,
-        deductibleType: pg.deductibleType,
-        deductibleValue: pg.deductibleValue,
+        copayRate: pg.copayRate ?? 15,
+        oopAnnualCap: contract.product.oopAnnualCap ?? null,
         used,
         remaining: pg.annualLimit == null ? null : Math.max(0, pg.annualLimit - used),
       };

@@ -123,6 +123,52 @@ describe('birth certificate verification chain', () => {
     expect(await service.getVerificationStatus('user_1')).toMatchObject({ verified: false });
   });
 
+  it('also verifies the identity entered at the start of the wizard', async () => {
+    const state = {
+      configs: {
+        birth_cert_verify_user_1: JSON.stringify({ fileId: 'file-1', result: null, verifiedAt: null }),
+      },
+      files: {
+        'file-1': { id: 'file-1', ownerId: 'user_1', documentType: 'BIRTH_CERTIFICATE' },
+      },
+      user: profile,
+    };
+    const service = makeService(state);
+    const matched = await service.verifyUploadedDocument('user_1', 'file-1', {
+      firstName: 'Aicha',
+      lastName: 'Mensah',
+      birthDate: new Date('1990-05-17T00:00:00.000Z'),
+      initialProfile: {
+        firstName: '  aicha ',
+        lastName: 'MENSAH',
+        birthDate: new Date('1990-05-17T12:00:00.000Z'),
+      },
+    });
+
+    expect(matched.match).toBe(true);
+    expect(matched.initialProfile?.match).toBe(true);
+
+    const mismatched = await service.verifyUploadedDocument('user_1', 'file-1', {
+      firstName: 'Aicha',
+      lastName: 'Mensah',
+      birthDate: new Date('1990-05-17T00:00:00.000Z'),
+      initialProfile: {
+        firstName: 'Aicha',
+        lastName: 'Johnson',
+        birthDate: new Date('1990-05-17T00:00:00.000Z'),
+      },
+    });
+
+    expect(mismatched.match).toBe(true);
+    expect(mismatched.initialProfile?.match).toBe(false);
+    expect(mismatched.initialProfile?.details.lastName).toMatchObject({ match: false });
+    expect(await service.getVerificationStatus('user_1')).toMatchObject({
+      verified: true,
+      fileId: 'file-1',
+      result: { initialProfile: { match: false } },
+    });
+  });
+
   it('subscribeIndividual requires a verified birth certificate', async () => {
     const prisma: any = {
       user: { findUnique: vi.fn(async () => profile) },

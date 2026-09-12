@@ -23,8 +23,6 @@ function pharmaRule(over: Partial<CoverageRule> = {}): CoverageRule {
     categoryId: 'PHARMACY',
     annualLimit: 360000,
     rate: 80,
-    deductibleType: 'NONE',
-    deductibleValue: 0,
     ...over,
   };
 }

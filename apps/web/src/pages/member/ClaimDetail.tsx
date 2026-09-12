@@ -124,7 +124,6 @@ export default function ClaimDetail() {
                 <td className="td">{it.categoryLabel}</td>
                 <td className="td text-right text-xs text-slate-400">
                   {it.rateApplied != null && `taux ${it.rateApplied}%`}
-                  {it.deductibleApplied ? ` · franchise ${fcfa(it.deductibleApplied)}` : ''}
                 </td>
                 <td className="td w-28 text-right font-medium">{fcfa(it.amountApproved ?? it.amountRequested)}</td>
               </tr>

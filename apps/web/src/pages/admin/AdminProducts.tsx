@@ -6,7 +6,8 @@ import { ErrorBanner, Field, Modal, Spinner, StatusBadge, Badge } from '../../co
 const EMPTY = {
   code: '', name: '', description: '', clientType: 'INDIVIDUAL', minAge: 0, maxAge: 65,
   basePremiumAnnual: 0, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
-  waitingPeriodDays: 30, status: 'DRAFT', sortOrder: 0, thirdPartyAuthThreshold: '' as any,
+  waitingPeriodDays: 30, globalAnnualCap: 5000000, oopAnnualCap: '' as any,
+  status: 'DRAFT', sortOrder: 0, thirdPartyAuthThreshold: '' as any,
   spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 6,
   guarantees: [] as any[], exclusionsText: '',
 };
@@ -31,7 +32,7 @@ export default function AdminProducts() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <h1 className="text-xl font-bold mr-auto">Produits & garanties</h1>
-        <button className="btn-primary btn-sm" onClick={() => setEditing({ ...EMPTY, guarantees: catalog.map(g => ({ guaranteeId: g.id, categoryId: g.category, name: g.name, annualLimit: null, rate: 80, deductibleType: 'NONE', deductibleValue: 0, enabled: false })) })}>
+        <button className="btn-primary btn-sm" onClick={() => setEditing({ ...EMPTY, guarantees: catalog.map(g => ({ guaranteeId: g.id, categoryId: g.category, name: g.name, annualLimit: null, rate: 80, copayRate: 15, enabled: false })) })}>
           ＋ Nouveau produit
         </button>
       </div>
@@ -110,7 +111,7 @@ export default function AdminProducts() {
                         return {
                           guaranteeId: g.id, name: g.name, categoryId: g.category, enabled: !!existing,
                           annualLimit: existing?.annualLimit ?? null, rate: existing?.rate ?? 80,
-                          deductibleType: existing?.deductibleType ?? 'NONE', deductibleValue: existing?.deductibleValue ?? 0,
+                          copayRate: existing?.copayRate ?? 15,
                         };
                       }),
                       insurerPartnerId: d.insurerPartnerId ?? '',
@@ -164,14 +165,15 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
         status: form.status,
         sortOrder: Number(form.sortOrder ?? 0),
         thirdPartyAuthThreshold: form.thirdPartyAuthThreshold === '' || form.thirdPartyAuthThreshold == null ? null : Number(form.thirdPartyAuthThreshold),
+        globalAnnualCap: Number(form.globalAnnualCap ?? 5000000),
+        oopAnnualCap: form.oopAnnualCap === '' || form.oopAnnualCap == null ? null : Number(form.oopAnnualCap),
         insurerPartnerId: form.insurerPartnerId || undefined,
         beneficiaryRules: { spouse: form.spouse, childMaxAge: Number(form.childMaxAge), otherAllowed: form.otherAllowed, maxBeneficiaries: Number(form.maxBeneficiaries) },
         guarantees: form.guarantees.filter((g: any) => g.enabled).map((g: any) => ({
           guaranteeId: g.guaranteeId,
           annualLimit: g.annualLimit === '' || g.annualLimit == null ? null : Number(g.annualLimit),
           rate: Number(g.rate),
-          deductibleType: g.deductibleType,
-          deductibleValue: Number(g.deductibleValue ?? 0),
+          copayRate: Number(g.copayRate ?? 15),
         })),
         exclusions: form.exclusionsText.split('\n').map((s: string) => s.trim()).filter(Boolean).map((description: any) => ({ description })),
       };
@@ -215,6 +217,8 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
         </div>
         <Field label="Délai de carence (jours)"><input type="number" className="input" value={form.waitingPeriodDays} onChange={set('waitingPeriodDays')} /></Field>
         <Field label="Seuil autorisation TP (FCFA, vide=défaut 150k)"><input type="number" className="input" placeholder="150000" value={form.thirdPartyAuthThreshold ?? ''} onChange={set('thirdPartyAuthThreshold')} /></Field>
+        <Field label="Plafond annuel global (FCFA)"><input type="number" className="input" value={form.globalAnnualCap ?? 5000000} onChange={set('globalAnnualCap')} /></Field>
+        <Field label="Plafond annuel reste à charge (FCFA, vide=désactivé)"><input type="number" className="input" placeholder="ex : 150000" value={form.oopAnnualCap ?? ''} onChange={set('oopAnnualCap')} /></Field>
         <div className="grid grid-cols-3 gap-3 sm:col-span-2">
           <Field label="Cotisation de base/an"><input type="number" className="input" value={form.basePremiumAnnual} onChange={set('basePremiumAnnual')} /></Field>
           <Field label="Adulte supp./an"><input type="number" className="input" value={form.pricePerAdditionalAdultAnnual} onChange={set('pricePerAdditionalAdultAnnual')} /></Field>
@@ -247,12 +251,10 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
                   <input type="number" className="input py-1.5 pr-7" value={g.rate} onChange={e => setForm((f: any) => ({ ...f, guarantees: f.guarantees.map((x: any, j: number) => j === i ? { ...x, rate: e.target.value } : x) }))} />
                   <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
                 </div>
-                <select className="input py-1.5" value={g.deductibleType} onChange={e => setForm((f: any) => ({ ...f, guarantees: f.guarantees.map((x: any, j: number) => j === i ? { ...x, deductibleType: e.target.value } : x) }))}>
-                  <option value="NONE">Sans franchise</option><option value="FIXED">Franchise fixe</option><option value="PERCENT">Franchise %</option>
-                </select>
-                {g.deductibleType !== 'NONE' && (
-                  <input type="number" className="input py-1.5" placeholder={g.deductibleType === 'PERCENT' ? '%' : 'FCFA'} value={g.deductibleValue ?? ''} onChange={e => setForm((f: any) => ({ ...f, guarantees: f.guarantees.map((x: any, j: number) => j === i ? { ...x, deductibleValue: e.target.value } : x) }))} />
-                )}
+                <div className="relative">
+                  <input type="number" className="input py-1.5 pr-12" placeholder="Copay" value={g.copayRate ?? 15} onChange={e => setForm((f: any) => ({ ...f, guarantees: f.guarantees.map((x: any, j: number) => j === i ? { ...x, copayRate: e.target.value } : x) }))} />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">% copay</span>
+                </div>
               </div>
             )}
           </div>

@@ -127,7 +127,6 @@ export class PdfService {
       doc.text('Taux', 220, y + 3, { width: 50 });
       doc.text('Plafond/an', 275, y + 3, { width: 100 });
       doc.text('Copay', 380, y + 3, { width: 50 });
-      doc.text('Franchise', 435, y + 3, { width: 60 });
       y += 18;
 
       doc.font('Helvetica').fontSize(8).fillColor(INK);
@@ -137,7 +136,6 @@ export class PdfService {
         doc.text(`${pg.rate ?? 0}%`, 220, y, { width: 50 });
         doc.text(pg.annualLimit ? fcfa(pg.annualLimit) : 'Illimité', 275, y, { width: 100 });
         doc.text(`${pg.copayRate ?? 0}%`, 380, y, { width: 50 });
-        doc.text(pg.deductibleValue ? fcfa(pg.deductibleValue) : '—', 435, y, { width: 60 });
         y += 14;
 
         // Alternating row background
@@ -184,7 +182,7 @@ export class PdfService {
         "Le présent certificat atteste de l'adhésion de l'assuré à la formule d'assurance santé décrite ci-dessus.",
         `Les conditions générales d'assurance (CGA) sont disponibles sur ${config.appUrl}/cga.`,
         "Un délai de carence s'applique selon les garanties : soins externes 30 jours, hospitalisation 90 jours, maternité 10 mois.",
-        "Les tickets modérateurs et franchises sont applicables conformément au barème de la formule souscrite.",
+        "Les tickets modérateurs (co-paiement) sont applicables conformément au barème de la formule souscrite.",
         "Toute fausse déclaration entraîne l'annulation du contrat conformément aux articles applicables du Code CIMA.",
         `Ce document a été généré le ${fmtDate(new Date())}. Il fait foi de l'existence du contrat.`,
       ];

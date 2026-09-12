@@ -7,6 +7,12 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { FilesModule } from '../files/files.service';
 import { BirthCertificateService } from './birth-certificate.service';
 
+const initialProfileSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  birthDate: z.coerce.date(),
+});
+
 const extractedDataSchema = z.object({
   fileId: z.string().min(5),
   firstName: z.string().min(1),
@@ -15,6 +21,7 @@ const extractedDataSchema = z.object({
   birthPlace: z.string().optional(),
   parents: z.string().optional(),
   documentNumber: z.string().optional(),
+  initialProfile: initialProfileSchema.optional(),
 });
 
 @Controller('subscription')

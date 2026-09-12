@@ -129,6 +129,8 @@ model Product {
   renewalConditions     String?
   ageLoadings     String @default("[]")
   globalAnnualCap Int    @default(5000000)
+  // Plafond annuel de reste à charge par contrat (null = désactivé).
+  oopAnnualCap Int?
   status      String   @default("DRAFT")
   sortOrder   Int      @default(0)
   thirdPartyAuthThreshold Int?
@@ -170,8 +172,6 @@ model ProductGuarantee {
   limitStep       Int     @default(50000)
   // Prix de base par tranche de plafond (pour calcul de prime flexible)
   pricePerLimitStep Int   @default(0)
-  deductibleType  String  @default("NONE")
-  deductibleValue Int     @default(0)
   copayRate       Int     @default(15)
   maxUnitPrice    Int?
   // Si true, cette garantie est obligatoire pour le produit
@@ -233,6 +233,7 @@ model Contract {
   ctsJournals   CtsJournal[]
   fundCalls     FundCall[]
   ctsAlerts     CtsAlert[]
+  solidarityMovements SolidarityMovement[]
   closure       ContractClosure?
   fraudCases    FraudCase[]
 
@@ -1048,7 +1049,7 @@ model CtsJournal {
   providerId    String?
   amount        Int
   // PRIME | FRAIS | BUDGET | ENGAGEMENT | CONSOMMATION | ANNULATION |
-  // REMBOURSEMENT | APPEL_FONDS | PAIEMENT | CREDIT_RENOUVELLEMENT | STOP_LOSS | AJUSTEMENT
+  // REMBOURSEMENT | APPEL_FONDS | PAIEMENT | CREDIT_RENOUVELLEMENT | STOP_LOSS | AJUSTEMENT | SOLIDARITE
   type          String
   reference     String?
   oldBalance    Int
@@ -1108,6 +1109,9 @@ model ContractClosure {
   finalCommitted Int     @default(0)
   surplus       Int      @default(0)
   carryRate     Int      @default(70)
+  // Part de l'excédent versée au Fonds de solidarité (0-1) et montant correspondant.
+  solidarityShare Float   @default(0)
+  solidarityContribution Int @default(0)
   renewalCredit Int      @default(0)
   // DEDUCT | BUDGET_BOOST
   mode          String   @default("DEDUCT")
@@ -1117,6 +1121,25 @@ model ContractClosure {
   createdAt     DateTime @default(now())
 
   @@index([status])
+}
+
+// Fonds de solidarité mutualiste : les excédents de clôture alimentent le
+// fonds, qui couvre les déficits des contrats en difficulté. Journal
+// immuable par mouvements (jamais d'update/delete).
+model SolidarityMovement {
+  id         String   @id @default(cuid())
+  // CONTRIBUTION | COVERAGE | ADJUSTMENT
+  kind       String
+  amount     Int
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id])
+  reference  String?
+  meta       String   @default("{}")
+  actorUserId String?
+  createdAt  DateTime @default(now())
+
+  @@index([kind])
+  @@index([contractId])
 }
 
 // Dossier d'instruction fraude (léger) — les détections restent dans les jobs.

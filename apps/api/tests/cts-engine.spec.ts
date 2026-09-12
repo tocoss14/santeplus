@@ -220,8 +220,9 @@ describe('config et statuts', () => {
     expect(deriveCardStatus('ACTIVE', 'EPUISE')).toBe('CRITIQUE');
   });
 
-  it('référentiels : 12 types de journal, 10 types d’alertes', () => {
-    expect(CTS_JOURNAL_TYPES).toHaveLength(12);
+  it('référentiels : 13 types de journal (dont SOLIDARITE), 10 types d’alertes', () => {
+    expect(CTS_JOURNAL_TYPES).toHaveLength(13);
+    expect(CTS_JOURNAL_TYPES).toContain('SOLIDARITE');
     expect(CTS_ALERT_TYPES).toHaveLength(10);
   });
 });

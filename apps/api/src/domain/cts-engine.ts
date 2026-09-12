@@ -17,6 +17,7 @@ export const CTS_JOURNAL_TYPES = [
   'CREDIT_RENOUVELLEMENT',
   'STOP_LOSS',
   'AJUSTEMENT',
+  'SOLIDARITE',
 ] as const;
 export type CtsJournalType = (typeof CTS_JOURNAL_TYPES)[number];
 

@@ -1,6 +1,9 @@
+import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { CtsService } from '../src/modules/cts/cts.service';
+import { DEFAULT_ROLE_PERMISSIONS } from '../src/common/permissions';
+import { PERMISSIONS_KEY } from '../src/common/guards/permissions.guard';
+import { CtsController, CtsService } from '../src/modules/cts/cts.service';
 
 // P17 : lecture CTS (assuré, entreprise, portefeuille) + simulateur commercial.
 // Prisma entièrement mocké.
@@ -226,6 +229,12 @@ describe('myAccounts (§29)', () => {
     const svc = makeService(db);
     const rows = await (svc as any).myAccounts('u1');
     expect(rows.every((r: any) => r.contractId !== 'c3')).toBe(true);
+  });
+
+  it('réserve la route personnelle aux détenteurs de la permission technique', () => {
+    const required = Reflect.getMetadata(PERMISSIONS_KEY, CtsController.prototype.myAccounts);
+    expect(required).toEqual(['cts.view']);
+    expect(DEFAULT_ROLE_PERMISSIONS.MEMBER).not.toContain('cts.view');
   });
 });
 

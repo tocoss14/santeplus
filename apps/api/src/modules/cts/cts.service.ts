@@ -105,6 +105,78 @@ export class CtsService {
     return acc.benefitBudget + Math.max(0, (acc as any).budgetBoost ?? 0);
   }
 
+  /**
+   * Configuration du Fonds de solidarité (SystemConfig, avec défauts sûrs).
+   * - solidarity.enabled : active la mutualisation (défaut true)
+   * - solidarity.surplusShare : part de l'excédent de clôture versée au fonds (défaut 0.2)
+   * - solidarity.individualFundCallCap : plafond facturable à l'assuré par appel (défaut 100 000)
+   * - solidarity.maxCoveragePerContract : couverture max du fonds par contrat (défaut 500 000)
+   */
+  async getSolidarityConfig(): Promise<{
+    enabled: boolean;
+    surplusShare: number;
+    individualFundCallCap: number;
+    maxCoveragePerContract: number;
+  }> {
+    const defaults = { enabled: true, surplusShare: 0.2, individualFundCallCap: 100_000, maxCoveragePerContract: 500_000 };
+    try {
+      const rows = await (this.prisma as any).systemConfig.findMany({
+        where: { key: { in: ['solidarity.enabled', 'solidarity.surplusShare', 'solidarity.individualFundCallCap', 'solidarity.maxCoveragePerContract'] } },
+      });
+      const get = (key: string): string | undefined => rows.find((r: any) => r.key === key)?.value;
+      const parseBool = (v: string | undefined, fallback: boolean) =>
+        v === undefined ? fallback : v === 'true' || v === '1';
+      const parseNum = (v: string | undefined, fallback: number) => {
+        if (v === undefined) return fallback;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const surplusShare = Math.min(1, Math.max(0, parseNum(get('solidarity.surplusShare'), defaults.surplusShare)));
+      return {
+        enabled: parseBool(get('solidarity.enabled'), defaults.enabled),
+        surplusShare,
+        individualFundCallCap: Math.max(0, Math.floor(parseNum(get('solidarity.individualFundCallCap'), defaults.individualFundCallCap))),
+        maxCoveragePerContract: Math.max(0, Math.floor(parseNum(get('solidarity.maxCoveragePerContract'), defaults.maxCoveragePerContract))),
+      };
+    } catch {
+      return defaults;
+    }
+  }
+
+  /** Solde du Fonds de solidarité (contributions − couvertures ± ajustements). */
+  async solidarityBalance(): Promise<number> {
+    try {
+      const rows = await (this.prisma as any).solidarityMovement.findMany({ select: { kind: true, amount: true } });
+      return rows.reduce((balance: number, m: any) => {
+        if (m.kind === 'COVERAGE') return balance - Math.max(0, m.amount);
+        if (m.kind === 'ADJUSTMENT') return balance + (m.amount ?? 0);
+        return balance + Math.max(0, m.amount ?? 0);
+      }, 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  private recordSolidarityMovement(input: {
+    kind: 'CONTRIBUTION' | 'COVERAGE' | 'ADJUSTMENT';
+    amount: number;
+    contractId?: string | null;
+    reference?: string;
+    meta?: Record<string, unknown>;
+    actorUserId?: string;
+  }) {
+    return (this.prisma as any).solidarityMovement.create({
+      data: {
+        kind: input.kind,
+        amount: Math.max(0, Math.round(input.amount)),
+        contractId: input.contractId ?? null,
+        reference: input.reference,
+        meta: JSON.stringify(input.meta ?? {}),
+        actorUserId: input.actorUserId,
+      },
+    });
+  }
+
   private entry(input: CtsEntryInput) {
     return this.prisma.ctsJournal.create({
       data: {
@@ -714,10 +786,30 @@ export class CtsService {
   async sendFundCall(id: string) {
     const fc = await this.prisma.fundCall.findUnique({
       where: { id },
-      include: { contract: { select: { principalUserId: true, number: true } } },
+      include: { contract: { select: { principalUserId: true, number: true, premiumAnnual: true } } },
     });
     if (!fc) throw new NotFoundException('Appel de fonds introuvable');
     if (fc.status !== 'DRAFT') throw new BadRequestException(`Appel ${fc.status} — envoi impossible`);
+    // Mutualité : la part facturée à l'assuré est plafonnée au minimum entre
+    // le plafond configuré et une prime annuelle du contrat (nul ne paie plus
+    // d'une cotisation annuelle par appel) ; le surplus est demandé au Fonds
+    // de solidarité au lieu d'être imposé au seul malade.
+    let billableAmount = (fc as any).chosenAmount;
+    let solidarityCovered = 0;
+    try {
+      const solidarity = await this.getSolidarityConfig();
+      const premiumCap = Math.max(0, (fc as any).contract?.premiumAnnual ?? 0);
+      const individualCap = solidarity.individualFundCallCap > 0 && premiumCap > 0
+        ? Math.min(solidarity.individualFundCallCap, premiumCap)
+        : solidarity.individualFundCallCap;
+      if (solidarity.enabled && individualCap > 0 && billableAmount > individualCap) {
+        const remainder = billableAmount - individualCap;
+        const cover = await this.coverDeficitFromSolidarity((fc as any).contractId, undefined, remainder);
+        solidarityCovered = cover.covered;
+        billableAmount = individualCap + Math.max(0, remainder - solidarityCovered);
+        await this.prisma.fundCall.update({ where: { id }, data: { chosenAmount: billableAmount } });
+      }
+    } catch { /* sans fonds disponible, l'appel initial est envoyé tel quel */ }
     const invoiceNumber = ref('APF');
     const dueDate = (fc as any).dueDate ?? new Date(Date.now() + 30 * 86400000);
     const updated = await this.prisma.fundCall.update({
@@ -729,17 +821,17 @@ export class CtsService {
       await this.dispatch.dispatchToUser(principalId, {
         topic: 'APPEL_FONDS',
         title: `Appel de fonds — contrat ${(fc as any).contract?.number ?? ''}`,
-        body: `Montant choisi : ${fc.chosenAmount} FCFA à régler avant le ${dueDate.toLocaleDateString('fr-FR')} (réf. ${invoiceNumber}).`,
+        body: `Montant à régler : ${billableAmount} FCFA avant le ${dueDate.toLocaleDateString('fr-FR')} (réf. ${invoiceNumber}).${solidarityCovered > 0 ? ` ${solidarityCovered} FCFA pris en charge par le Fonds de solidarité.` : ''}`,
         meta: { fundCallId: id, contractId: fc.contractId },
       }).catch(() => {});
     }
     await this.prisma.ctsAlert.create({
       data: {
         contractId: fc.contractId, type: 'APPEL_FONDS', severity: 'WARNING', status: 'OPEN',
-        payload: JSON.stringify({ fundCallId: id, chosenAmount: fc.chosenAmount }),
+        payload: JSON.stringify({ fundCallId: id, chosenAmount: billableAmount, solidarityCovered }),
       },
     });
-    return updated;
+    return { ...updated, solidarityCovered };
   }
 
   /** Annule un appel non payé (DRAFT/SENT). Jamais après paiement. */
@@ -833,13 +925,22 @@ export class CtsService {
     if (done && done.status === 'CONFIRMED') throw new BadRequestException('Contrat déjà clôturé');
     const acc = await this.ensureAccount(contractId);
     const cfg = await this.loadConfig(contractId);
+    const solidarity = await this.getSolidarityConfig();
     const c = closeOut(acc.consumed, acc.committed, this.effectiveBudget(acc), cfg.carryRate);
+    // Mutualité : une part de l'excédent alimente le Fonds de solidarité ;
+    // le crédit de renouvellement est calculé sur le reliquat distribuable.
+    const solidarityShare = solidarity.enabled ? solidarity.surplusShare : 0;
+    const solidarityContribution = Math.round(c.surplus * solidarityShare);
+    const distributable = Math.max(0, c.surplus - solidarityContribution);
+    const renewalCredit = Math.round((distributable * cfg.carryRate) / 100);
     const data = {
       finalConsumed: acc.consumed,
       finalCommitted: acc.committed,
       surplus: c.surplus,
       carryRate: cfg.carryRate,
-      renewalCredit: c.renewalCredit,
+      solidarityShare,
+      solidarityContribution,
+      renewalCredit,
       mode: cfg.renewalMode,
     };
     if (done) {
@@ -875,7 +976,121 @@ export class CtsService {
       oldBalance: acc.available,
       newBalance: updated.available,
     });
+    // Versement de la part de solidarité au fonds (non bloquant pour la clôture).
+    try {
+      if ((closure as any).solidarityContribution > 0) {
+        await this.recordSolidarityMovement({
+          kind: 'CONTRIBUTION',
+          amount: (closure as any).solidarityContribution,
+          contractId: closure.contractId,
+          reference: `Closure:${closure.id}`,
+          meta: { surplus: closure.surplus, share: (closure as any).solidarityShare ?? 0 },
+        });
+        await this.entry({
+          contractId: closure.contractId,
+          type: 'SOLIDARITE',
+          amount: (closure as any).solidarityContribution,
+          reference: `Closure:${closure.id}:solidarite`,
+          meta: { kind: 'contribution', surplus: closure.surplus },
+          oldBalance: updated.available,
+          newBalance: updated.available,
+        });
+      }
+    } catch { /* le fonds ne doit jamais bloquer une clôture confirmée */ }
     return confirmed;
+  }
+
+  /**
+   * Couverture d'un déficit par le Fonds de solidarité : au lieu de facturer
+   * le manque au seul assuré malade, le fonds reconstitue son budget (boost).
+   * Plafonnée par le déficit réel, le solde du fonds et la couverture max par
+   * contrat. Chaque couverture est journalisée des deux côtés (fonds + contrat).
+   */
+  async coverDeficitFromSolidarity(
+    contractId: string,
+    actorUserId?: string,
+    requestedAmount?: number,
+  ): Promise<{ covered: number; account: any; band: string; reason?: string }> {
+    const acc = await this.ensureAccount(contractId);
+    const cfg = await this.getSolidarityConfig();
+    if (!cfg.enabled) {
+      return { covered: 0, account: acc, band: await this.evaluateBands(contractId), reason: 'Fonds de solidarité désactivé' };
+    }
+    const deficitAmount = Math.max(0, (acc as any).deficit ?? 0);
+    if (deficitAmount <= 0) {
+      return { covered: 0, account: acc, band: await this.evaluateBands(contractId), reason: 'Aucun déficit à couvrir' };
+    }
+    const balance = await this.solidarityBalance();
+    const wanted = requestedAmount != null ? Math.max(0, Math.floor(requestedAmount)) : deficitAmount;
+    const covered = Math.min(deficitAmount, balance, cfg.maxCoveragePerContract, wanted);
+    if (covered <= 0) {
+      const reason = balance <= 0 ? 'Fonds de solidarité vide' : 'Plafond de couverture par contrat atteint';
+      return { covered: 0, account: acc, band: await this.evaluateBands(contractId), reason };
+    }
+    const oldAvail = (acc as any).available;
+    const updated = await this.prisma.technicalAccount.update({
+      where: { id: (acc as any).id },
+      data: { budgetBoost: ((acc as any).budgetBoost ?? 0) + covered },
+    });
+    const recalculated = await this.prisma.technicalAccount.update({
+      where: { id: (acc as any).id },
+      data: { ...this.derived({ ...updated, budgetBoost: (updated as any).budgetBoost }, await this.loadConfig(contractId)) },
+    });
+    await this.recordSolidarityMovement({
+      kind: 'COVERAGE',
+      amount: covered,
+      contractId,
+      reference: `SolidarityCover:${contractId}:${Date.now()}`,
+      meta: { deficit: deficitAmount, fundBalanceBefore: balance },
+      actorUserId,
+    });
+    await this.entry({
+      contractId, type: 'SOLIDARITE',
+      amount: covered,
+      reference: `SolidarityCover:${contractId}`,
+      actorUserId,
+      meta: { kind: 'coverage', deficit: deficitAmount },
+      oldBalance: oldAvail,
+      newBalance: (recalculated as any).available,
+    });
+    return { covered, account: recalculated, band: await this.evaluateBands(contractId) };
+  }
+
+  /**
+   * État du Fonds de solidarité : solde, configuration, derniers mouvements
+   * et ratio de solidarité (couvertures / primes encaissées du portefeuille).
+   */
+  async solidarityOverview(take = 20) {
+    const cfg = await this.getSolidarityConfig();
+    const balance = await this.solidarityBalance();
+    let movements: any[] = [];
+    try {
+      movements = await (this.prisma as any).solidarityMovement.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: Math.max(1, Math.min(100, take)),
+      });
+    } catch { movements = []; }
+    let collected = 0;
+    let totalCovered = 0;
+    try {
+      const agg = await (this.prisma as any).technicalAccount.aggregate({ _sum: { primeCollected: true } });
+      collected = agg?._sum?.primeCollected ?? 0;
+    } catch { collected = 0; }
+    try {
+      const coverAgg = await (this.prisma as any).solidarityMovement.aggregate({
+        where: { kind: 'COVERAGE' },
+        _sum: { amount: true },
+      });
+      totalCovered = coverAgg?._sum?.amount ?? 0;
+    } catch { totalCovered = 0; }
+    return {
+      balance,
+      config: cfg,
+      fundStatus: !cfg.enabled ? 'DESACTIVE' : balance > 0 ? 'OK' : 'VIDE',
+      solidarityRatio: collected > 0 ? totalCovered / collected : 0,
+      totalCovered,
+      movements,
+    };
   }
 
   /**
@@ -1074,6 +1289,7 @@ export class CtsController {
   }
 
   @Get('contracts/mine/cts')
+  @RequirePermissions('cts.view')
   myAccounts(@CurrentUser() auth: AuthUser) {
     return this.cts.myAccounts(auth.id);
   }
@@ -1089,6 +1305,22 @@ export class CtsController {
   @RequirePermissions('cts.view')
   portfolio() {
     return this.cts.portfolioOverview();
+  }
+
+  @Get('admin/solidarity/fund')
+  @RequirePermissions('cts.view')
+  solidarityFund() {
+    return this.cts.solidarityOverview();
+  }
+
+  @Post('admin/contracts/:id/solidarity-cover')
+  @RequirePermissions('cts.manage')
+  solidarityCover(
+    @Param('id') id: string,
+    @Body(new ZodPipe(z.object({ amount: z.number().int().min(1).optional() }))) dto: any,
+    @CurrentUser() auth: AuthUser,
+  ) {
+    return this.cts.coverDeficitFromSolidarity(id, auth.id, dto.amount);
   }
 
   @Public()

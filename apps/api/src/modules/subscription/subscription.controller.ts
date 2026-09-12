@@ -42,6 +42,23 @@ const subscribeCompanySchema = z.object({
   employeesCount: z.number().int().min(1).max(5000),
 });
 
+const guaranteeChangeRequestSchema = z.object({
+  productId: z.string().min(5),
+  categoryId: z.string().min(2),
+  requestedRate: z.number().int().min(0).max(100).nullable().optional(),
+  requestedAnnualLimit: z.number().int().min(0).max(100000000).nullable().optional(),
+  reason: z.string().min(10).max(1000),
+  frequency: z.enum(['ANNUAL', 'QUARTERLY', 'MONTHLY']),
+  beneficiaries: z.array(z.object({
+    birthDate: z.coerce.date(),
+    relation: z.enum(['SPOUSE', 'CHILD', 'OTHER']),
+  })).max(15).default([]),
+}).superRefine((value, ctx) => {
+  if (value.requestedRate == null && value.requestedAnnualLimit == null) {
+    ctx.addIssue({ code: 'custom', message: 'Indiquez au moins un taux ou un plafond demandé' });
+  }
+});
+
 @Controller('subscription')
 export class SubscriptionController {
   constructor(private subscription: SubscriptionService) {}
@@ -54,6 +71,11 @@ export class SubscriptionController {
   @Post('subscribe')
   subscribe(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(subscribeIndividualSchema)) dto: any) {
     return this.subscription.subscribeIndividual(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees);
+  }
+
+  @Post('guarantee-change-requests')
+  guaranteeChangeRequest(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(guaranteeChangeRequestSchema)) dto: any) {
+    return this.subscription.requestGuaranteeChange(auth.id, dto);
   }
 
   @Post('subscribe-company')

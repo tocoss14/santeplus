@@ -335,7 +335,6 @@ function ThirdPartyFlow({ contractToken, beneficiaries, caps, onClose }: { contr
           <p className="label mb-0">Calcul instantané — {quote.reference}</p>
           <Row label="Montant total des actes" value={fcfa(est.requested)} />
           <Row label="Couvert par l’assurance" value={fcfa(est.approved)} strong />
-          <Row label="Franchises déduites" value={fcfa(estItems.reduce((s: number, i: any) => s + (i.deductibleApplied ?? 0), 0))} />
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 flex justify-between font-bold text-amber-900">
             <span>À payer par le patient</span><span>{fcfa(est.outOfPocket)}</span>
           </div>

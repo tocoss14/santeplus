@@ -165,3 +165,22 @@ export const ctsBandStyle = (b: string): string => CTS_BAND_STYLES[b] ?? 'bg-sla
 
 export const ratioPct = (r: number | null | undefined): string =>
   r == null ? '—' : `${Math.round(r * 100)} %`;
+
+function clampPercent(value: number | null | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, value));
+}
+
+/**
+ * Taux net estimé avant barème et plafonds : taux brut × (100 − copay) / 100.
+ * Exemple : 70 % brut avec 30 % de copay → 49 % net estimé.
+ */
+export const netCoverageRate = (rate: number | null | undefined, copayRate: number | null | undefined): number => {
+  const net = (clampPercent(rate) * (100 - clampPercent(copayRate))) / 100;
+  return Math.round(net * 10) / 10;
+};
+
+export const netCoverageLabel = (rate: number | null | undefined, copayRate: number | null | undefined): string => {
+  const net = netCoverageRate(rate, copayRate);
+  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(net)} %`;
+};

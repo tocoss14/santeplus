@@ -186,8 +186,6 @@ async function main() {
             maxLimit: g.maxLimit ?? (g.limit ? g.limit * 2 : 10000000),
             limitStep: g.limitStep ?? 50000,
             pricePerLimitStep: g.pricePerLimitStep ?? 0,
-            deductibleType: g.deductibleType ?? 'NONE',
-            deductibleValue: g.deductibleValue ?? 0,
             copayRate: g.copayRate ?? 15,
             mandatory: g.mandatory ?? true,
             customizable: g.customizable ?? false,

@@ -69,16 +69,46 @@ export default function AdminCts() {
 
       {fund && !fund.error && (
         <div className="card-p border-emerald-200">
-          <h2 className="font-semibold mb-2">🤝 Fonds de solidarité mutualiste</h2>
+          <h2 className="font-semibold mb-2">
+            🤝 Fonds de solidarité mutualiste
+            {fund.replenishing && <span className="ml-2 badge bg-orange-100 text-orange-800">Reconstitution en cours</span>}
+          </h2>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div><p className="text-xs text-slate-400">Solde du fonds</p><p className="font-bold text-emerald-700">{fcfa(fund.balance)}</p></div>
             <div><p className="text-xs text-slate-400">Ratio de solidarité</p><p className="font-semibold">{ratioPct(fund.solidarityRatio)}</p></div>
             <div><p className="text-xs text-slate-400">Total couvert</p><p className="font-semibold">{fcfa(fund.totalCovered)}</p></div>
-            <div><p className="text-xs text-slate-400">Part des excédents</p><p className="font-semibold">{Math.round((fund.config?.surplusShare ?? 0) * 100)} %</p></div>
+            <div><p className="text-xs text-slate-400">Total contribué</p><p className="font-semibold">{fcfa(fund.totalContributed ?? 0)}</p></div>
           </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg bg-emerald-50 p-2">
+              <p className="text-xs text-emerald-700">Mode mutualité — {fund.distribution?.MUTUALITE ?? 0} contrats</p>
+              <p className="font-semibold">Ratio : {ratioPct(fund.byMode?.MUTUALITE?.ratio)}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-2">
+              <p className="text-xs text-slate-500">Mode individuel — {fund.distribution?.INDIVIDUEL ?? 0} contrats</p>
+              <p className="font-semibold">Ratio : 0 % (par définition)</p>
+            </div>
+          </div>
+          {fund.byProduct?.length > 0 && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr><th className="th text-left">Produit</th><th className="th text-right">Contrats</th><th className="th text-right">Contribué</th><th className="th text-right">Couvert</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {fund.byProduct.map((p: any) => (
+                    <tr key={p.productId}>
+                      <td className="td">{p.code ?? p.name}</td>
+                      <td className="td text-right">{p.contracts}</td>
+                      <td className="td text-right text-emerald-700">{fcfa(p.contributed)}</td>
+                      <td className="td text-right text-orange-700">{fcfa(p.covered)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <p className="mt-2 text-xs text-slate-500">
-            Les excédents de clôture alimentent le fonds, qui couvre les déficits des contrats en difficulté.
-            Appels individuels plafonnés au minimum entre {fcfa(fund.config?.individualFundCallCap)} et une prime annuelle · couverture max {fcfa(fund.config?.maxCoveragePerContract)}/contrat. Statut : {fund.fundStatus}.
+            Les excédents de clôture alimentent le fonds (part dynamique selon sinistralité), qui couvre les déficits des contrats en mutualité.
+            Appels individuels plafonnés au minimum entre {fcfa(fund.config?.individualFundCallCap)} et une prime annuelle · couverture proportionnelle au déficit. Statut : {fund.fundStatus}.
           </p>
           {coverMsg && <p className="mt-2 text-sm font-medium text-brand-700">{coverMsg}</p>}
         </div>

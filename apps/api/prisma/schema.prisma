@@ -221,6 +221,11 @@ model Contract {
   adhesionPaidAt  DateTime?
   // Surcharges CTS spécifiques au contrat (nullable — sinon Product.ctsConfig)
   ctsOverride String?
+  // Modèle de gestion du risque : MUTUALITE (défaut, solidaire) ou INDIVIDUEL
+  // (auto-assuré). Passage en INDIVIDUEL réservé après 24 mois en MUTUALITE.
+  riskModel String @default("MUTUALITE")
+  riskModelSince DateTime?
+  riskModelChangedAt DateTime?
 
   beneficiaries Beneficiary[]
   contributions Contribution[]
@@ -1133,6 +1138,8 @@ model SolidarityMovement {
   amount     Int
   contractId String?
   contract   Contract? @relation(fields: [contractId], references: [id])
+  // Modèle de gestion du contrat à l'origine du mouvement (dénormalisé pour le pilotage par mode)
+  riskModel  String?
   reference  String?
   meta       String   @default("{}")
   actorUserId String?

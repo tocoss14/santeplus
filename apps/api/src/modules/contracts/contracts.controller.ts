@@ -38,6 +38,38 @@ export class ContractsService {
     throw new ForbiddenException('AccÃ¨s refusÃ© Ã  ce contrat');
   }
 
+  /**
+   * Changement du modèle de gestion du risque (MUTUALITE ↔ INDIVIDUEL).
+   * Garde anti-antisélection : sortie de la mutualité réservée après 24 mois
+   * continus en MUTUALITE. L'entrée en MUTUALITE est toujours libre.
+   */
+  async changeRiskModel(auth: AuthUser, contractId: string, target: 'MUTUALITE' | 'INDIVIDUEL') {
+    const contract = await this.canAccess(auth, contractId);
+    const current = (contract as any).riskModel ?? 'MUTUALITE';
+    if (current === target) return { changed: false as const, riskModel: current };
+    if (target === 'INDIVIDUEL' && current === 'MUTUALITE') {
+      const since = (contract as any).riskModelSince ?? (contract as any).createdAt;
+      const months = since
+        ? (Date.now() - new Date(since).getTime()) / (30.44 * 86400000)
+        : 0;
+      if (months < 24) {
+        throw new BadRequestException(
+          `Passage en mode INDIVIDUEL réservé après 24 mois en MUTUALITE (ancienneté : ${Math.floor(months)} mois)`,
+        );
+      }
+    }
+    const now = new Date();
+    const updated = await this.prisma.contract.update({
+      where: { id: contractId },
+      data: {
+        riskModel: target,
+        riskModelChangedAt: now,
+        ...(target === 'MUTUALITE' ? { riskModelSince: now } : {}),
+      },
+    });
+    return { changed: true as const, riskModel: (updated as any).riskModel };
+  }
+
   async capsSummary(contract: any): Promise<any[]> {
     const yearStart = startOfDay(contract.startDate ?? new Date());
     const usedPerCategory: Record<string, number> = {};
@@ -169,6 +201,15 @@ export class ContractsController {
   @Post('contracts/:id/renew')
   renew(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
     return this.contracts.renew(auth, id);
+  }
+
+  @Post('contracts/:id/risk-model')
+  changeRiskModel(
+    @CurrentUser() auth: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodPipe(z.object({ riskModel: z.enum(['MUTUALITE', 'INDIVIDUEL']) }))) dto: any,
+  ) {
+    return this.contracts.changeRiskModel(auth, id, dto.riskModel);
   }
 
   @Get('contracts/:id/certificate')

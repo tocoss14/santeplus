@@ -22,8 +22,8 @@ function makeDb() {
     configs: {
       'solidarity.enabled': 'true',
       'solidarity.surplusShare': '0.2',
+      'solidarity.dynamicShare': 'false',
       'solidarity.individualFundCallCap': '100000',
-      'solidarity.maxCoveragePerContract': '500000',
     } as Record<string, string>,
   };
 }
@@ -69,7 +69,23 @@ function makePrisma(db: any) {
         Object.assign(acc, data);
         return acc;
       }),
-      aggregate: vi.fn(async () => ({ _sum: { primeCollected: 1_000_000 } })),
+      aggregate: vi.fn(async ({ where }: any = {}) => {
+        const rows = Object.values(db.accounts).filter((a: any) =>
+          !where?.deficit || (where.deficit.gt !== undefined && a.deficit > where.deficit.gt),
+        );
+        const sum = (k: string) => rows.reduce((t: number, a: any) => t + (a[k] ?? 0), 0);
+        return { _sum: { primeCollected: sum('primeCollected'), consumed: sum('consumed'), committed: sum('committed'), deficit: sum('deficit') } };
+      }),
+    },
+    contribution: {
+      findMany: vi.fn(async ({ where }: any) => db.contributions.filter((c: any) => !where?.contractId || c.contractId === where.contractId)),
+      findFirst: vi.fn(async () => null),
+      update: vi.fn(async ({ where, data }: any) => {
+        const row = db.contributions.find((c: any) => c.id === where.id);
+        Object.assign(row, data);
+        return row;
+      }),
+      count: vi.fn(async () => 0),
     },
     ctsJournal: {
       findFirst: vi.fn(async () => null),
@@ -152,13 +168,14 @@ describe('fonds de solidarité', () => {
     await expect(svc.getSolidarityConfig()).resolves.toMatchObject({
       enabled: true,
       surplusShare: 0.2,
+      dynamicShare: false,
       individualFundCallCap: 100_000,
-      maxCoveragePerContract: 500_000,
     });
   });
 
   it('clôture : 20 % de l’excédent au fonds, crédit sur le reliquat', async () => {
     const db = makeDb();
+    db.movements.push({ id: 'sm-0', kind: 'CONTRIBUTION', amount: 500_000, contractId: 'c9', createdAt: new Date() });
     db.contributions.push({ id: 'contrib-1', contractId: 'c1', sequence: 1, amount: 100_000, status: 'PAID' });
     db.claims.push({ contractId: 'c1', status: 'PAID', totalApproved: 30_000 });
     const svc = makeService(db);
@@ -168,9 +185,9 @@ describe('fonds de solidarité', () => {
     expect(closed.renewalCredit).toBe(28_000);
 
     await (svc as any).confirmClosure(closed.id);
-    expect(db.movements).toHaveLength(1);
-    expect(db.movements[0]).toMatchObject({ kind: 'CONTRIBUTION', amount: 10_000, contractId: 'c1' });
-    expect(await (svc as any).solidarityBalance()).toBe(10_000);
+    const contribution = db.movements.find((m: any) => m.kind === 'CONTRIBUTION' && m.contractId === 'c1');
+    expect(contribution).toMatchObject({ amount: 10_000 });
+    expect(await (svc as any).solidarityBalance()).toBe(510_000);
   });
 
   it('couvre un déficit dans la limite du solde et du plafond par contrat', async () => {
@@ -201,7 +218,7 @@ describe('fonds de solidarité', () => {
     const svc = makeService(db);
     const r = await (svc as any).coverDeficitFromSolidarity('c1', 'mgr1');
     expect(r.covered).toBe(0);
-    expect(r.reason).toBe('Fonds de solidarité vide');
+    expect(r.reason).toBe('Fonds de solidarité vide ou insuffisant');
     expect(db.movements).toHaveLength(0);
   });
 
@@ -250,8 +267,145 @@ describe('fonds de solidarité', () => {
     expect(sent.solidarityCovered).toBe(78_000);
   });
 
+  it('clôture INDIVIDUEL : aucune contribution, 100 % de l’excédent en crédit', async () => {
+    const db = makeDb();
+    db.contracts.c1.riskModel = 'INDIVIDUEL';
+    db.contributions.push({ id: 'contrib-1', contractId: 'c1', sequence: 1, amount: 100_000, status: 'PAID' });
+    db.claims.push({ contractId: 'c1', status: 'PAID', totalApproved: 30_000 });
+    const svc = makeService(db);
+    const closed = await (svc as any).closeContract('c1', 'mgr1');
+    expect(closed.surplus).toBe(50_000);
+    expect(closed.solidarityShare).toBe(0);
+    expect(closed.solidarityContribution).toBe(0);
+    expect(closed.renewalCredit).toBe(50_000);
+    await (svc as any).confirmClosure(closed.id);
+    expect(db.movements).toHaveLength(0);
+  });
+
+  it('couverture refusée en mode INDIVIDUEL', async () => {
+    const db = makeDb();
+    db.contracts.c1.riskModel = 'INDIVIDUEL';
+    db.accounts.c1 = {
+      id: 'acc-1', contractId: 'c1', primeCollected: 100_000, primeBilled: 100_000,
+      managementFees: 20_000, benefitBudget: 80_000, budgetBoost: 0,
+      consumed: 120_000, committed: 0, available: -40_000, consumptionRatio: 1.5,
+      provisionalResult: -40_000, primeUnpaid: 0, fundCallsTotal: 0, renewalCredit: 0, deficit: 40_000,
+    };
+    const svc = makeService(db);
+    await expect((svc as any).coverDeficitFromSolidarity('c1', 'mgr1')).rejects.toThrow('MUTUALITE');
+  });
+
+  it('appel de fonds INDIVIDUEL : part plafonnée, reliquat sans recours au fonds', async () => {
+    const db = makeDb();
+    db.movements.push({ id: 'sm-1', kind: 'CONTRIBUTION', amount: 300_000, contractId: 'c9', createdAt: new Date() });
+    db.accounts.c1 = {
+      id: 'acc-1', contractId: 'c1', primeCollected: 144_000, primeBilled: 144_000,
+      managementFees: 28_800, benefitBudget: 115_200, budgetBoost: 0,
+      consumed: 200_000, committed: 0, available: -84_800, consumptionRatio: 1.74,
+      provisionalResult: -84_800, primeUnpaid: 0, fundCallsTotal: 0, renewalCredit: 0, deficit: 84_800,
+    };
+    db.fundCalls['fc-1'] = {
+      id: 'fc-1', contractId: 'c1', targetAmount: 200_000, minimum: 0,
+      recommended: 150_000, chosenAmount: 150_000, status: 'DRAFT', dueDate: null,
+      contract: { principalUserId: 'u1', number: 'CTR-1', premiumAnnual: 144_000, riskModel: 'INDIVIDUEL' },
+    };
+    const svc = makeService(db);
+    const sent: any = await (svc as any).sendFundCall('fc-1');
+    expect(db.fundCalls['fc-1'].chosenAmount).toBe(100_000);
+    expect(sent.solidarityCovered).toBe(0);
+    expect(await (svc as any).solidarityBalance()).toBe(300_000);
+  });
+
+  it('part dynamique indexée sur la sinistralité globale', async () => {
+    const db = makeDb();
+    db.movements.push({ id: 'sm-0', kind: 'CONTRIBUTION', amount: 500_000, contractId: 'c9', createdAt: new Date() });
+    db.accounts.cx = {
+      id: 'acc-x', contractId: 'cx', primeCollected: 1_000_000, primeBilled: 1_000_000,
+      managementFees: 200_000, benefitBudget: 800_000, budgetBoost: 0,
+      consumed: 500_000, committed: 0, available: 300_000, consumptionRatio: 0.625,
+      provisionalResult: 300_000, primeUnpaid: 0, fundCallsTotal: 0, renewalCredit: 0, deficit: 0,
+    };
+    db.configs['solidarity.dynamicShare'] = 'true';
+    const svc = makeService(db);
+    // S/P 50 % → part basse 15 %
+    await expect((svc as any).resolveSurplusShare()).resolves.toMatchObject({ share: 0.15, lossRatio: 0.5 });
+    db.accounts.cx.consumed = 900_000;
+    await expect((svc as any).resolveSurplusShare()).resolves.toMatchObject({ share: 0.25 });
+    db.accounts.cx.consumed = 1_100_000;
+    await expect((svc as any).resolveSurplusShare()).resolves.toMatchObject({ share: 0.4 });
+  });
+
+  it('couverture proportionnelle au poids du déficit dans le portefeuille', async () => {
+    const db = makeDb();
+    db.movements.push({ id: 'sm-1', kind: 'CONTRIBUTION', amount: 50_000, contractId: 'c9', createdAt: new Date() });
+    const mkAcc = (cid: string, deficit: number, consumed: number) => {
+      db.accounts[cid] = {
+        id: `acc-${cid}`, contractId: cid, primeCollected: 100_000, primeBilled: 100_000,
+        managementFees: 20_000, benefitBudget: 80_000, budgetBoost: 0,
+        consumed, committed: 0, available: 80_000 - consumed, consumptionRatio: consumed / 80_000,
+        provisionalResult: 80_000 - consumed, primeUnpaid: 0, fundCallsTotal: 0, renewalCredit: 0, deficit,
+      };
+    };
+    mkAcc('c1', 40_000, 120_000);
+    mkAcc('c3', 120_000, 200_000);
+    const svc = makeService(db);
+    // Fonds 50 000, déficit total 160 000 → c1 reçoit 50 000 × 40/160 = 12 500.
+    const r = await (svc as any).coverDeficitFromSolidarity('c1', 'mgr1');
+    expect(r.covered).toBe(12_500);
+    expect(await (svc as any).solidarityBalance()).toBe(37_500);
+  });
+
+  it('stop-loss reconstituant : restaure le bassin d’alerte à 30 %', async () => {
+    const db = makeDb();
+    db.contracts.c1.product = { ctsConfig: JSON.stringify({ stopLoss: { threshold: 10_000, cap: 5_000 } }) };
+    db.movements.push({ id: 'sm-1', kind: 'CONTRIBUTION', amount: 300_000, contractId: 'c9', createdAt: new Date() });
+    db.accounts.c1 = {
+      id: 'acc-1', contractId: 'c1', primeCollected: 100_000, primeBilled: 100_000,
+      managementFees: 20_000, benefitBudget: 80_000, budgetBoost: 0,
+      consumed: 70_000, committed: 0, available: 10_000, consumptionRatio: 0.875,
+      provisionalResult: 10_000, primeUnpaid: 0, fundCallsTotal: 0, renewalCredit: 0, deficit: 0,
+    };
+    const svc = makeService(db);
+    await (svc as any).checkStopLossAndAlert(
+      'c1',
+      { managementRate: 20, warnRatio: 50, alertRatio: 30, criticalRatio: 10, carryRate: 70, renewalMode: 'DEDUCT', stopLoss: { threshold: 10_000, cap: 5_000 } },
+      70_000,
+      0,
+    );
+    // Cible 30 % × 80 000 = 24 000, disponible 10 000 → don de 14 000.
+    const coverage = db.movements.find((m: any) => m.kind === 'COVERAGE');
+    expect(coverage?.amount).toBe(14_000);
+    expect((await (svc as any).getAccount('c1')).available).toBe(24_000);
+    expect(db.journal.some((j: any) => j.type === 'STOP_LOSS')).toBe(true);
+  });
+
+  it('reconstitution : les crédits de renouvellement sont suspendus sous le seuil', async () => {
+    const db = makeDb();
+    db.accounts.cx = {
+      id: 'acc-x', contractId: 'cx', primeCollected: 1_000_000, primeBilled: 1_000_000,
+      managementFees: 200_000, benefitBudget: 800_000, budgetBoost: 0,
+      consumed: 0, committed: 0, available: 800_000, consumptionRatio: 0,
+      provisionalResult: 800_000, primeUnpaid: 0, fundCallsTotal: 0, renewalCredit: 0, deficit: 0,
+    };
+    db.movements.push({ id: 'sm-1', kind: 'CONTRIBUTION', amount: 10_000, contractId: 'c9', createdAt: new Date() });
+    db.closures.c1 = {
+      id: 'cl-1', contractId: 'c1', status: 'CONFIRMED', renewalCredit: 28_000, mode: 'DEDUCT',
+      finalConsumed: 0, finalCommitted: 0, surplus: 50_000, carryRate: 70,
+    };
+    const svc = makeService(db);
+    // Solde 10 000 < 15 % × 1 000 000 → suspension.
+    expect(await (svc as any).solidarityReplenishing()).toBe(true);
+    await expect((svc as any).applyRenewalCredit('c1')).resolves.toMatchObject({ applied: false });
+  });
+
   it('publie le ratio de solidarité du portefeuille', async () => {
     const db = makeDb();
+    db.accounts.cx = {
+      id: 'acc-x', contractId: 'cx', primeCollected: 1_000_000, primeBilled: 1_000_000,
+      managementFees: 200_000, benefitBudget: 800_000, budgetBoost: 0,
+      consumed: 0, committed: 0, available: 800_000, consumptionRatio: 0,
+      provisionalResult: 800_000, primeUnpaid: 0, fundCallsTotal: 0, renewalCredit: 0, deficit: 0,
+    };
     db.movements.push(
       { id: 'sm-1', kind: 'CONTRIBUTION', amount: 100_000, contractId: 'c9', createdAt: new Date() },
       { id: 'sm-2', kind: 'COVERAGE', amount: 20_000, contractId: 'c1', createdAt: new Date() },
@@ -260,6 +414,12 @@ describe('fonds de solidarité', () => {
     const overview = await (svc as any).solidarityOverview();
     expect(overview.balance).toBe(80_000);
     expect(overview.totalCovered).toBe(20_000);
+    expect(overview.totalContributed).toBe(100_000);
     expect(overview.solidarityRatio).toBeCloseTo(0.02);
+    // 80 000 < 15 % des 1 000 000 encaissés → reconstitution active.
+    expect(overview.replenishing).toBe(true);
+    expect(overview.fundStatus).toBe('RECONSTITUTION');
+    expect(overview.byMode.MUTUALITE.ratio).toBeCloseTo(0.02);
+    expect(overview.byMode.INDIVIDUEL).toMatchObject({ covered: 0, ratio: 0 });
   });
 });

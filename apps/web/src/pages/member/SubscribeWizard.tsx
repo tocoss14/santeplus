@@ -53,6 +53,7 @@ export default function SubscribeWizard() {
     (location.state as any)?.productId ?? new URLSearchParams(location.search).get('productId') ?? '',
   );
   const [frequency, setFrequency] = useState('ANNUAL');
+  const [riskModel, setRiskModel] = useState<'MUTUALITE' | 'INDIVIDUEL'>('MUTUALITE');
   const [beneficiaries, setBeneficiaries] = useState<BenefDraft[]>([]);
   const [initialProfile, setInitialProfile] = useState<InitialProfile>({ firstName: '', lastName: '', birthDate: '' });
   const [initialProfileError, setInitialProfileError] = useState<string | null>(null);
@@ -430,6 +431,7 @@ export default function SubscribeWizard() {
         frequency,
         beneficiaries,
         selectedGuarantees: [],
+        riskModel,
       });
       setSubscription(res);
       setQuote(res.quote);
@@ -986,6 +988,20 @@ export default function SubscribeWizard() {
               </div>
             </div>
           )}
+
+          <div className="card-p">
+            <h4 className="text-sm font-semibold text-slate-700">Modèle de gestion du risque</h4>
+            <div className="mt-2 grid gap-2">
+              <label className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm ${riskModel === 'MUTUALITE' ? 'border-brand-600 bg-brand-50/50' : 'border-slate-200'}`}>
+                <input type="radio" name="riskModel" checked={riskModel === 'MUTUALITE'} onChange={() => setRiskModel('MUTUALITE')} className="mt-1" />
+                <span><span className="font-semibold">🤝 Mutualité (recommandé)</span><br /><span className="text-xs text-slate-500">Vos excédents alimentent le Fonds de solidarité ; vos déficits peuvent être couverts. Garanties et tarifs identiques.</span></span>
+              </label>
+              <label className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm ${riskModel === 'INDIVIDUEL' ? 'border-brand-600 bg-brand-50/50' : 'border-slate-200'}`}>
+                <input type="radio" name="riskModel" checked={riskModel === 'INDIVIDUEL'} onChange={() => setRiskModel('INDIVIDUEL')} className="mt-1" />
+                <span><span className="font-semibold">👤 Individuel</span><br /><span className="text-xs text-slate-500">Excédents intégralement conservés, déficits sans recours au fonds. Sortie de mutualité définitive après 24 mois seulement.</span></span>
+              </label>
+            </div>
+          </div>
 
           <div className="card-p text-xs text-slate-500 space-y-1.5">
             <p>• Co-paiement de 15% s'applique sur chaque prestation (part restant à votre charge).</p>

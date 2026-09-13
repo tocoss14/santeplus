@@ -29,11 +29,14 @@ const quoteSchema = z.object({
   selectedGuarantees: z.array(selectedGuaranteeSchema).optional(),
 });
 
+export const riskModelSchema = z.enum(['MUTUALITE', 'INDIVIDUEL']);
+
 const subscribeIndividualSchema = z.object({
   productId: z.string().min(5),
   frequency: z.enum(['ANNUAL', 'QUARTERLY', 'MONTHLY']),
   beneficiaries: z.array(beneficiaryDraftSchema).default([]),
   selectedGuarantees: z.array(selectedGuaranteeSchema).optional(),
+  riskModel: riskModelSchema.default('MUTUALITE'),
 });
 
 const subscribeCompanySchema = z.object({
@@ -70,7 +73,7 @@ export class SubscriptionController {
 
   @Post('subscribe')
   subscribe(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(subscribeIndividualSchema)) dto: any) {
-    return this.subscription.subscribeIndividual(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees);
+    return this.subscription.subscribeIndividual(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees, dto.riskModel);
   }
 
   @Post('guarantee-change-requests')

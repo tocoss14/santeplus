@@ -219,6 +219,7 @@ export class SubscriptionService {
     frequency: Frequency,
     beneficiaries: BeneficiaryDraft[],
     selectedGuarantees?: SelectedGuarantee[],
+    riskModel: 'MUTUALITE' | 'INDIVIDUEL' = 'MUTUALITE',
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.birthDate) throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de souscrire');
@@ -288,6 +289,8 @@ export class SubscriptionService {
           insurerPartnerId: product.insurerPartnerId,
           premiumAnnual: quote.totalAnnual,
           frequency,
+          riskModel,
+          riskModelSince: new Date(),
           quote: JSON.stringify({ ...quote, adhesionFee, adhesionPerPerson: perPerson }),
           cardToken: secureToken(16),
           distributorId: distributor?.id ?? null,

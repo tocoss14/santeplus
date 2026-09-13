@@ -83,8 +83,13 @@ async function main() {
       { key: 'adhesionFeeEnterpriseCap', value: '100000' },
       { key: 'solidarity.enabled', value: 'true' },
       { key: 'solidarity.surplusShare', value: '0.2' },
+      { key: 'solidarity.dynamicShare', value: 'true' },
+      { key: 'solidarity.shareLow', value: '0.15' },
+      { key: 'solidarity.shareMid', value: '0.25' },
+      { key: 'solidarity.shareHigh', value: '0.40' },
+      { key: 'solidarity.replenishThreshold', value: '0.15' },
+      { key: 'solidarity.replenishShare', value: '0.30' },
       { key: 'solidarity.individualFundCallCap', value: '100000' },
-      { key: 'solidarity.maxCoveragePerContract', value: '500000' },
       { key: 'retention.enabled', value: 'true' },
       { key: 'retention.careRecordDays', value: '3650' },
       { key: 'retention.auditDays', value: '1095' },
@@ -301,7 +306,7 @@ async function main() {
   const prodPremium = await createProduct({
     code: 'EXC', name: 'Santé Excellence', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 3,
     description: 'Haute gamme : toutes cliniques, évacuation sanitaire, plafonds élevés. Entente préalable pour les gros actes. Ticket modérateur 10%.',
-    minAge: 0, maxAge: 70, waitingPeriodDays: 30,
+    minAge: 0, maxAge: 75, waitingPeriodDays: 30,
     basePremiumAnnual: 300000, // 25 000 FCFA/mois
     pricePerAdditionalAdultAnnual: 240000, // 20 000 FCFA/mois par conjoint/adulte
     pricePerChildAnnual: 240000, // 20 000 FCFA/mois par enfant
@@ -313,7 +318,7 @@ async function main() {
       { minAge: 31, maxAge: 45, factor: 1.15 },
       { minAge: 46, maxAge: 55, factor: 1.3 },
       { minAge: 56, maxAge: 65, factor: 1.5 },
-      { minAge: 66, maxAge: 70, factor: 1.7 },
+      { minAge: 66, maxAge: 75, factor: 1.7 },
     ],
     insurerPartnerId: partnerA.id,
     beneficiaryRules: { spouse: true, childMaxAge: 26, otherAllowed: true, maxBeneficiaries: 10 },

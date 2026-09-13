@@ -131,6 +131,8 @@ function ContractTab({ detail }: { detail: any }) {
     : null;
   const [renewBusy, setRenewBusy] = useState(false);
   const [renewError, setRenewError] = useState<string | null>(null);
+  const [modelBusy, setModelBusy] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
 
   const renew = async () => {
     setRenewBusy(true);
@@ -142,6 +144,23 @@ function ContractTab({ detail }: { detail: any }) {
       setRenewError(err?.message ?? 'Renouvellement impossible');
     } finally {
       setRenewBusy(false);
+    }
+  };
+
+  const riskModel = detail.riskModel ?? 'MUTUALITE';
+  const switchRiskModel = async (target: string) => {
+    if (!window.confirm(target === 'INDIVIDUEL'
+      ? 'Passer en mode INDIVIDUEL : vos excédents vous reviendront intégralement, mais vos déficits ne seront plus couverts par le Fonds de solidarité. Continuer ?'
+      : 'Revenir en mode MUTUALITE : vos excédents alimenteront le Fonds de solidarité et vos déficits pourront être couverts. Continuer ?')) return;
+    setModelBusy(true);
+    setModelError(null);
+    try {
+      await api.post(`/contracts/${detail.id}/risk-model`, { riskModel: target });
+      window.location.reload();
+    } catch (err: any) {
+      setModelError(err?.message ?? 'Changement impossible');
+    } finally {
+      setModelBusy(false);
     }
   };
   const historical = ['EXPIRED', 'TERMINATED'].includes(detail.status);
@@ -174,6 +193,24 @@ function ContractTab({ detail }: { detail: any }) {
               <div><p className="text-xs text-slate-400">Cotisation</p>{fcfa(detail.premiumAnnual)}/an</div>
               <div><p className="text-xs text-slate-400">Fréquence</p>{FREQUENCY_LABELS[detail.frequency]}</div>
               <div><p className="text-xs text-slate-400">Porté par</p>{detail.product.insurerPartner?.name ?? '—'}</div>
+            </div>
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <span className={`badge ${riskModel === 'MUTUALITE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                {riskModel === 'MUTUALITE' ? '🤝 Mode mutualité' : '👤 Mode individuel'}
+              </span>
+              <span className="ml-2 text-xs text-slate-500">
+                {riskModel === 'MUTUALITE'
+                  ? 'Vos excédents alimentent le Fonds de solidarité, qui couvre les déficits.'
+                  : 'Vos excédents vous reviennent intégralement, sans recours au fonds.'}
+              </span>
+              <button
+                className="btn-outline btn-sm ml-2"
+                disabled={modelBusy}
+                onClick={() => switchRiskModel(riskModel === 'MUTUALITE' ? 'INDIVIDUEL' : 'MUTUALITE')}
+              >
+                {modelBusy ? '…' : riskModel === 'MUTUALITE' ? 'Passer en individuel' : 'Revenir en mutualité'}
+              </button>
+              {modelError && <p className="mt-1 text-xs text-red-600">{modelError}</p>}
             </div>
             {daysLeft != null && daysLeft <= 30 && (
               <div className="mt-3 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">

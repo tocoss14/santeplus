@@ -158,21 +158,22 @@ function seedFunded(db: any) {
 }
 
 describe('closeContract (§19)', () => {
-  it('EXPIRED : DRAFT avec excédent, part solidarité puis crédit 70% du reliquat', async () => {
+  it('EXPIRED : DRAFT avec excédent, part solidarité dynamique puis crédit du reliquat', async () => {
     const db = makeDb();
     seedFunded(db);
     const svc = makeService(db);
     const closed = await (svc as any).closeContract('c1', 'mgr1');
-    // budget 80 000 − consommé 30 000 = excédent 50 000 → solidarité 10 000 (20 %),
-    // crédit 70 % du reliquat 40 000 = 28 000
+    // budget 80 000 − consommé 30 000 = excédent 50 000 ; portefeuille sans
+    // sinistralité → part basse 15 % → solidarité 7 500,
+    // crédit 70 % du reliquat 42 500 = 29 750
     expect(closed.status).toBe('DRAFT');
     expect(closed.finalConsumed).toBe(30_000);
     expect(closed.finalCommitted).toBe(0);
     expect(closed.surplus).toBe(50_000);
     expect(closed.carryRate).toBe(70);
-    expect(closed.solidarityShare).toBe(0.2);
-    expect(closed.solidarityContribution).toBe(10_000);
-    expect(closed.renewalCredit).toBe(28_000);
+    expect(closed.solidarityShare).toBe(0.15);
+    expect(closed.solidarityContribution).toBe(7_500);
+    expect(closed.renewalCredit).toBe(29_750);
     expect(closed.mode).toBe('DEDUCT');
   });
 
@@ -194,8 +195,8 @@ describe('closeContract (§19)', () => {
     const again = await (svc as any).closeContract('c1');
     expect(again.status).toBe('DRAFT');
     expect(again.surplus).toBe(40_000);
-    expect(again.solidarityContribution).toBe(8_000);
-    expect(again.renewalCredit).toBe(22_400);
+    expect(again.solidarityContribution).toBe(6_000);
+    expect(again.renewalCredit).toBe(23_800);
     await (svc as any).confirmClosure(again.id);
     await expect((svc as any).closeContract('c1')).rejects.toThrow(BadRequestException);
   });
@@ -210,8 +211,8 @@ describe('confirmClosure', () => {
     const confirmed = await (svc as any).confirmClosure(closed.id);
     expect(confirmed.status).toBe('CONFIRMED');
     expect(confirmed.closedAt).toBeTruthy();
-    expect((await (svc as any).getAccount('c1')).renewalCredit).toBe(28_000);
-    expect(db.journal.some((j: any) => j.type === 'CREDIT_RENOUVELLEMENT' && j.amount === 28_000)).toBe(true);
+    expect((await (svc as any).getAccount('c1')).renewalCredit).toBe(29_750);
+    expect(db.journal.some((j: any) => j.type === 'CREDIT_RENOUVELLEMENT' && j.amount === 29_750)).toBe(true);
     await expect((svc as any).confirmClosure(closed.id)).rejects.toThrow(BadRequestException);
   });
 

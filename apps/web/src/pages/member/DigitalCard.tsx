@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, API_BASE, fileUrl } from '../../api';
 import { cardQrPayload, fmtDate } from '../../format';
-import { ConfirmModal, Spinner, StatusBadge } from '../../components/ui';
+import { ConfirmModal, PhotoImg, Spinner, StatusBadge } from '../../components/ui';
 
 export default function DigitalCard() {
   const [card, setCard] = useState<any>(null);
@@ -65,17 +65,11 @@ export default function DigitalCard() {
             <StatusBadge status={card.status} />
           </div>
           <div className="mt-4 flex items-center gap-4">
-            {card.photoFileId ? (
-              <img
-                src={fileUrl(card.photoFileId)}
-                alt="Photo d'identité"
-                className="h-20 w-20 rounded-full border-2 border-white/40 object-cover shadow-lg"
-              />
-            ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/20 bg-white/10 text-3xl">
-                👤
-              </div>
-            )}
+            <PhotoImg
+              src={card.photoFileId ? fileUrl(card.photoFileId) : null}
+              alt="Photo d'identité"
+              className="h-20 w-20 rounded-full border-2 border-white/40 object-cover shadow-lg"
+            />
             <div>
               <p className="text-xl font-bold">{card.holder}</p>
               <p className="text-sm text-brand-100">{card.productName}</p>

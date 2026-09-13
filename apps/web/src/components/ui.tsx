@@ -1,5 +1,22 @@
-import { Children, cloneElement, isValidElement, useId } from 'react';
+import { Children, cloneElement, isValidElement, useId, useState } from 'react';
 import { statusLabel, statusStyle } from '../format';
+
+/**
+ * Image résiliente : si le fichier est absent du stockage (ex. disque
+ * éphémère après redéploiement), affiche un avatar de repli au lieu d'une
+ * image cassée. L'utilisateur peut alors renvoyer sa photo depuis son profil.
+ */
+export function PhotoImg({ src, alt, className }: { src: string | null | undefined; alt: string; className?: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) {
+    return (
+      <div className={`flex items-center justify-center bg-white/10 text-3xl ${className ?? ''}`} role="img" aria-label={alt}>
+        👤
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} onError={() => setBroken(true)} />;
+}
 
 export function Badge({ children, tone }: { children: React.ReactNode; tone?: string }) {
   return <span className={`badge ${tone ?? 'bg-slate-100 text-slate-700'}`}>{children}</span>;

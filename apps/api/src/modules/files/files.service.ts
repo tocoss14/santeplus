@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Query, Res } from '@nestjs/common';
-import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { Response } from 'express';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -65,6 +65,30 @@ export class StorageService {
       writeFileSync(join(config.uploadsDir, name), buffer);
     }
     return { storagePath: name, mime, size: buffer.length, sha256: hash };
+  }
+
+  /**
+   * Lit un fichier (disque ou S3) sans jamais lever : retourne null si
+   * introuvable, illisible ou corrompu. Utilisé pour les affichages
+   * (carte PDF, aperçus) qui doivent dégrader gracieusement.
+   */
+  async readFile(fileId: string | null | undefined): Promise<{ buffer: Buffer; mime: string } | null> {
+    try {
+      if (!fileId) return null;
+      const f = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
+      if (!f) return null;
+      if (this.s3Enabled()) {
+        const obj = await this.client().send(new GetObjectCommand({ Bucket: config.s3Bucket, Key: f.storagePath }));
+        const chunks: Buffer[] = [];
+        for await (const chunk of obj.Body as any) chunks.push(Buffer.from(chunk));
+        return { buffer: Buffer.concat(chunks), mime: f.mime };
+      }
+      const path = join(config.uploadsDir, f.storagePath);
+      if (!existsSync(path)) return null;
+      return { buffer: readFileSync(path), mime: f.mime };
+    } catch {
+      return null;
+    }
   }
 
   async open(auth: AuthUser, fileId: string, res: Response) {

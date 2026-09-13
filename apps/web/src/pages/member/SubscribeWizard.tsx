@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, PhotoImg, Spinner } from '../../components/ui';
 import FormulaComparisonTable from '../../components/FormulaComparisonTable';
 
 interface BenefDraft {
@@ -871,7 +871,7 @@ export default function SubscribeWizard() {
               className="relative flex h-36 w-36 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
             >
               {photoPreview ? (
-                <img src={photoPreview} alt="Photo d'identité" className="h-full w-full rounded-full object-cover" />
+                <PhotoImg src={photoPreview} alt="Photo d'identité" className="h-full w-full rounded-full object-cover" />
               ) : (
                 <span className="text-center text-sm leading-tight">📸<br />Ajouter une photo</span>
               )}

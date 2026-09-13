@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../../common/prisma.module';
 import { config } from '../../config';
+import { StorageService } from '../files/files.service';
 
 // Colors as hex strings for PDFKit compatibility
 const BRAND = '#1D6A4C';
@@ -24,7 +25,10 @@ function fmtDate(d: Date | string | null | undefined): string {
 
 @Injectable()
 export class PdfService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private storage?: StorageService,
+  ) {}
 
   /**
    * Génère le PDF du certificat d'adhésion / contrat d'assurance
@@ -223,7 +227,7 @@ export class PdfService {
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
 
-    return new Promise<Buffer>((resolve) => {
+    return new Promise<Buffer>(async (resolve) => {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
       // ── Title ──────────────────────────────────────────
@@ -261,6 +265,30 @@ export class PdfService {
       doc.fontSize(10).font('Helvetica').fillColor(LIGHT_GREEN);
       doc.text(contract.product.name, cx, cy);
       cy += 20;
+
+      // ── Photo d'identité (robuste : absente si fichier manquant) ──
+      const photoCX = cardX + cardW - 62;
+      const photoCY = cardY + 58;
+      const photoR = 30;
+      let photoDrawn = false;
+      try {
+        const photo = user.photoFileId && this.storage
+          ? await this.storage.readFile(user.photoFileId)
+          : null;
+        if (photo && photo.buffer.length > 0) {
+          doc.save();
+          doc.circle(photoCX, photoCY, photoR).clip();
+          doc.image(photo.buffer, photoCX - photoR, photoCY - photoR, { width: photoR * 2, height: photoR * 2 });
+          doc.restore();
+          photoDrawn = true;
+        }
+      } catch { /* photo ignorée : la carte reste valide sans elle */ }
+      if (!photoDrawn) {
+        doc.circle(photoCX, photoCY, photoR).fill('#FFFFFF22');
+        const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() || '?';
+        doc.fontSize(20).font('Helvetica-Bold').fillColor(WHITE);
+        doc.text(initials, photoCX - photoR, photoCY - 10, { width: photoR * 2, align: 'center' });
+      }
 
       // Info grid
       doc.fontSize(8).font('Helvetica').fillColor(LIGHT_GREEN);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { useAuth } from '../../auth';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, PhotoImg, Spinner } from '../../components/ui';
 
 export default function Profile() {
   const { me, refresh } = useAuth();
@@ -64,7 +64,7 @@ export default function Profile() {
             className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
           >
             {photoPreview ? (
-              <img src={photoPreview} alt="Photo" className="h-full w-full rounded-full object-cover" />
+              <PhotoImg src={photoPreview} alt="Photo" className="h-full w-full rounded-full object-cover" />
             ) : (
               <span className="text-center text-xs leading-tight">📸<br />Photo</span>
             )}

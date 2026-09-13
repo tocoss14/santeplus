@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { ROLE_LABELS, statusLabel, statusStyle } from '../../format';
-import { Modal, Spinner, Field, ErrorBanner } from '../../components/ui';
+import { Modal, PhotoImg, Spinner, Field, ErrorBanner } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
@@ -96,11 +96,7 @@ export default function AdminUsers() {
                 <tr key={u.id} className="cursor-pointer hover:bg-slate-50" onClick={() => api.get(`/admin/users/${u.id}`).then(setDetail)}>
                   <td className="td">
                     <div className="flex items-center gap-2">
-                      {u.photoFileId ? (
-                        <img src={fileUrl(u.photoFileId)} alt="" className="h-8 w-8 rounded-full object-cover" />
-                      ) : (
-                        <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-sm">👤</span>
-                      )}
+                      <PhotoImg src={u.photoFileId ? fileUrl(u.photoFileId) : null} alt="" className="h-8 w-8 rounded-full object-cover" />
                       <div>
                         <p className="font-medium">{u.lastName} {u.firstName}</p>
                         <p className="text-xs text-slate-400">{u.email}{u.company ? ` · ${u.company.name}` : ''}</p>
@@ -128,15 +124,13 @@ export default function AdminUsers() {
       <Modal open={!!detail} onClose={() => setDetail(null)} title="Fiche utilisateur" wide>
         {detail && (
           <div className="text-sm space-y-3">
-            {detail.photoFileId && (
-              <div className="flex items-center gap-3">
-                <img src={fileUrl(detail.photoFileId)} alt="Photo" className="h-16 w-16 rounded-full object-cover border-2 border-slate-200" />
-                <div>
-                  <p className="font-semibold text-base">{detail.lastName} {detail.firstName}</p>
-                  <p className="text-xs text-slate-400">{ROLE_LABELS[detail.role] ?? detail.role}</p>
-                </div>
+            <div className="flex items-center gap-3">
+              <PhotoImg src={detail.photoFileId ? fileUrl(detail.photoFileId) : null} alt="Photo" className="h-16 w-16 rounded-full object-cover border-2 border-slate-200" />
+              <div>
+                <p className="font-semibold text-base">{detail.lastName} {detail.firstName}</p>
+                <p className="text-xs text-slate-400">{ROLE_LABELS[detail.role] ?? detail.role}</p>
               </div>
-            )}
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <p><b>Nom :</b> {detail.lastName} {detail.firstName}</p>
               <p><b>Email :</b> {detail.email}</p>

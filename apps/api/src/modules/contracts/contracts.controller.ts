@@ -11,6 +11,7 @@ import { addDays, addYears, memberNumber, ref, secureToken, startOfDay } from '.
 import { PdfService } from './pdf.service';
 import { CLAIM_STATUSES_CONSUMING_CAPS } from '../../domain/engine';
 import { CtsModule, CtsService } from '../cts/cts.service';
+import { FilesModule } from '../files/files.service';
 
 const CAPS_CONSUMING: string[] = [...CLAIM_STATUSES_CONSUMING_CAPS];
 
@@ -417,7 +418,7 @@ export class BeneficiariesController {
 @Module({
   controllers: [ContractsController, BeneficiariesController],
   providers: [ContractsService, PdfService],
-  imports: [CtsModule],
+  imports: [CtsModule, FilesModule],
   exports: [ContractsService],
 })
 export class ContractsModule {}

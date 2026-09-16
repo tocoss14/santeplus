@@ -692,6 +692,8 @@ export class ProviderPortalController {
     // la confirmation du claim dans la même transaction Prisma. Si l'engagement
     // échoue (CTS indisponible, erreur), le claim n'est PAS confirmé (rollback).
     const totalApproved = claim.items.reduce((a, i) => a + (i.amountApproved ?? 0), 0);
+    // maxWait/timeout généreux : sous rafale (16+ confirmations simultanées), la file
+    // FOR UPDATE + l'acquisition de connexion ne doivent pas avorter prématurément.
     await this.prisma.$transaction(async tx => {
       if (this.cts) {
         await this.cts.recordEngagement(claim.contractId, id, totalApproved, {
@@ -708,7 +710,7 @@ export class ProviderPortalController {
           totalApproved,
         },
       });
-    });
+    }, { maxWait: 15_000, timeout: 20_000 });
     await this.notifyConfirmed(establishment.name, claim);
     return { ok: true, status: 'CONFIRMED', reference: claim.reference };
   }

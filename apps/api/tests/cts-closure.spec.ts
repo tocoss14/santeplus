@@ -27,7 +27,7 @@ function makeDb() {
 function makePrisma(db: any) {
   let seq = 0;
   const id = (p: string) => `${p}-${++seq}`;
-  return {
+  const prisma: any = {
     contract: {
       findUnique: vi.fn(async ({ where }: any) => db.contracts[where.id] ?? null),
       update: vi.fn(async ({ where, data }: any) => {
@@ -142,7 +142,11 @@ function makePrisma(db: any) {
       create: vi.fn(async () => ({})),
       update: vi.fn(async () => ({})),
     },
+    $queryRaw: vi.fn(async () => []),
+    $transaction: undefined as any,
   } as any;
+  prisma.$transaction = async (cb: any) => cb(prisma);
+  return prisma;
 }
 
 function makeService(db: any) {

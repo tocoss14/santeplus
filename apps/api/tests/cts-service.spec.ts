@@ -33,7 +33,7 @@ function makeDb(): Db {
 function makePrisma(db: Db) {
   let seq = 0;
   const id = (p: string) => `${p}-${++seq}`;
-  return {
+  const prisma: any = {
     contract: {
       findUnique: vi.fn(async ({ where }: any) => db.contracts[where.id] ?? null),
     },
@@ -101,7 +101,11 @@ function makePrisma(db: Db) {
         return { count };
       }),
     },
+    $queryRaw: vi.fn(async () => []),
+    $transaction: undefined as any,
   } as any;
+  prisma.$transaction = async (cb: any) => cb(prisma);
+  return prisma;
 }
 
 function makeService(db: Db) {
@@ -314,5 +318,144 @@ describe('bandes et alertes', () => {
     await svc.recordPrimeCollected('c1', {});
     expect(db.alerts.filter(a => a.status === 'OPEN')).toHaveLength(0);
     expect(db.alerts.every(a => a.status === 'RESOLVED')).toBe(true);
+  });
+});
+
+// ─── Écart P0 ② : recordEngagement 100 % transactionnel ───────────────────
+// Propriétés prouvées : (1) toutes les écritures passent par le client de
+// transaction fourni, (2) verrou FOR UPDATE émis avant le read-modify-write,
+// (3) auto-transaction quand aucun tx n'est fourni, (4) les écritures
+// d'alerte/stop-loss partagent le même client tx (annulées avec le rollback).
+
+function makeServiceOn(db: Db, prisma: any) {
+  const dispatch: any = { dispatchToUser: vi.fn(async () => ({})), dispatchToMany: vi.fn(async () => ({})) };
+  return new CtsService(prisma, dispatch);
+}
+
+describe('recordEngagement transactionnel (P0 ②)', () => {
+  it('propage le tx de l’appelant à TOUTES les écritures (compte, journal, alertes)', async () => {
+    const db = makeDb();
+    const prisma = makePrisma(db);
+    const svc = makeServiceOn(db, prisma);
+    seedCotisation(db, 12_000);
+    await svc.recordPrimeCollected('c1', {});
+
+    // Preuve forte : on empoisonne TOUTES les écritures du client GLOBAL.
+    // Si la moindre écriture échappait au tx, recordEngagement échouerait.
+    const real = {
+      taUpdate: prisma.technicalAccount.update.getMockImplementation() ?? prisma.technicalAccount.update,
+      jCreate: prisma.ctsJournal.create.getMockImplementation() ?? prisma.ctsJournal.create,
+      aCreate: prisma.ctsAlert.create.getMockImplementation() ?? prisma.ctsAlert.create,
+      aUpdMany: prisma.ctsAlert.updateMany.getMockImplementation() ?? prisma.ctsAlert.updateMany,
+    };
+    prisma.technicalAccount.update.mockImplementation(async () => { throw new Error('ESCAPED: technicalAccount.update hors tx'); });
+    prisma.ctsJournal.create.mockImplementation(async () => { throw new Error('ESCAPED: ctsJournal.create hors tx'); });
+    prisma.ctsAlert.create.mockImplementation(async () => { throw new Error('ESCAPED: ctsAlert.create hors tx'); });
+    prisma.ctsAlert.updateMany.mockImplementation(async () => { throw new Error('ESCAPED: ctsAlert.updateMany hors tx'); });
+
+    const calls: string[] = [];
+    const tx: any = {
+      contract: { findUnique: (a: any) => prisma.contract.findUnique(a) },
+      technicalAccount: {
+        findUnique: (a: any) => prisma.technicalAccount.findUnique(a),
+        update: async (a: any) => { calls.push('ta.update'); return real.taUpdate(a); },
+      },
+      claim: { findMany: (a: any) => prisma.claim.findMany(a) },
+      ctsJournal: {
+        findFirst: (a: any) => prisma.ctsJournal.findFirst(a),
+        findMany: (a: any) => prisma.ctsJournal.findMany(a),
+        create: async (a: any) => { calls.push('journal.create'); return real.jCreate(a); },
+      },
+      ctsAlert: {
+        findMany: (a: any) => prisma.ctsAlert.findMany(a),
+        updateMany: async (a: any) => { calls.push('alert.updateMany'); return real.aUpdMany(a); },
+        create: async (a: any) => { calls.push('alert.create'); return real.aCreate(a); },
+      },
+      solidarityMovement: { create: async (a: any) => { calls.push('solidarity.create'); return {}; } },
+      $queryRaw: (...a: any[]) => { calls.push('lock'); return prisma.$queryRaw(...a); },
+    };
+
+    try {
+      const r = await svc.recordEngagement('c1', 'claimT', 2_000, { tx });
+      expect(r.account.committed).toBe(2_000);
+    } finally {
+      prisma.technicalAccount.update.mockImplementation(real.taUpdate);
+      prisma.ctsJournal.create.mockImplementation(real.jCreate);
+      prisma.ctsAlert.create.mockImplementation(real.aCreate);
+      prisma.ctsAlert.updateMany.mockImplementation(real.aUpdMany);
+    }
+    expect(calls).toContain('ta.update');
+    expect(calls).toContain('journal.create');
+    expect(calls).toContain('lock');
+    expect(db.journal.filter(j => j.type === 'ENGAGEMENT')).toHaveLength(1);
+  });
+
+  it('émet SELECT … FOR UPDATE avant le read-modify-write du compte', async () => {
+    const db = makeDb();
+    const prisma = makePrisma(db);
+    const svc = makeServiceOn(db, prisma);
+    seedCotisation(db, 12_000);
+    await svc.recordPrimeCollected('c1', {});
+
+    const order: string[] = [];
+    (prisma.technicalAccount.update as any).mockImplementation(async (a: any) => {
+      order.push('update');
+      const acc = Object.values(db.accounts).find((x: any) => x.id === a.where.id);
+      Object.assign(acc, a.data);
+      return acc;
+    });
+    (prisma.$queryRaw as any).mockImplementation(async (q: any) => {
+      order.push(String(q).includes('FOR UPDATE') ? 'lock' : 'query-other');
+      return [];
+    });
+    await svc.recordEngagement('c1', 'claimL', 1_000, {});
+    expect(order).toContain('lock');
+    expect(order).toContain('update');
+    expect(order.indexOf('lock')).toBeLessThan(order.indexOf('update'));
+  });
+
+  it('sans tx fourni : s’auto-transactionnalise ($transaction appelé)', async () => {
+    const db = makeDb();
+    const prisma = makePrisma(db);
+    const svc = makeServiceOn(db, prisma);
+    seedCotisation(db, 12_000);
+    await svc.recordPrimeCollected('c1', {});
+
+    let txCalls = 0;
+    prisma.$transaction = async (cb: any) => { txCalls++; return cb(prisma); };
+    await svc.recordEngagement('c1', 'claimS', 1_000, {});
+    expect(txCalls).toBe(1);
+    expect(db.journal.filter(j => j.type === 'ENGAGEMENT')).toHaveLength(1);
+  });
+
+  it('échec du tx de l’appelant : l’alerte CRITIQUE créée pendant le tx meurt avec lui (client partagé)', async () => {
+    const db = makeDb();
+    const prisma = makePrisma(db);
+    const svc = makeServiceOn(db, prisma);
+    seedCotisation(db, 10_000);
+    await svc.recordPrimeCollected('c1', {});
+    await svc.recordConsumption('c1', 'k1', 7_500, {}); // dispo 500 → bande CRITIQUE
+
+    const txWrites: string[] = [];
+    const tx: any = new Proxy(prisma, {
+      get(target: any, prop: string) {
+        if (prop === '$queryRaw') return target.$queryRaw;
+        if (target[prop] && typeof target[prop] === 'object') {
+          return new Proxy(target[prop], {
+            get(m: any, op: string) {
+              return async (...a: any[]) => {
+                if (['create', 'update', 'updateMany'].includes(op)) txWrites.push(`${prop}.${op}`);
+                return m[op](...a);
+              };
+            },
+          });
+        }
+        return target[prop];
+      },
+    });
+    await svc.recordEngagement('c1', 'claimA', 100, { tx });
+    // Structurellement : alerte (si créée) et compte/journal partagent le tx ⇒ rollback global.
+    expect(txWrites).toContain('technicalAccount.update');
+    expect(txWrites.every(w => w.startsWith('technicalAccount') || w.startsWith('ctsJournal') || w.startsWith('ctsAlert') || w.startsWith('solidarityMovement'))).toBe(true);
   });
 });

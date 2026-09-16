@@ -50,6 +50,11 @@ export interface CtsMutationOpts {
   providerId?: string | null;
   actorUserId?: string;
   meta?: Record<string, unknown>;
+  /** Client Prisma de la transaction appelante : toutes les écritures CTS
+   *  (compte, journal, alertes, stop-loss, solidarité) s'y inscrivent —
+   *  l'appel et le sinistre deviennent atomiques (écart P0 ②, audit 13/09).
+   *  Absent : la mutation s'auto-transactionne avec verrou de ligne. */
+  tx?: unknown;
 }
 
 export interface CtsEntryInput {
@@ -72,8 +77,10 @@ export class CtsService {
     private dispatch: NotificationDispatchService,
   ) {}
 
-  private async loadConfig(contractId: string): Promise<CtsConfig> {
-    const c = await this.prisma.contract.findUnique({
+  private async loadConfig(contractId: string, db: any = this.prisma): Promise<CtsConfig> {
+    // db : client de transaction quand appelé depuis une mutation (écart P0 ②) —
+    // évite d'emprunter une 2e connexion du pool pendant que le tx en tient une.
+    const c = await db.contract.findUnique({
       where: { id: contractId },
       select: { ctsOverride: true, product: { select: { ctsConfig: true } } },
     });
@@ -266,9 +273,9 @@ export class CtsService {
     });
   }
 
-  private async contractRiskModel(contractId: string): Promise<string> {
+  private async contractRiskModel(contractId: string, db: any = this.prisma): Promise<string> {
     try {
-      const contract = await this.prisma.contract.findUnique({ where: { id: contractId }, select: { riskModel: true } });
+      const contract = await db.contract.findUnique({ where: { id: contractId }, select: { riskModel: true } });
       return (contract as any)?.riskModel ?? 'MUTUALITE';
     } catch {
       return 'MUTUALITE';
@@ -277,6 +284,17 @@ export class CtsService {
 
   private entry(input: CtsEntryInput) {
     return this.entryTo(this.prisma, input);
+  }
+
+  /**
+   * Verrou de ligne du compte technique (SELECT … FOR UPDATE) dans la
+   * transaction courante. Sémantise la file d'attente par contrat : les
+   * mutations concurrentes d'un même contrat se sérialisent, éliminant les
+   * pertes d'écriture (read-modify-write) constatées sous charge — sans
+   * contention croisée entre contrats.
+   */
+  private async lockAccount(db: any, contractId: string): Promise<void> {
+    await db.$queryRaw`SELECT id FROM "TechnicalAccount" WHERE "contractId" = ${contractId} FOR UPDATE`;
   }
 
   /** Écriture de journal via un client de transaction donné (invariant P3-C2). */
@@ -555,31 +573,33 @@ export class CtsService {
 
   /**
    * Compte existant ou backfill depuis les données (contrat, échéancier,
-   * sinistres). Idempotent : ne crée que si absent.
+   * sinistres). Idempotent : ne crée que si absent. Tous les accès se font
+   * via le client fourni (tx de l'appelant) : la création et ses journaux
+   * d'ancrage participent à la transaction courante (écart P0 ②).
    */
-  async ensureAccount(contractId: string) {
-    const existing = await this.getAccount(contractId);
+  async ensureAccount(contractId: string, db: any = this.prisma) {
+    const existing = await db.technicalAccount.findUnique({ where: { contractId } });
     if (existing) return existing;
-    const contract = await this.prisma.contract.findUnique({
+    const contract = await db.contract.findUnique({
       where: { id: contractId },
       select: { premiumAnnual: true, product: { select: { ctsConfig: true } }, ctsOverride: true },
     });
     if (!contract) throw new NotFoundException('Contrat introuvable');
     const cfg = parseCtsConfig((contract.product as any)?.ctsConfig, (contract as any).ctsOverride);
-    const contributions = await this.prisma.contribution.findMany({
+    const contributions = await db.contribution.findMany({
       where: { contractId },
       select: { amount: true, status: true },
     });
-    const billed = contributions.reduce((a, c) => a + c.amount, 0);
-    const collected = contributions.filter(c => c.status === 'PAID').reduce((a, c) => a + c.amount, 0);
-    const claims = await this.prisma.claim.findMany({
+    const billed = contributions.reduce((a: number, c: any) => a + c.amount, 0);
+    const collected = contributions.filter((c: any) => c.status === 'PAID').reduce((a: number, c: any) => a + c.amount, 0);
+    const claims = await db.claim.findMany({
       where: { contractId },
       select: { status: true, totalApproved: true },
     });
-    const consumed = claims.filter(c => c.status === 'PAID').reduce((a, c) => a + (c.totalApproved ?? 0), 0);
+    const consumed = claims.filter((c: any) => c.status === 'PAID').reduce((a: number, c: any) => a + (c.totalApproved ?? 0), 0);
     const committed = claims
-      .filter(c => CTS_COMMITTED_STATUSES.includes(c.status))
-      .reduce((a, c) => a + (c.totalApproved ?? 0), 0);
+      .filter((c: any) => CTS_COMMITTED_STATUSES.includes(c.status))
+      .reduce((a: number, c: any) => a + (c.totalApproved ?? 0), 0);
     const base = {
       primeSubscribed: contract.premiumAnnual,
       primeBilled: billed,
@@ -588,10 +608,21 @@ export class CtsService {
       committed,
     };
     const d = this.derived({ ...base, primeBilled: billed }, cfg);
-    const created = await this.prisma.technicalAccount.create({
-      data: { contractId, ...base, ...d, fundCallsTotal: 0, renewalCredit: 0 },
-    });
-    const emit = (e: CtsEntryInput) => this.entry(e);
+    let created;
+    try {
+      created = await db.technicalAccount.create({
+        data: { contractId, ...base, ...d, fundCallsTotal: 0, renewalCredit: 0 },
+      });
+    } catch (e: any) {
+      // Course à la création (deux mutations simultanées sur un contrat neuf) :
+      // le perdant relit le compte créé par le gagnant dans la même transaction.
+      if ((e as any)?.code === 'P2002') {
+        const raced = await db.technicalAccount.findUnique({ where: { contractId } });
+        if (raced) return raced;
+      }
+      throw e;
+    }
+    const emit = (e: CtsEntryInput) => this.entryTo(db, e);
     await emit({
       contractId,
       type: 'AJUSTEMENT',
@@ -643,7 +674,7 @@ export class CtsService {
         });
       }
     }
-    await this.evaluateBands(contractId);
+    await this.evaluateBands(contractId, db);
     return created;
   }
 
@@ -780,52 +811,66 @@ export class CtsService {
    */
   async recordEngagement(contractId: string, claimId: string, amount: number, opts: CtsMutationOpts = {}) {
     const safe = Math.max(0, amount);
-    const db = (opts as any).tx ?? this.prisma;
-    const acc = await this.ensureAccount(contractId);
-    const bandNow = await this.evaluateBands(contractId);
-    if (safe <= 0) return { account: acc, band: bandNow, deduped: false as const };
-    const ref = claimRef(claimId);
-    const existing = await db.ctsJournal.findFirst({ where: { contractId, type: 'ENGAGEMENT', reference: ref } });
-    if (existing) return { account: acc, band: bandNow, deduped: true as const };
-    const cfg = await this.loadConfig(contractId);
-    const oldAvail = acc.available;
-    const committed = acc.committed + safe;
-    const d = this.derived({ primeCollected: acc.primeCollected, primeBilled: acc.primeBilled, consumed: acc.consumed, committed }, cfg);
-    const updated = await db.technicalAccount.update({ where: { id: acc.id }, data: { committed, ...d } });
-    await this.entryTo(db, {
-      contractId, type: 'ENGAGEMENT', amount: safe, reference: ref,
-      beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
-      actorUserId: opts.actorUserId, meta: opts.meta ?? {},
-      oldBalance: oldAvail, newBalance: updated.available,
-    });
-    await this.checkStopLossAndAlert(contractId, cfg, updated.consumed, updated.committed);
-    return { account: updated, band: await this.evaluateBands(contractId), deduped: false as const };
+    const run = async (db: any): Promise<{ account: any; band: CtsBand; deduped: boolean }> => {
+      const acc = await this.ensureAccount(contractId, db);
+      // Sérialise les mutations concurrentes du même contrat (file par ligne).
+      await this.lockAccount(db, contractId);
+      const fresh = (await db.technicalAccount.findUnique({ where: { contractId } })) ?? acc;
+      const bandNow = await this.evaluateBands(contractId, db);
+      if (safe <= 0) return { account: fresh, band: bandNow, deduped: false };
+      const ref = claimRef(claimId);
+      const existing = await db.ctsJournal.findFirst({ where: { contractId, type: 'ENGAGEMENT', reference: ref } });
+      if (existing) return { account: fresh, band: bandNow, deduped: true };
+      const cfg = await this.loadConfig(contractId, db);
+      const oldAvail = fresh.available;
+      const committed = fresh.committed + safe;
+      const d = this.derived({ primeCollected: fresh.primeCollected, primeBilled: fresh.primeBilled, consumed: fresh.consumed, committed }, cfg);
+      const updated = await db.technicalAccount.update({ where: { id: fresh.id }, data: { committed, ...d } });
+      await this.entryTo(db, {
+        contractId, type: 'ENGAGEMENT', amount: safe, reference: ref,
+        beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
+        actorUserId: opts.actorUserId, meta: opts.meta ?? {},
+        oldBalance: oldAvail, newBalance: updated.available,
+      });
+      // Alertes/stop-loss/solidarité écrits dans la MÊME transaction (écart P0 ② :
+      // ils ne survivent plus à un rollback et ne s'auto-bloquent plus).
+      await this.checkStopLossAndAlert(contractId, cfg, updated.consumed, updated.committed, db);
+      return { account: updated, band: await this.evaluateBands(contractId, db), deduped: false };
+    };
+    if ((opts as any).tx) return run((opts as any).tx);
+    return this.prisma.$transaction(tx => run(tx));
   }
 
   /** Consommation : augmente le consommé, libère l'engagement (borné à 0). */
   async recordConsumption(contractId: string, claimId: string, amount: number, opts: CtsMutationOpts = {}) {
     const safe = Math.max(0, amount);
-    const acc = await this.ensureAccount(contractId);
-    const bandNow = await this.evaluateBands(contractId);
-    if (safe <= 0) return { account: acc, band: bandNow, deduped: false as const };
-    const ref = claimRef(claimId);
-    const existing = await this.prisma.ctsJournal.findFirst({ where: { contractId, type: 'CONSOMMATION', reference: ref } });
-    if (existing) return { account: acc, band: bandNow, deduped: true as const };
-    const cfg = await this.loadConfig(contractId);
-    const oldAvail = acc.available;
-    const released = Math.min(acc.committed, safe);
-    const consumed = acc.consumed + safe;
-    const committed = acc.committed - released;
-    const d = this.derived({ primeCollected: acc.primeCollected, primeBilled: acc.primeBilled, consumed, committed }, cfg);
-    const updated = await this.prisma.technicalAccount.update({ where: { id: acc.id }, data: { consumed, committed, ...d } });
-    await this.entry({
-      contractId, type: 'CONSOMMATION', amount: safe, reference: ref,
-      beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
-      actorUserId: opts.actorUserId, meta: { released, ...(opts.meta ?? {}) },
-      oldBalance: oldAvail, newBalance: updated.available,
-    });
-    await this.checkStopLossAndAlert(contractId, cfg, updated.consumed, updated.committed);
-    return { account: updated, band: await this.evaluateBands(contractId), deduped: false as const };
+    const run = async (db: any): Promise<{ account: any; band: CtsBand; deduped: boolean }> => {
+      const acc = await this.ensureAccount(contractId, db);
+      await this.lockAccount(db, contractId);
+      const fresh = (await db.technicalAccount.findUnique({ where: { contractId } })) ?? acc;
+      const bandNow = await this.evaluateBands(contractId, db);
+      if (safe <= 0) return { account: fresh, band: bandNow, deduped: false };
+      const ref = claimRef(claimId);
+      const existing = await db.ctsJournal.findFirst({ where: { contractId, type: 'CONSOMMATION', reference: ref } });
+      if (existing) return { account: fresh, band: bandNow, deduped: true };
+      const cfg = await this.loadConfig(contractId, db);
+      const oldAvail = fresh.available;
+      const released = Math.min(fresh.committed, safe);
+      const consumed = fresh.consumed + safe;
+      const committed = fresh.committed - released;
+      const d = this.derived({ primeCollected: fresh.primeCollected, primeBilled: fresh.primeBilled, consumed, committed }, cfg);
+      const updated = await db.technicalAccount.update({ where: { id: fresh.id }, data: { consumed, committed, ...d } });
+      await this.entryTo(db, {
+        contractId, type: 'CONSOMMATION', amount: safe, reference: ref,
+        beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
+        actorUserId: opts.actorUserId, meta: { released, ...(opts.meta ?? {}) },
+        oldBalance: oldAvail, newBalance: updated.available,
+      });
+      await this.checkStopLossAndAlert(contractId, cfg, updated.consumed, updated.committed, db);
+      return { account: updated, band: await this.evaluateBands(contractId, db), deduped: false };
+    };
+    if ((opts as any).tx) return run((opts as any).tx);
+    return this.prisma.$transaction(tx => run(tx));
   }
 
   /**
@@ -833,32 +878,38 @@ export class CtsService {
    * (engagé − consommé − déjà annulé), sans jamais toucher au consommé.
    */
   async recordReversal(contractId: string, claimId: string, reason: string, opts: CtsMutationOpts = {}) {
-    const acc = await this.ensureAccount(contractId);
-    const bandNow = await this.evaluateBands(contractId);
-    const ref = claimRef(claimId);
-    const entries = await this.prisma.ctsJournal.findMany({
-      where: { contractId, reference: ref, type: { in: ['ENGAGEMENT', 'CONSOMMATION', 'ANNULATION'] } },
-      select: { type: true, amount: true },
-    });
-    const outstanding = Math.max(
-      0,
-      entries.filter(e => e.type === 'ENGAGEMENT').reduce((a, e) => a + e.amount, 0) -
-        entries.filter(e => e.type === 'CONSOMMATION').reduce((a, e) => a + e.amount, 0) -
-        entries.filter(e => e.type === 'ANNULATION').reduce((a, e) => a + e.amount, 0),
-    );
-    if (outstanding <= 0) return { account: acc, band: bandNow, reversed: 0 };
-    const cfg = await this.loadConfig(contractId);
-    const oldAvail = acc.available;
-    const committed = Math.max(0, acc.committed - outstanding);
-    const d = this.derived({ primeCollected: acc.primeCollected, primeBilled: acc.primeBilled, consumed: acc.consumed, committed }, cfg);
-    const updated = await this.prisma.technicalAccount.update({ where: { id: acc.id }, data: { committed, ...d } });
-    await this.entry({
-      contractId, type: 'ANNULATION', amount: outstanding, reference: ref,
-      beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
-      actorUserId: opts.actorUserId, meta: { reason, ...(opts.meta ?? {}) },
-      oldBalance: oldAvail, newBalance: updated.available,
-    });
-    return { account: updated, band: await this.evaluateBands(contractId), reversed: outstanding };
+    const run = async (db: any) => {
+      const acc = await this.ensureAccount(contractId, db);
+      await this.lockAccount(db, contractId);
+      const fresh = (await db.technicalAccount.findUnique({ where: { contractId } })) ?? acc;
+      const bandNow = await this.evaluateBands(contractId, db);
+      const ref = claimRef(claimId);
+      const entries = await db.ctsJournal.findMany({
+        where: { contractId, reference: ref, type: { in: ['ENGAGEMENT', 'CONSOMMATION', 'ANNULATION'] } },
+        select: { type: true, amount: true },
+      });
+      const outstanding = Math.max(
+        0,
+        entries.filter((e: any) => e.type === 'ENGAGEMENT').reduce((a: number, e: any) => a + e.amount, 0) -
+          entries.filter((e: any) => e.type === 'CONSOMMATION').reduce((a: number, e: any) => a + e.amount, 0) -
+          entries.filter((e: any) => e.type === 'ANNULATION').reduce((a: number, e: any) => a + e.amount, 0),
+      );
+      if (outstanding <= 0) return { account: fresh, band: bandNow, reversed: 0 };
+      const cfg = await this.loadConfig(contractId, db);
+      const oldAvail = fresh.available;
+      const committed = Math.max(0, fresh.committed - outstanding);
+      const d = this.derived({ primeCollected: fresh.primeCollected, primeBilled: fresh.primeBilled, consumed: fresh.consumed, committed }, cfg);
+      const updated = await db.technicalAccount.update({ where: { id: fresh.id }, data: { committed, ...d } });
+      await this.entryTo(db, {
+        contractId, type: 'ANNULATION', amount: outstanding, reference: ref,
+        beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
+        actorUserId: opts.actorUserId, meta: { reason, ...(opts.meta ?? {}) },
+        oldBalance: oldAvail, newBalance: updated.available,
+      });
+      return { account: updated, band: await this.evaluateBands(contractId, db), reversed: outstanding };
+    };
+    if ((opts as any).tx) return run((opts as any).tx);
+    return this.prisma.$transaction(tx => run(tx));
   }
 
   /**
@@ -1175,26 +1226,29 @@ export class CtsService {
     acc: any,
     amount: number,
     opts: { kind: string; deficit?: number; fundBalanceBefore?: number; actorUserId?: string; reference?: string },
+    db: any = this.prisma,
   ): Promise<{ account: any }> {
     const oldAvail = (acc as any).available;
-    const updated = await this.prisma.technicalAccount.update({
+    const updated = await db.technicalAccount.update({
       where: { id: (acc as any).id },
       data: { budgetBoost: ((acc as any).budgetBoost ?? 0) + amount },
     });
-    const recalculated = await this.prisma.technicalAccount.update({
+    const recalculated = await db.technicalAccount.update({
       where: { id: (acc as any).id },
-      data: { ...this.derived({ ...updated, budgetBoost: (updated as any).budgetBoost }, await this.loadConfig(contractId)) },
+      data: { ...this.derived({ ...updated, budgetBoost: (updated as any).budgetBoost }, await this.loadConfig(contractId, db)) },
     });
-    await this.recordSolidarityMovement({
-      kind: 'COVERAGE',
-      amount,
-      contractId,
-      riskModel: await this.contractRiskModel(contractId),
-      reference: opts.reference ?? `SolidarityCover:${contractId}:${Date.now()}`,
-      meta: { deficit: opts.deficit ?? null, fundBalanceBefore: opts.fundBalanceBefore ?? null },
-      actorUserId: opts.actorUserId,
+    await db.solidarityMovement.create({
+      data: {
+        kind: 'COVERAGE',
+        amount: Math.max(0, Math.round(amount)),
+        contractId,
+        riskModel: await this.contractRiskModel(contractId, db),
+        reference: opts.reference ?? `SolidarityCover:${contractId}:${Date.now()}`,
+        meta: JSON.stringify({ deficit: opts.deficit ?? null, fundBalanceBefore: opts.fundBalanceBefore ?? null }),
+        actorUserId: opts.actorUserId ?? null,
+      },
     });
-    await this.entry({
+    await this.entryTo(db, {
       contractId, type: 'SOLIDARITE',
       amount,
       reference: opts.reference ?? `SolidarityCover:${contractId}`,
@@ -1370,17 +1424,17 @@ export class CtsService {
    * Dédupliqué : une seule écriture par franchissement (pas de nouvelle tant
    * que l'exposition n'est pas redescendue sous le seuil).
    */
-  private async checkStopLossAndAlert(contractId: string, cfg: CtsConfig, consumed: number, committed: number) {
+  private async checkStopLossAndAlert(contractId: string, cfg: CtsConfig, consumed: number, committed: number, db: any = this.prisma) {
     const { triggered, payout } = checkStopLoss(consumed, committed, cfg.stopLoss);
     if (!cfg.stopLoss) return;
     if (!triggered) {
       // Hystérésis : exposition repassée sous le seuil → on solde les alertes stop-loss.
-      const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
-      const ids = open.filter(a => {
+      const open = await db.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
+      const ids = open.filter((a: any) => {
         try { return (JSON.parse(a.payload || '{}') as any).stopLoss === true; } catch { return false; }
       }).map((a: any) => a.id);
       if (ids.length) {
-        await this.prisma.ctsAlert.updateMany({
+        await db.ctsAlert.updateMany({
           where: { id: { in: ids } },
           data: { status: 'RESOLVED', resolvedAt: new Date() },
         });
@@ -1388,18 +1442,18 @@ export class CtsService {
       return;
     }
     const exposure = consumed + committed;
-    const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
-    const hasOpen = open.some(a => {
+    const open = await db.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
+    const hasOpen = open.some((a: any) => {
       try { return (JSON.parse(a.payload || '{}') as any).stopLoss === true; } catch { return false; }
     });
-    const last = await this.prisma.ctsJournal.findFirst({
+    const last = await db.ctsJournal.findFirst({
       where: { contractId, type: 'STOP_LOSS' },
       orderBy: { createdAt: 'desc' },
     });
     let lastExposure = 0;
     try { lastExposure = Number(JSON.parse(((last as any)?.meta) || '{}').exposure ?? 0); } catch { lastExposure = 0; }
     if (!hasOpen) {
-      await this.prisma.ctsAlert.create({
+      await db.ctsAlert.create({
         data: {
           contractId, type: 'CRITIQUE', severity: 'CRITICAL', status: 'OPEN',
           payload: JSON.stringify({ stopLoss: true, exposure, threshold: cfg.stopLoss.threshold, payout }),
@@ -1407,8 +1461,8 @@ export class CtsService {
       });
     }
     if (!last || lastExposure <= cfg.stopLoss.threshold) {
-      const acc = await this.getAccount(contractId);
-      await this.entry({
+      const acc = await db.technicalAccount.findUnique({ where: { contractId } });
+      await this.entryTo(db, {
         contractId, type: 'STOP_LOSS', amount: payout,
         meta: { exposure, threshold: cfg.stopLoss.threshold, cap: cfg.stopLoss.cap },
         oldBalance: acc?.available ?? 0, newBalance: acc?.available ?? 0,
@@ -1419,7 +1473,7 @@ export class CtsService {
       // l'enregistrement du sinistre.
       try {
         const solidarity = await this.getSolidarityConfig();
-        if (solidarity.enabled && acc && (await this.contractRiskModel(contractId)) === 'MUTUALITE') {
+        if (solidarity.enabled && acc && (await this.contractRiskModel(contractId, db)) === 'MUTUALITE') {
           const target = Math.floor(0.3 * this.effectiveBudget(acc));
           const needed = Math.max(0, target - ((acc as any)?.available ?? 0));
           if (needed > 0) {
@@ -1442,10 +1496,11 @@ export class CtsService {
     }
   }
 
-  /** Bandes + alertes : crée sur dégradation (dédupliquée), résout au retour NORMAL. */
-  async evaluateBands(contractId: string) {
-    const acc = await this.ensureAccount(contractId);
-    const cfg = await this.loadConfig(contractId);
+  /** Bandes + alertes : crée sur dégradation (dédupliquée), résout au retour NORMAL.
+   *  Toutes les lectures/écritures passent par le client fourni (tx appelant). */
+  async evaluateBands(contractId: string, db: any = this.prisma) {
+    const acc = await this.ensureAccount(contractId, db);
+    const cfg = await this.loadConfig(contractId, db);
     // Compte vide (aucun budget constitué, aucune exposition) : NORMAL silencieux,
     // pas d'alerte EPUISEMENT sur les contrats en attente de paiement.
     if (acc.benefitBudget <= 0 && acc.consumed <= 0 && acc.committed <= 0) return 'NORMAL' as const;
@@ -1466,10 +1521,10 @@ export class CtsService {
       return a.type === 'APPEL_FONDS';
     };
     if (current === 'NORMAL') {
-      const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
-      const ids = open.filter(a => !keepOpen(a)).map((a: any) => a.id);
+      const open = await db.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
+      const ids = open.filter((a: any) => !keepOpen(a)).map((a: any) => a.id);
       if (ids.length) {
-        await this.prisma.ctsAlert.updateMany({
+        await db.ctsAlert.updateMany({
           where: { id: { in: ids } },
           data: { status: 'RESOLVED', resolvedAt: new Date() },
         });
@@ -1477,18 +1532,18 @@ export class CtsService {
       return current;
     }
     const { type, severity } = mapping[current];
-    const open = await this.prisma.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
-    const same = open.find(a => a.type === type);
+    const open = await db.ctsAlert.findMany({ where: { contractId, status: 'OPEN' } });
+    const same = open.find((a: any) => a.type === type);
     // Résout les alertes de bande d'une autre nature (ex. SEUIL supplantée par CRITIQUE).
-    const stale = open.filter(a => a.type !== type && !keepOpen(a));
+    const stale = open.filter((a: any) => a.type !== type && !keepOpen(a));
     if (stale.length) {
-      await this.prisma.ctsAlert.updateMany({
-        where: { id: { in: stale.map(a => a.id) } },
+      await db.ctsAlert.updateMany({
+        where: { id: { in: stale.map((a: any) => a.id) } },
         data: { status: 'RESOLVED', resolvedAt: new Date() },
       });
     }
     if (!same) {
-      await this.prisma.ctsAlert.create({
+      await db.ctsAlert.create({
         data: {
           contractId, type, severity, status: 'OPEN',
           payload: JSON.stringify({

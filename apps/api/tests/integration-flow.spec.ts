@@ -158,9 +158,9 @@ describe('Claim estimation pipeline', () => {
     ]);
     expect(r.items[0].amountEligible).toBe(10000);
     expect(r.items[0].rateApplied).toBe(70);
-    expect(r.items[0].copayApplied).toBe(3000); // 10000 * 30%
-    expect(r.items[0].amountApproved).toBe(7000); // 10000 * 70%
-    expect(r.items[0].outOfPocket).toBe(3000); // 10000 - 7000
+    expect(r.items[0].copayApplied).toBe(2100); // 7000 * 30%
+    expect(r.items[0].amountApproved).toBe(4900); // 7000 - 2100
+    expect(r.items[0].outOfPocket).toBe(5100);
   });
 
   it('Essentielle: pharmacy 20000 → capped by plafond remaining', () => {
@@ -170,7 +170,7 @@ describe('Claim estimation pipeline', () => {
     ]);
     // Only 10000 remaining on plafond (180000 - 170000)
     expect(r.items[0].amountEligible).toBe(10000);
-    expect(r.items[0].amountApproved).toBe(6000); // 10000 * 60%
+    expect(r.items[0].amountApproved).toBe(4200); // 10000 * 60% = 6000, copay 30% = 1800, approved = 4200
   });
 
   it('Essentielle: hospitalization with copay (no deductible)', () => {
@@ -178,10 +178,10 @@ describe('Claim estimation pipeline', () => {
     const r = estimateClaim(ctx, new Date('2026-05-01'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 200000 },
     ]);
-    // eligible: 200000, no deductible, rate 60%: 120000, copay 40% on eligible: 80000, approved: 120000
+    // eligible: 200000, no deductible, rate 60%: 120000, copay 40%: 48000, approved: 72000
     expect(r.items[0].deductibleApplied).toBe(0);
-    expect(r.items[0].copayApplied).toBe(80000);
-    expect(r.items[0].amountApproved).toBe(120000);
+    expect(r.items[0].copayApplied).toBe(48000);
+    expect(r.items[0].amountApproved).toBe(72000);
   });
 
   it('Essentielle: specialized not covered (no rule = excluded)', () => {

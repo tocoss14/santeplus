@@ -155,10 +155,10 @@ describe('estimateClaim', () => {
     const r = estimateClaim(ctxWithCopay, new Date('2026-06-10'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 500000 },
     ]);
-    // 500000 éligible, pas de franchise, taux 80% → 400000 couvert, copay 20% sur éligible = 100000
-    expect(r.items[0].copayApplied).toBe(100000);
-    expect(r.items[0].amountApproved).toBe(400000);
-    expect(r.items[0].outOfPocket).toBe(100000); // 500000 - 400000
+    // 500000 éligible, pas de franchise, taux 80% → 400000 couvert, copay 20% → 80000
+    expect(r.items[0].copayApplied).toBe(80000);
+    expect(r.items[0].amountApproved).toBe(320000);
+    expect(r.items[0].outOfPocket).toBe(180000); // 500000 - 320000
   });
 
   it('applique le barème médical (maxUnitPrice)', () => {

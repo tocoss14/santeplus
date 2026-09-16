@@ -620,14 +620,20 @@ export function estimateClaim(
     // Franchises supprimées : le taux de couverture s'applique sur la totalité éligible.
     const coveredByRate = Math.max(0, Math.round((eligible * rule.rate) / 100));
 
-    // Co-paiement obligatoire : l'assuré paie un % du montant éligible (coût de l'acte plafonné)
+    // Co-paiement obligatoire : l'assuré paie un % du montant COUVERT.
+    // Sémantique deck assureurs (pipeline §13 : « taux, ticket modérateur,
+    // plafond annuel de reste à charge ») : net = taux × (1 − ticket)
+    // (ex. 70 % + ticket 30 % ⇒ 49 % net). Arbitrage 16/09 : la variante
+    // « ticket informatif » (commit 8260c94) est écartée — elle n'apportait
+    // aucune protection patient supplémentaire (déjà assurée par oopAnnualCap,
+    // qui reprend le ticket une fois le plafond atteint) et augmentait la
+    // charge assureur de +25 % sur un sinistre 80/20. Patch conservé dans
+    // docs/copay-variante-rac-8260c94.patch.
     let copay = 0;
     if (rule.copayRate && rule.copayRate > 0) {
-      copay = Math.round((eligible * rule.copayRate) / 100);
+      copay = Math.round((coveredByRate * rule.copayRate) / 100);
     }
-    // L'assureur paie le taux de couverture sur le montant éligible.
-    // Le ticket modérateur (copay) est la part restant à la charge du patient sur le montant éligible.
-    const approved = coveredByRate;
+    const approved = Math.max(0, coveredByRate - copay);
 
     // Plafond agrégé : limiter si on dépasse le global cap
     let cappedApproved = approved;

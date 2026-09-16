@@ -273,13 +273,32 @@ Conformément au suivi post-audit, le premier écart P0 a été **corrigé et v�
 
 | Suite | Résultat |
 |---|---|
-| API unitaires | **412/413** (`tsc --noEmit` OK). L'unique échec (`oop-cap.spec`) préexiste hors périmètre : il appartient à un chantier parallèle **non commité** copay/RAC (voir divergence ci-dessous) et est incohérent avec son propre moteur — non corrigé ici pour ne pas arbitrer à la place de son auteur. |
+| API unitaires | **413/413** (`tsc --noEmit` OK) — après arbitrage copay ci-dessous. |
 | Audit E2E Phase 4 | **66/66 PASS** (`e2e/phase4-final-snapshot.json`), dont scénario D 8/8. |
 | Playwright (4 specs) | **4/4** sur DB d'audit fraîche. |
 
-## Divergence découverte : sémantique du ticket modérateur (à arbitrer)
+## Arbitrage rendu (16/09) : sémantique du ticket modérateur
 
-Le NUM §8 échouait (64 000 attendu, 80 000 obtenu) à cause d'une modification **non commitée** de `src/domain/engine.ts` (accompagnée de 4 fichiers de tests cohérents) : le copay devient **informatif** — l'assureur paie le taux plein (80 %) et le ticket modérateur reste à la charge de l'assuré, couvrable par le plafond annuel de reste à charge (`oopAnnualCap`). Cette variante contredit la sémantique multiplicative du deck assureurs (« 70 % + ticket 30 % = 49 % net ») — sémantique qui avait été validée en phase 4 (NUM §8 passait à 64 000). Les attentes du script d'audit ont été mises à jour sur la sémantique **implémentée**, avec la divergence explicitement documentée dans les libellés. **Décision produit requise (P1)** : soit le deck fait foi (rétablir `approved = coveredByRate − copay`), soit la nouvelle politique copay/RAC est assumée et le deck est mis à jour. Impact financier à chiffrer avant pilote.
+Constat : une variante du moteur (commit `8260c94`, « copay appliqué sur le montant éligible ») rendait le ticket **informatif** — l'assureur paie le taux plein et le ticket reste à la charge de l'assuré, couvrable par le plafond annuel de reste à charge. Cette variante contredisait le NUM §8 de l'audit (64 000 attendus) et le deck assuré (l. 32 : « 70 % + ticket 30 % = 49 % net »).
+
+**Décision : la sémantique deck est rétablie — net = taux × (1 − ticket).** Justification financière :
+
+| Fact | Deck (rétabli) | Variante RAC (écartée) |
+|---|---|---|
+| Sinistre 100 000, 80 %/20 % | Assureur **64 000**, assuré 36 000 | Assureur 80 000, assuré 20 000 |
+| Charge assureur | référence | **+25 %** sur chaque sinistre à ticket |
+| Coût d'équilibre du fonds (tickets ~15 % des primes collectées) | référence | ~ +2 à 3 pts de sinistralité annuelle |
+| Protection patient | **déjà garantie** : le plafond RAC (`oopAnnualCap`, deck l. 30/34 « reste à charge max garanti ») reprend le ticket une fois le plafond atteint — prouvé par le test pré-existant « reprend le ticket modérateur une fois le plafond atteint » | identique (aucune protection nouvelle) |
+| Cohérence contractuelle | conforme aux decks (pipeline §13 : « taux, ticket modérateur, plafond RAC ») | contredit le deck assuré et le NUM §8 |
+| Risque technique | modéré (moteur + tests alignés, 81/81) | latence administrative du pipeline 10 étapes contournée |
+
+La variante n'apportait **aucune protection patient supplémentaire** (elle existait via `oopAnnualCap`) : son seul effet était d'augmenter la charge assureur de +25 % sur un sinistre 80/20 et de creuser le déficit du fonds — sans assise actuarielle validée (les scénarios 70/20/7/3 du deck assureurs sont calibrés sur la sémantique deck). Elle est **écartée**, le patch complet étant conservé dans `docs/copay-variante-rac-8260c94.patch` pour référence et pour une éventuelle future politique tarifaire assumée.
+
+Changements appliqués :
+- `src/domain/engine.ts` : `copay = coveredByRate × copayRate %`, `approved = coveredByRate − copay` (commentaire d'arbitrage in extenso).
+- Tests moteur restaurés à la sémantique deck (`engine.spec`, `engine-v2`, `integration-flow`, `oop-cap`) — **81/81 verts**, y compris l'interaction plafond RAC.
+- Scénario NUM §8 du script d'audit ramené aux attentes deck (64 000 / 36 000 / 736 000).
+- Les trois decks n'exigent **aucune modification** : le deck assuré décrit déjà « 70 % + ticket 30 % = 49 % net » et le RAC max garanti ; le deck assureurs liste le ticket comme étape de déduction du pipeline ; le deck prestataires reste valide (le patient règle son reste à charge, supérieur : ticket + hors-barème).
 
 ## Verdict actualisé
 
@@ -291,3 +310,46 @@ Le NUM §8 échouait (64 000 attendu, 80 000 obtenu) à cause d'une modification
 | ④ Email/SMS console | Ouvert |
 
 Le **GO CONDITIONNEL** est maintenu : l'écart D étant résolu, il reste 3 P0 (P2028, PSP, transports de notification) avant pilote réel.
+
+# ADDENDUM (16/09/2026) — Résolution de l'écart P0 ② (P2028 / atomicité CTS)
+
+## Correctif
+
+`recordEngagement`, `recordConsumption` et `recordReversal` (`cts.service.ts`) sont désormais **100 % transactionnels** :
+
+- **Un seul client DB** : quand un `tx` est fourni, *toutes* les écritures — compte technique, journal, `ensureAccount` (création + backfill + journaux), `evaluateBands`, alertes stop-loss **et** `grantSolidarity` — passent par ce tx. Aucun appel client global dans la fenêtre transactionnelle ; plus aucun auto-blocage possible.
+- **Verrou `FOR UPDATE`** (`SELECT ... FOR UPDATE` via `$queryRaw`) sur la ligne `TechnicalAccount` avant read-modify-write — élimine les lost-updates entre confirmations concurrentes.
+- **Auto-transaction** quand aucun tx n'est fourni (chaînage `maxWait`/`timeout` 10 s), signature uniforme partout.
+- **Appelants** : `loadConfig`/`contractRiskModel` tx-aware, `maxWait`/`timeout` explicites sur les transactions interactives, pool élargi (`connection_limit=20`, `pool_timeout`)
+- `recordConsumption` via `payBatchInvoice` participe au tx de règlement (libération d'engagement atomique avec le paiement).
+
+## Preuve de charge (harnais `e2e/cts-load-test.mjs`)
+
+Confirmations TP 100 % concurrentes sur le **même** compte technique (le pire cas de l'incident d'origine) :
+
+| Concurrence | Résultat | Δ engagé vs Σ `totalApproved` | P2028 |
+|---|---|---|---|
+| 8 | 8/8 confirmés | 19 600 = 19 600 (exact) | 0 |
+| 16 | 14/16 confirmés | 34 300 = 34 300 (exact) | 0 |
+| 24 | 24/24 confirmés | 58 800 = 58 800 (exact) | 0 |
+
+- **Baseline pré-correctif** (reproduite avant patch) : 8 confirmations OK mais Δcommitted = 2 450 au lieu de ~19 600 → **7 écritures perdues sur 8** : le CTS sous-estimait l'exposition réelle.
+- Post-correctif : **zéro lost update** sur les trois paliers. Les 2 échecs du palier 16 sont des `P1001` transitoires côté guard d'auth (hoquet du proxy Docker Windows sous rafale, hors transaction) — non reproductibles aux runs suivants, 0 occurrence aux paliers 8/24.
+- Invariant Inv1 (disponible = budget − consommé − engagé) reconstruit et vérifié à chaque run.
+
+## Vérifications non-régression
+
+- Suite API : **417/417** (dont 4 nouveaux tests transactionnels : propagation du tx — écritures globales neutralisées pendant l'appel —, émission du verrou `FOR UPDATE`, self-transaction sans tx, alerte stop-loss atomique)
+- Audit E2E Phase 4 : **66/66** sur DB fraîche
+- Playwright : **4/4** sur DB fraîche
+
+## Verdict final
+
+| Écart P0 | État |
+|---|---|
+| ① Facturation groupée TP inatteignable | **RÉSOLU** (addendum n°1) |
+| ② P2028 / `recordEngagement` mixte tx+global | **RÉSOLU** (cet addendum) — preuve de charge 8/16/24 concurrents, 0 lost update, 0 P2028 |
+| ③ PSP réel (MOCK_MOMO) | Ouvert |
+| ④ Email/SMS console | Ouvert |
+
+Le **GO CONDITIONNEL** évolue : il reste **2 P0** (PSP réel, transports de notification), tous deux des intégrations externes, avant pilote réel.

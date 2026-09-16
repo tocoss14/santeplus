@@ -9,7 +9,9 @@ import { ClaimsController } from '../src/modules/claims/claims.controller';
 describe('table des transitions', () => {
   it('couvre les actions du back-office avec les bonnes sources', () => {
     expect(CLAIM_TRANSITIONS.SUBMIT).toEqual(['DRAFT', 'INFO_REQUESTED']);
-    expect(CLAIM_TRANSITIONS.APPROVE).toEqual(['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED']);
+    // CONFIRMED : régularisation des prises en charge tiers-payant uniquement
+    // (garde kind=THIRDPARTY dans le contrôleur ; audit phase 4, écart P0 D).
+    expect(CLAIM_TRANSITIONS.APPROVE).toEqual(['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED', 'CONFIRMED']);
     expect(CLAIM_TRANSITIONS.MARK_PAID).toEqual(['APPROVED', 'PARTIALLY_APPROVED']);
     expect(CLAIM_TRANSITIONS.CANCEL).toContain('DRAFT');
     expect(CLAIM_TRANSITIONS.CANCEL).toContain('AUTH_REQUIRED');
@@ -35,7 +37,7 @@ const authUser: any = { id: 'mgr1', email: 'm@x.bj', role: 'INSURANCE_MANAGER', 
 function makePrisma(status: string, items: any[] = [{ id: 'i1', amountRequested: 10000, amountApproved: 8000 }]) {
   const state = { status };
   const updates: any[] = [];
-  return {
+  const prisma: any = {
     state,
     updates,
     claim: {
@@ -54,7 +56,9 @@ function makePrisma(status: string, items: any[] = [{ id: 'i1', amountRequested:
     user: { findMany: vi.fn(async () => []) },
     fileObject: { create: vi.fn(async ({ data }: any) => ({ id: 'f1', ...data })) },
     claimDocument: { create: vi.fn(async () => ({})) },
-  } as any;
+    $transaction: vi.fn(async (fn: any) => fn(prisma)),
+  };
+  return prisma;
 }
 
 function makeController(prisma: any) {

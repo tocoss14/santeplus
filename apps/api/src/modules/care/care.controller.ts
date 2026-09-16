@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Optional, Param, Patch, Post, Query } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
@@ -9,6 +9,7 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization, resolveThreshold } from '../../domain/engine';
 import { ClaimsModule, ClaimsService } from '../claims/claims.controller';
+import { CtsModule, CtsService } from '../cts/cts.service';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { ref, secureToken } from '../../common/utils';
 import { CareRecordController } from './care-record.controller';
@@ -88,6 +89,7 @@ export class CareController {
     private dispatch: NotificationDispatchService,
     private care: CareService,
     private claims: ClaimsService,
+    @Optional() private cts?: CtsService,
   ) {}
 
   @Get('medications')
@@ -294,7 +296,10 @@ export class CareController {
       note: z.string().max(500).optional(),
     }).refine(v => Boolean(v.memberNumber || v.cardToken || v.contractNumber), 'Identification requise'))) dto: any,
   ) {
-    const { establishment } = await this.care.requireEstablishment(auth);
+    const { user, establishment } = await this.care.requireEstablishment(auth);
+    if (establishment.type === 'PHARMACY' || establishment.type === 'LABORATORY') {
+      throw new ForbiddenException("Ce type d'établissement n'est pas habilité à créer des ordonnances");
+    }
     const contract = await this.resolveContract(dto);
     if (contract.status === 'TERMINATED' || contract.status === 'SUSPENDED') {
       throw new BadRequestException('Contrat radié — délivrance impossible');
@@ -666,6 +671,18 @@ export class CareController {
         },
       });
       await tx.delivery.update({ where: { id: del.id }, data: { claimId: claim.id } });
+
+      // P3-C2 — engagement CTS atomique : si le CTS est indisponible,
+      // la délivrance confirmée est rejetée (rollback du tx).
+      if (status === 'CONFIRMED' && this.cts) {
+        await this.cts.recordEngagement((patientContract as any).id, claim.id, estimation.totals.approved, {
+          beneficiaryId: (pres as any).beneficiaryId ?? null,
+          providerId: establishment.id,
+          actorUserId: auth.id,
+          tx,
+        } as any);
+      }
+
       return { del, claim };
     });
 
@@ -799,6 +816,6 @@ export class CareController {
 @Module({
   controllers: [CareController, CareRecordController],
   providers: [CareService],
-  imports: [ClaimsModule],
+  imports: [ClaimsModule, CtsModule],
 })
 export class CareModule {}

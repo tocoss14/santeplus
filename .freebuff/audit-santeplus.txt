@@ -1,0 +1,1007 @@
+AUDIT COMPLET DE LA PLATEFORME SANTÉPLUS
+
+Vérification fonctionnelle, métier, technique et end-to-end
+
+Tu dois maintenant réaliser un audit complet de la plateforme SantéPlus existante.
+
+IMPORTANT :
+
+NE COMMENCE PAS PAR MODIFIER LE CODE.
+
+Ta mission première est de déterminer ce qui est :
+
+      1. réellement implémenté ;
+      2. partiellement implémenté ;
+      3. uniquement présent dans l'interface ;
+      4. simulé/mocké ;
+      5. implémenté mais non connecté au reste du système ;
+      6. implémenté et réellement fonctionnel de bout en bout ;
+      7. absent.
+L'objectif est de vérifier si la plateforme fait réellement tout ce qui est décrit dans les documents
+fonctionnels SantéPlus.
+
+1. RÈGLE FONDAMENTALE DE L'AUDIT
+
+Ne considère JAMAIS une fonctionnalité comme fonctionnelle simplement parce que :
+
+        · un bouton existe ;
+        · une page existe ;
+        · un formulaire existe ;
+        · une donnée apparaît à l'écran ;
+        · une API existe ;
+        · un endpoint répond 200 ;
+        · une valeur est affichée ;
+        · un fichier mock existe.
+Une fonctionnalité est considérée comme RÉELLEMENT FONCTIONNELLE uniquement si tu peux
+démontrer son fonctionnement de bout en bout.
+
+Exemple :
+
+Pour une prestation de santé :
+
+Assuré  carte  prestataire  vérification droits  calcul prise en charge  autorisation 
+prestation  engagement  consommation  facture  validation  paiement  réconciliation
+ CTS  historique  notification
+
+                                                                         1
+Tu dois vérifier toute cette chaîne.
+
+2. COMMENCE PAR UN AUDIT DE L'EXISTANT
+
+Avant toute modification :
+
+analyse :
+
+        · architecture ;
+        · frontend ;
+        · backend ;
+        · base de données ;
+        · API ;
+        · authentification ;
+        · autorisations ;
+        · stockage documentaire ;
+        · génération de documents ;
+        · notifications ;
+        · moteur financier ;
+        · CTS ;
+        · moteur de garanties ;
+        · moteur de remboursement ;
+        · moteur de tiers payant ;
+        · prescriptions ;
+        · facturation ;
+        · paiements ;
+        · comptabilité ;
+        · audit ;
+        · fraude ;
+        · fonds de solidarité ;
+        · stop-loss ;
+        · portail assuré ;
+        · portail prestataire ;
+        · portail assureur/mutuelle ;
+        · portail entreprise.
+
+Présente clairement ce que tu trouves.
+
+3. CONSTRUIS UNE MATRICE DE CONFORMITÉ
+
+Crée un tableau de contrôle avec les colonnes suivantes :
+
+Fonctionnalité Source  Présente Backend Base de Workflow Test          Statut Preuve
+
+                       UI             réel     données complet réussi
+
+                                            2
+Utilise uniquement les statuts :
+
+        · PASS
+        · PARTIAL
+        · MOCK
+        · BROKEN
+        · MISSING
+        · NOT_TESTABLE
+Ne mets jamais PASS sans preuve.
+
+4. PORTAIL ASSURÉ
+
+Vérifie réellement :
+
+Compte
+
+        · création compte ;
+        · connexion ;
+        · déconnexion ;
+        · récupération compte ;
+        · profil.
+
+Souscription
+
+        · simulation ;
+        · choix formule ;
+        · ajout ayants droit ;
+        · calcul tarif ;
+        · paiement ;
+        · activation contrat.
+
+Carte
+
+        · génération carte ;
+        · QR code ;
+        · vérification QR ;
+        · statut carte ;
+        · expiration ;
+        · suspension ;
+        · réactivation.
+
+Ayants droit
+
+Tester :
+
+        · ajout ;
+        · retrait ;
+
+                                                                         3
+        · pièces ;
+        · photo ;
+        · acte de naissance ;
+        · workflow ;
+        · validation ;
+        · recalcul prime ;
+        · recalcul CTS ;
+        · génération automatique avenant ;
+        · archivage ;
+        · notification.
+Vérifier qu'un assuré ne peut accéder qu'à ses propres données.
+
+5. CONTRATS ET AVENANTS
+
+Tester :
+
+        · création contrat ;
+        · version initiale ;
+        · mouvement ;
+        · validation ;
+        · exécution ;
+        · avenant ;
+        · numérotation ;
+        · archivage ;
+        · historique ;
+        · date d'effet.
+Vérifier qu'un ancien état contractuel n'est jamais écrasé.
+
+Tester :
+
+Contrat  ajout ayant droit  avenant  nouveau contrat/version  impact financier.
+
+Puis :
+
+Contrat  retrait ayant droit  avenant  nouvelle version  impact financier.
+
+6. MOTEUR DE TARIFICATION
+
+Créer plusieurs cas de test.
+
+Tester :
+
+        · formule ;
+        · âge ;
+        · adulte ;
+
+                                                                         4
+        · enfant ;
+        · conjoint ;
+        · nombre d'ayants droit ;
+        · fractionnement ;
+        · mensuel ;
+        · trimestriel ;
+        · annuel ;
+        · frais ;
+        · majorations ;
+        · prorata ;
+        · changement de composition familiale.
+
+Comparer :
+
+calcul frontend
+
+avec
+
+calcul backend
+
+et
+
+valeur enregistrée en base.
+
+Ils doivent être cohérents.
+
+7. MOTEUR DE GARANTIES
+
+Tester au minimum :
+
+        · consultation ;
+        · spécialiste ;
+        · pharmacie ;
+        · laboratoire ;
+        · imagerie ;
+        · hospitalisation ;
+        · maternité ;
+        · dentaire ;
+        · optique.
+
+Pour chaque acte, vérifier :
+
+        · tarif ;
+        · tarif conventionné ;
+        · taux ;
+        · plafond ;
+        · ticket ;
+        · reste à charge ;
+        · consommation ;
+
+                                                                         5
+        · carence ;
+        · exclusion.
+Vérifier qu'aucune valeur affichée dans l'interface n'est simplement codée en dur alors qu'elle devrait
+provenir du moteur de garanties.
+
+8. MOTEUR DE REMBOURSEMENT
+
+Tester au minimum :
+
+Test 1
+
+Facture = 10 000 F
+Couverture = 80 %
+Résultat attendu :
+
+        · éligible = 10 000 ;
+        · mutuelle = 8 000 ;
+        · assuré = 2 000.
+
+Test 2
+
+Facture supérieure au plafond.
+
+Test 3
+
+Acte exclu.
+
+Test 4
+
+Carence active.
+
+Test 5
+
+Plafond annuel presque atteint.
+
+Test 6
+
+Plafond complètement atteint.
+
+Test 7
+
+Dépassement tarifaire.
+
+Test 8
+
+Reste à charge annuel maximum atteint.
+
+                                                                         6
+Vérifier que tous les moteurs utilisent exactement les mêmes règles.
+
+9. PRESCRIPTIONS
+
+Tester :
+Médecin  ordonnance  pharmacie  délivrance.
+Vérifier :
+
+        · médecin habilité ;
+        · ordonnance valide ;
+        · patient correct ;
+        · médicament/acte prescrit ;
+        · date ;
+        · quantité ;
+        · expiration ;
+        · utilisation partielle ;
+        · utilisation complète ;
+        · annulation.
+Tester qu'une pharmacie :
+NE PEUT PAS créer une ordonnance.
+Tester qu'une ordonnance déjà utilisée ne peut pas être réutilisée frauduleusement.
+
+10. TIERS PAYANT
+
+Créer un scénario complet :
+Assuré :
+Jean
+Consultation :
+10 000 F
+Couverture :
+80 %
+Tester :
+
+      1. scan QR ;
+
+                                                                         7
+      2. vérification contrat ;
+      3. vérification droits ;
+      4. vérification carence ;
+      5. vérification plafond ;
+      6. calcul prise en charge ;
+      7. calcul reste à charge ;
+      8. confirmation ;
+      9. engagement ;
+     10. consommation ;
+     11. facture ;
+     12. validation ;
+     13. paiement ;
+     14. réconciliation ;
+     15. mise à jour CTS.
+Vérifier les montants à chaque étape.
+
+11. AUTORISATION PRÉALABLE
+
+Tester :
+
+        · petit acte automatique ;
+        · gros acte nécessitant autorisation ;
+        · demande d'autorisation ;
+        · validation ;
+        · rejet ;
+        · urgence ;
+        · expiration ;
+        · utilisation de l'autorisation.
+Vérifier qu'un prestataire ne peut pas contourner une autorisation obligatoire.
+
+12. COMPTE TECHNIQUE SANTÉ -- AUDIT
+CRITIQUE
+
+C'est une fonctionnalité stratégique.
+
+Tester réellement :
+
+Prime
+
+Créer un contrat avec :
+
+Prime = 1 000 000 F
+
+                                                                         8
+Frais
+
+20 %
+Attendu :
+200 000 F
+
+Budget
+
+Attendu :
+800 000 F
+Puis créer :
+
+Engagement
+
+100 000 F
+Puis :
+
+Consommation
+
+200 000 F
+Attendu :
+Solde = 500 000 F
+Vérifier :
+
+        · journal ;
+        · solde ;
+        · dashboard ;
+        · historique ;
+        · API ;
+        · base de données.
+Les valeurs doivent être identiques partout.
+
+13. JOURNAL CTS
+
+Tester tous les types d'écritures réellement présents.
+Vérifier :
+
+        · création ;
+
+                                                                         9
+        · référence ;
+        · contrat ;
+        · montant ;
+        · ancien solde ;
+        · nouveau solde ;
+        · date ;
+        · utilisateur ;
+        · contre-écriture ;
+        · impossibilité de modifier directement une écriture validée.
+Tester une annulation.
+Le système doit créer une contre-écriture et non modifier l'écriture historique.
+
+14. SEUILS CTS
+
+Tester :
+
+> 50 %
+
+statut normal.
+
+30­50 %
+
+surveillance.
+
+10­30 %
+
+alerte.
+
+0­10 %
+
+critique.
+
+0%
+
+épuisement.
+Vérifier que les seuils sont réellement utilisés par le moteur.
+Ils ne doivent pas être uniquement affichés.
+
+15. ÉPUISEMENT ET APPEL DE FONDS
+
+Créer un contrat dont le CTS arrive à zéro.
+
+                                                                        10
+Vérifier :
+
+        · détection automatique ;
+        · alerte ;
+        · calcul appel de fonds ;
+        · facture ;
+        · paiement ;
+        · vérification encaissement ;
+        · réactivation.
+Tester particulièrement :
+
+aucune réactivation avant encaissement confirmé.
+
+Tester également que le système ne coupe pas mécaniquement des droits qui doivent continuer selon
+les règles contractuelles.
+
+16. CRÉDIT DE RENOUVELLEMENT
+
+Créer un contrat excédentaire.
+
+À la clôture :
+
+calculer le reliquat.
+
+Vérifier :
+
+        · calcul ;
+        · taux applicable ;
+        · crédit ;
+        · écriture ;
+        · contrat ;
+        · renouvellement.
+Tester que le crédit n'est pas retirable en espèces si la règle métier l'interdit.
+
+17. FONDS DE SOLIDARITÉ
+
+Tester séparément :
+
+        · alimentation ;
+        · solde ;
+        · utilisation ;
+        · déficit ;
+        · appel de fonds ;
+        · reconstitution ;
+        · historique.
+
+                                                                        11
+Vérifier que :
+
+CTS contrat  Fonds solidarité
+
+et que les écritures restent distinctes.
+
+Tester les modèles :
+
+MUTUALITÉ
+
+et
+
+INDIVIDUEL
+
+Vérifier que leurs règles sont réellement différentes.
+
+18. STOP-LOSS
+
+Créer un scénario dépassant le seuil.
+
+Vérifier :
+
+        · déclenchement ;
+        · montant ;
+        · plafond ;
+        · prise en charge ;
+        · écriture ;
+        · alerte ;
+        · reconstitution ;
+        · impact fonds ;
+        · impact CTS.
+Vérifier qu'un stop-loss n'est pas seulement un champ affiché.
+
+19. PORTAIL PRESTATAIRE
+
+Tester :
+
+        · inscription établissement ;
+        · conventionnement ;
+        · utilisateurs ;
+        · rôles ;
+        · QR ;
+        · vérification assuré ;
+        · prise en charge ;
+        · ordonnance ;
+
+                                                                        12
+        · facture ;
+        · lot ;
+        · rejet ;
+        · avoir ;
+        · paiement ;
+        · rapprochement ;
+        · notifications.
+Tester au minimum :
+
+pharmacie
+
+médecin
+
+clinique/hôpital
+
+laboratoire
+
+20. MODE OFFLINE
+
+Si le mode offline-first annoncé existe :
+
+faire un véritable test.
+
+      1. connexion ;
+      2. synchronisation ;
+      3. couper Internet ;
+      4. scanner ;
+      5. créer opération ;
+      6. enregistrer ;
+      7. créer éventuellement une facture ;
+      8. remettre Internet ;
+      9. synchroniser ;
+     10. vérifier les données côté serveur ;
+     11. vérifier absence de doublon ;
+     12. vérifier intégrité financière.
+Si ce test ne fonctionne pas :
+
+statut = BROKEN ou PARTIAL.
+
+21. PORTAIL ASSUREUR / MUTUELLE
+
+Tester :
+
+        · contrats ;
+        · assurés ;
+
+                                                                        13
+        · ayants droit ;
+        · prestations ;
+        · remboursements ;
+        · tiers payant ;
+        · CTS ;
+        · fonds ;
+        · stop-loss ;
+        · sinistralité ;
+        · réserves ;
+        · prestataires ;
+        · paiements ;
+        · comptabilité ;
+        · fraude ;
+        · audit.
+
+22. PORTAIL ENTREPRISE
+
+Tester :
+
+        · création entreprise ;
+        · import salariés ;
+        · import CSV ;
+        · erreurs CSV ;
+        · doublons ;
+        · ajout salarié ;
+        · retrait salarié ;
+        · ayants droit ;
+        · cotisations ;
+        · co-partage.
+Vérifier strictement que l'entreprise ne peut pas voir les données médicales individuelles.
+
+23. FRAUDE
+
+Tester réellement :
+
+Doublon facture
+
+Deux factures identiques.
+
+Ordonnance réutilisée
+
+Même ordonnance utilisée deux fois.
+
+Acte répété
+
+Actes anormalement répétés.
+
+                                                                        14
+Prestataire anormal
+
+Consommation inhabituelle.
+
+Modification
+
+Modification d'une donnée après validation.
+
+Vérifier que le système :
+
+alerte
+
+mais ne rejette pas automatiquement un dossier uniquement parce qu'une anomalie statistique existe,
+sauf règle métier explicitement définie.
+
+24. NOTIFICATIONS
+
+Tester chaque événement important :
+
+        · souscription ;
+        · paiement ;
+        · activation ;
+        · ajout ayant droit ;
+        · retrait ;
+        · pièce manquante ;
+        · validation ;
+        · rejet ;
+        · avenant ;
+        · autorisation ;
+        · prestation ;
+        · facture ;
+        · paiement prestataire ;
+        · appel de fonds ;
+        · réactivation ;
+        · renouvellement.
+Vérifier que les notifications sont réellement déclenchées.
+
+25. SÉCURITÉ ET RBAC
+
+Créer des comptes de test pour :
+
+        · assuré ;
+        · médecin ;
+        · pharmacien ;
+        · laboratoire ;
+        · clinique ;
+
+                                                                        15
+        · gestionnaire ;
+        · assureur ;
+        · comptable ;
+        · entreprise ;
+        · administrateur.
+Tester les permissions croisées.
+
+Exemple :
+
+Un pharmacien ne doit pas pouvoir :
+
+        · modifier un contrat ;
+        · modifier une garantie ;
+        · modifier le CTS ;
+        · créer une ordonnance.
+Un assuré ne doit pas pouvoir :
+
+        · modifier une consommation ;
+        · modifier une facture ;
+        · valider un avenant ;
+        · modifier une écriture financière.
+Une entreprise ne doit pas pouvoir consulter les données médicales individuelles.
+
+26. BASE DE DONNÉES
+
+Vérifier :
+
+        · intégrité référentielle ;
+        · contraintes ;
+        · unicité ;
+        · relations ;
+        · historique ;
+        · suppression ;
+        · soft delete ;
+        · transactions ;
+        · concurrence ;
+        · cohérence des montants.
+Rechercher les données dupliquées ou contradictoires.
+
+27. MOCKS ET DONNÉES FAUSSES
+
+Recherche obligatoire dans le projet :
+
+        · mock ;
+
+                                                                        16
+        · fake ;
+        · dummy ;
+        · seed ;
+        · placeholder ;
+        · hardcoded ;
+        · TODO ;
+        · FIXME ;
+        · simulated ;
+        · test data.
+Identifie toute fonctionnalité qui semble réelle mais utilise encore des données simulées.
+
+28. TEST END-TO-END COMPLET
+
+Construis un scénario réel de bout en bout :
+
+Étape 1
+
+Créer un assuré.
+
+Étape 2
+
+Créer contrat Santé Confort.
+
+Étape 3
+
+Ajouter conjoint.
+
+Étape 4
+
+Ajouter enfant.
+
+Étape 5
+
+Fournir photo + acte de naissance.
+
+Étape 6
+
+Valider.
+
+Étape 7
+
+Générer avenant.
+
+Étape 8
+
+Payer prime.
+
+                                                                        17
+Étape 9
+
+Activer carte.
+
+Étape 10
+
+Médecin consulte assuré.
+
+Étape 11
+
+Médecin crée ordonnance.
+
+Étape 12
+
+Pharmacie consulte ordonnance.
+
+Étape 13
+
+Pharmacie délivre.
+
+Étape 14
+
+Tiers payant calcule prise en charge.
+
+Étape 15
+
+Créer engagement.
+
+Étape 16
+
+Valider consommation.
+
+Étape 17
+
+Facturer.
+
+Étape 18
+
+Payer prestataire.
+
+Étape 19
+
+Rapprocher paiement.
+
+Étape 20
+
+Mettre à jour CTS.
+
+Étape 21
+
+Retirer l'enfant.
+
+                                                                        18
+Étape 22
+
+Générer nouvel avenant.
+
+Étape 23
+
+Recalculer prime.
+
+Étape 24
+
+Recalculer CTS.
+
+Étape 25
+
+Renouveler contrat.
+À chaque étape, vérifie la cohérence des données.
+
+29. TEST DE COHÉRENCE TRANSVERSALE
+
+Pour chaque événement financier, comparer :
+Interface
+vs
+API
+vs
+base de données
+vs
+journal financier
+vs
+CTS
+vs
+dashboard assureur
+vs
+dashboard assuré
+
+                                                                        19
+vs
+dashboard prestataire
+Les montants doivent être cohérents.
+Si une différence existe :
+signaler :
+BROKEN -- incohérence financière
+
+30. TEST DE NON-RÉGRESSION
+
+Avant l'audit :
+identifier les fonctionnalités existantes.
+Après les tests :
+vérifier qu'aucune fonctionnalité existante n'a été cassée.
+
+31. RAPPORT FINAL OBLIGATOIRE
+
+À la fin de l'audit, produire un rapport structuré :
+
+A. RÉSUMÉ EXÉCUTIF
+
+        · nombre de fonctionnalités auditées ;
+        · PASS ;
+        · PARTIAL ;
+        · MOCK ;
+        · BROKEN ;
+        · MISSING.
+
+B. SCORE GLOBAL
+
+Donner un score sur 100 :
+        · fonctionnel ;
+        · métier ;
+        · financier ;
+        · sécurité ;
+        · données ;
+        · end-to-end ;
+
+                                                                        20
+        · UX.
+
+C. TABLEAU DES ANOMALIES
+
+                  ID Fonctionnalité Gravité Problème Cause Preuve Correction
+
+Gravité :
+        · CRITICAL
+        · HIGH
+        · MEDIUM
+        · LOW
+
+D. FONCTIONNALITÉS RÉELLEMENT OPÉRATIONNELLES
+
+Liste uniquement les fonctionnalités dont le fonctionnement a été démontré.
+
+E. FONCTIONNALITÉS PARTIELLES
+
+Liste des fonctionnalités partiellement opérationnelles.
+
+F. MOCKS
+
+Liste des fonctionnalités encore simulées.
+
+G. FONCTIONNALITÉS ABSENTES
+
+Liste de ce qui n'existe pas.
+
+H. INCOHÉRENCES MÉTIERS
+
+Identifier notamment :
+        · tarifs ;
+        · garanties ;
+        · plafonds ;
+        · carences ;
+        · CTS ;
+        · fonds ;
+        · stop-loss ;
+        · prescriptions ;
+        · avenants ;
+        · paiements.
+
+                                                                        21
+I. RISQUES
+
+Identifier les risques pouvant entraîner :
+        · erreur financière ;
+        · mauvaise prise en charge ;
+        · fraude ;
+        · accès non autorisé ;
+        · perte d'historique ;
+        · incohérence contractuelle ;
+        · problème de paiement ;
+        · problème de données médicales.
+
+32. RÈGLE FINALE
+
+NE CORRIGE PAS IMMÉDIATEMENT LES PROBLÈMES.
+Commence par produire l'audit.
+Après l'audit seulement, présente :
+
+PRIORITÉ 1 -- CRITIQUE
+
+Ce qui empêche la plateforme de fonctionner réellement.
+
+PRIORITÉ 2 -- IMPORTANT
+
+Ce qui fonctionne mais présente un risque.
+
+PRIORITÉ 3 -- AMÉLIORATION
+
+Ce qui peut être amélioré sans bloquer le fonctionnement.
+Ensuite, attends mon accord avant de modifier le code.
+
+OBJECTIF FINAL
+
+Je veux savoir avec certitude :
+          « Si demain je donne cette plateforme à un assuré, un médecin, une pharmacie, un
+          gestionnaire, une entreprise et un assureur/mutuelle, est-ce que chacun peut
+          réellement effectuer son travail de bout en bout ? »
+
+Ne me donne pas une réponse basée sur la présence des écrans.
+DÉMONTRE-LE PAR DES TESTS RÉELS.
+
+                                                                        22
+Si une fonctionnalité n'a pas pu être testée, indique précisément pourquoi.
+Ne transforme jamais :
+« le code semble prévu pour »
+en
+« ça fonctionne ».
+La conclusion doit distinguer clairement :
+PRÉVU
+IMPLÉMENTÉ
+CONNECTÉ
+TESTÉ
+FONCTIONNEL DE BOUT EN BOUT.
+
+                                                                        23
+

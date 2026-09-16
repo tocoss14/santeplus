@@ -45,8 +45,11 @@ export async function loginAs(email: string, password = 'Test1234!'): Promise<AP
   const ctx = await apiContext();
   const res = await ctx.post('/api/auth/login', { data: { email, password } });
   if (!res.ok()) {
+    // Lire le corps AVANT de disposer le contexte (sinon « Response has been
+    // disposed » masque le vrai statut : 429 rate-limit, 401, etc.).
+    const body = await res.text();
     await ctx.dispose();
-    throw new Error(`login ${res.status()} ${await res.text()}`);
+    throw new Error(`login ${res.status()} ${body}`);
   }
   return ctx;
 }

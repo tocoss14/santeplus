@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Module, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Module, Optional, Post } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators';
@@ -7,6 +7,7 @@ import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { ClaimsModule, ClaimsService } from '../claims/claims.controller';
+import { CtsModule, CtsService } from '../cts/cts.service';
 import { CareService } from '../care/care.service';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { resolveThreshold, needsPriorAuthorization } from '../../domain/engine';
@@ -34,6 +35,7 @@ export class OfflineController {
     private claims: ClaimsService,
     private care: CareService,
     private dispatch: NotificationDispatchService,
+    @Optional() private cts?: CtsService,
   ) {}
 
   @Post('sync')
@@ -260,6 +262,17 @@ export class OfflineController {
             },
           });
           await tx.delivery.update({ where: { id: del.id }, data: { claimId: claim.id } });
+
+          // P3-C2 — engagement CTS atomique dans le tx.
+          if (status === 'CONFIRMED' && this.cts) {
+            await this.cts.recordEngagement((patientContract as any).id, claim.id, estimation.totals.approved, {
+              beneficiaryId: (pres as any).beneficiaryId ?? null,
+              providerId: establishment.id,
+              actorUserId: auth.id,
+              tx,
+            } as any);
+          }
+
           return { del, claim };
         });
 
@@ -308,6 +321,6 @@ export class OfflineController {
 @Module({
   controllers: [OfflineController],
   providers: [CareService],
-  imports: [ClaimsModule],
+  imports: [ClaimsModule, CtsModule],
 })
 export class OfflineModule {}

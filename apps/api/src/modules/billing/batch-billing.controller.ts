@@ -5,6 +5,7 @@ import { CurrentUser } from '../../common/decorators';
 import { AuthUser } from '../../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
+import { CtsModule } from '../cts/cts.service';
 import { BatchBillingService } from './batch-billing.service';
 
 const createBatchSchema = z.object({
@@ -257,6 +258,7 @@ export class ProviderBillingController {
 @Module({
   controllers: [BatchBillingController, ProviderBillingController],
   providers: [BatchBillingService],
+  imports: [CtsModule],
   exports: [BatchBillingService],
 })
 export class BatchBillingModule {}

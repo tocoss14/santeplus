@@ -620,12 +620,14 @@ export function estimateClaim(
     // Franchises supprimées : le taux de couverture s'applique sur la totalité éligible.
     const coveredByRate = Math.max(0, Math.round((eligible * rule.rate) / 100));
 
-    // Co-paiement obligatoire : l'assuré paie un % du montant couvert
+    // Co-paiement obligatoire : l'assuré paie un % du montant éligible (coût de l'acte plafonné)
     let copay = 0;
     if (rule.copayRate && rule.copayRate > 0) {
-      copay = Math.round((coveredByRate * rule.copayRate) / 100);
+      copay = Math.round((eligible * rule.copayRate) / 100);
     }
-    const approved = Math.max(0, coveredByRate - copay);
+    // L'assureur paie le taux de couverture sur le montant éligible.
+    // Le ticket modérateur (copay) est la part restant à la charge du patient sur le montant éligible.
+    const approved = coveredByRate;
 
     // Plafond agrégé : limiter si on dépasse le global cap
     let cappedApproved = approved;

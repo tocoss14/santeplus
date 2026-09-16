@@ -339,6 +339,9 @@ export class BeneficiariesController {
     if (!draft.firstName || !draft.lastName || !draft.birthDate || !draft.gender || !draft.relation)
       throw new BadRequestException('Champs requis manquants');
     const birth = draft.birthDate as Date;
+    // Phase 3 P3-B : une date de naissance invalide (non parsable) est rejetée,
+    // sinon elle passerait tous les contrôles de comparaison (NaN).
+    if (Number.isNaN(birth.getTime())) throw new BadRequestException('Date de naissance invalide');
     const gender = draft.gender as string;
     const relation = draft.relation as string;
     const existing = await this.prisma.beneficiary.count({ where: { contractId, status: 'COVERED' } });
@@ -352,6 +355,7 @@ export class BeneficiariesController {
     }
     if (relation === 'OTHER' && rules.otherAllowed !== true) throw new BadRequestException('Autres ayants droit non autorisÃ©s');
     if (relation === 'CHILD') {
+      if (birth > new Date()) throw new BadRequestException('La date de naissance ne peut pas être dans le futur');
       const childMax = rules.childMaxAge ?? 21;
       const age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 86400000));
       if (age >= childMax) throw new BadRequestException(`Un enfant doit avoir moins de ${childMax} ans`);

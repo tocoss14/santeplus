@@ -194,12 +194,12 @@ describe('advanced copay scenarios', () => {
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 100000 },
     ]);
-    // eligible: 100000, no deductible, rate 80% = 80000, copay 25% of 80000 = 20000, approved = 60000
+    // eligible: 100000, no deductible, rate 80% = 80000, copay 25% on eligible = 25000, approved = 80000
     expect(r.items[0].amountEligible).toBe(100000);
     expect(r.items[0].deductibleApplied).toBe(0);
-    expect(r.items[0].copayApplied).toBe(20000);
-    expect(r.items[0].amountApproved).toBe(60000);
-    expect(r.items[0].outOfPocket).toBe(40000);
+    expect(r.items[0].copayApplied).toBe(25000);
+    expect(r.items[0].amountApproved).toBe(80000);
+    expect(r.items[0].outOfPocket).toBe(20000);
   });
 
   it('copay applied without deductible (franchises supprimées)', () => {
@@ -211,11 +211,11 @@ describe('advanced copay scenarios', () => {
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 100000 },
     ]);
-    // eligible: 100000, no deductible (removed), rate 80%: 80000, copay 20%: 16000, approved: 64000
+    // eligible: 100000, no deductible (removed), rate 80%: 80000, copay 20% on eligible: 20000, approved: 80000
     expect(r.items[0].deductibleApplied).toBe(0);
-    expect(r.items[0].copayApplied).toBe(16000);
-    expect(r.items[0].amountApproved).toBe(64000);
-    expect(r.items[0].outOfPocket).toBe(36000);
+    expect(r.items[0].copayApplied).toBe(20000);
+    expect(r.items[0].amountApproved).toBe(80000);
+    expect(r.items[0].outOfPocket).toBe(20000);
   });
 
   it('copay = 0 means no copay applied', () => {

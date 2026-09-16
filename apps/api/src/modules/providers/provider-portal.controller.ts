@@ -209,7 +209,8 @@ export class ProviderPortalController {
     const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
     const startMonth = new Date(); startMonth.setDate(1); startMonth.setHours(0, 0, 0, 0);
 
-    const base = { providerId: establishment.id, kind: 'THIRDPARTY' };
+    const KP = 'THIRDPARTY' as const;
+    const base = { providerId: establishment.id, kind: KP };
     const [todayAgg, monthRows, statusCounts, recent] = await Promise.all([
       this.prisma.claim.aggregate({
         where: { ...base, careDate: { gte: startToday } },
@@ -687,21 +688,27 @@ export class ProviderPortalController {
       try { await this.cts?.recordReversal(claim.contractId, id, 'TTL_EXPIRED', { actorUserId: auth.id }); } catch {}
       throw new BadRequestException('Session expirée (> 30 min). Recalculez la prise en charge.');
     }
-    await this.prisma.claim.update({
-      where: { id },
-      data: {
-        status: 'CONFIRMED',
-        submittedAt: claim.submittedAt ?? new Date(),
-        decidedAt: new Date(),
-        totalApproved: claim.items.reduce((a, i) => a + (i.amountApproved ?? 0), 0),
-      },
-    });
-    // CTS : engagement idempotent (non bloquant)
-    try {
-      await this.cts?.recordEngagement(claim.contractId, id, claim.items.reduce((a, i) => a + (i.amountApproved ?? 0), 0), {
-        beneficiaryId: (claim as any).beneficiaryId, providerId: establishment.id, actorUserId: auth.id,
+    // P3-C2 — invariant financier : l'engagement CTS est écrit AVANT/AVEC
+    // la confirmation du claim dans la même transaction Prisma. Si l'engagement
+    // échoue (CTS indisponible, erreur), le claim n'est PAS confirmé (rollback).
+    const totalApproved = claim.items.reduce((a, i) => a + (i.amountApproved ?? 0), 0);
+    await this.prisma.$transaction(async tx => {
+      if (this.cts) {
+        await this.cts.recordEngagement(claim.contractId, id, totalApproved, {
+          beneficiaryId: (claim as any).beneficiaryId, providerId: establishment.id,
+          actorUserId: auth.id, tx,
+        } as any);
+      }
+      await tx.claim.update({
+        where: { id },
+        data: {
+          status: 'CONFIRMED',
+          submittedAt: claim.submittedAt ?? new Date(),
+          decidedAt: new Date(),
+          totalApproved,
+        },
       });
-    } catch {}
+    });
     await this.notifyConfirmed(establishment.name, claim);
     return { ok: true, status: 'CONFIRMED', reference: claim.reference };
   }

@@ -2,6 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { ProviderPortalController } from '../src/modules/providers/provider-portal.controller';
 
+// Phase 3 — alias stabilité : le contrôleur definit un alias local pour kind tier-payant.
+// Les tests qui créent leurs propres claims dans des transactions mockées doivent utiliser la
+// même constante que le module sous test, pour ne pas dériver (cf. ANOMALIE C).
+const KP_TP = 'THIRDPARTY' as const;
+
 // ---------------------------------------------------------------------------
 // Helpers — mock factory for ProviderPortalController.initiate
 // ---------------------------------------------------------------------------
@@ -87,6 +92,7 @@ function createInitiateMocks(opts: {
         const tx: any = {
           claim: {
             create: vi.fn(async ({ data }: any) => ({
+              kind: 'THIRDPARTY',
               id: 'claim-1',
               reference: 'TPE-TEST001',
               status: data.status,

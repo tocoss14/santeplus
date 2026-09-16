@@ -6,7 +6,7 @@ import { CareController } from '../src/modules/care/care.controller';
 
 function createMockPrismaForClaims() {
   const claims = new Map<string, any>();
-  return {
+  const prismaObj: any = {
     _claims: claims,
     claim: {
       findUnique: vi.fn(async ({ where, include }: any) => {
@@ -44,7 +44,9 @@ function createMockPrismaForClaims() {
     auditLog: { create: vi.fn(async () => ({})) },
     careRecord: { findFirst: vi.fn(async () => null) },
     careRecordEvent: { create: vi.fn(async () => ({})) },
+    $transaction: vi.fn(async (fn: any) => fn(prismaObj)),
   };
+  return prismaObj;
 }
 
 function createMockPrismaForProvider() {

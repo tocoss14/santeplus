@@ -1,0 +1,326 @@
+[
+  {
+    "scenario": "A",
+    "name": "Inscription + acte + souscription + paiement (MOCK_MOMO)",
+    "status": "PASS",
+    "proof": "contract=cmu2a4ltz000qpg0yx7k7iix3"
+  },
+  {
+    "scenario": "A",
+    "name": "Activation après paiement (status ACTIVE, adhesion payée)",
+    "status": "PASS",
+    "proof": "status=ACTIVE adhesionPaidAt=ok"
+  },
+  {
+    "scenario": "A",
+    "name": "Carte avec QR (token + payload sans donnée personnelle)",
+    "status": "PASS",
+    "proof": "qr={\"t\":\"1ba185973af80ba0b4b6d45e842a760e\"}"
+  },
+  {
+    "scenario": "A",
+    "name": "Vérification QR côté prestataire",
+    "status": "PASS",
+    "proof": "HTTP 201"
+  },
+  {
+    "scenario": "A",
+    "name": "Re-confirm paiement non crashant",
+    "status": "PASS",
+    "proof": "HTTP 400"
+  },
+  {
+    "scenario": "B",
+    "name": "Ajout ayant droit",
+    "status": "PASS",
+    "proof": "HTTP 201"
+  },
+  {
+    "scenario": "B",
+    "name": "Naissance future refusée (P3-B)",
+    "status": "PASS",
+    "proof": "HTTP 400"
+  },
+  {
+    "scenario": "B",
+    "name": "Date invalide refusée (P3-B)",
+    "status": "PASS",
+    "proof": "HTTP 400"
+  },
+  {
+    "scenario": "B",
+    "name": "Trace avenant (BeneficiaryChange / audit)",
+    "status": "PASS",
+    "proof": "covered=1"
+  },
+  {
+    "scenario": "B",
+    "name": "Recalcul CTS cohérent après avenant",
+    "status": "PASS",
+    "proof": "available 63360→63360"
+  },
+  {
+    "scenario": "I",
+    "name": "Pharmacie NE PEUT PAS créer d’ordonnance (P3-A)",
+    "status": "PASS",
+    "proof": "HTTP 403"
+  },
+  {
+    "scenario": "C",
+    "name": "Médecin crée une ordonnance",
+    "status": "PASS",
+    "proof": ""
+  },
+  {
+    "scenario": "C",
+    "name": "Pharmacie consulte l’ordonnance (scan)",
+    "status": "PASS",
+    "proof": "HTTP 201"
+  },
+  {
+    "scenario": "C",
+    "name": "Délivrance + tiers payant automatique",
+    "status": "PASS",
+    "proof": "status=CONFIRMED"
+  },
+  {
+    "scenario": "C",
+    "name": "Engagement CTS tracé après délivrance",
+    "status": "FAIL",
+    "proof": "committed=0 consumed=0"
+  },
+  {
+    "scenario": "C",
+    "name": "Prescription partiellement exécutée (statut)",
+    "status": "FAIL",
+    "proof": "HTTP 404"
+  },
+  {
+    "scenario": "D",
+    "name": "2 prises en charge confirmées",
+    "status": "PASS",
+    "proof": "ok / ok"
+  },
+  {
+    "scenario": "D",
+    "name": "Facturation groupée créée (claims THIRDPARTY retrouvés — P3-C)",
+    "status": "FAIL",
+    "proof": "HTTP 400 {\"statusCode\":400,\"message\":\"Données invalides\",\"errors\":{\"formErrors\":[],\"fieldErrors\":{\"periodStart\":[\"Inval"
+  },
+  {
+    "scenario": "E",
+    "name": "CTS consommé jusqu’à la bande critique",
+    "status": "PASS",
+    "proof": "available=6400/160000 band=\"CRITIQUE\" refus=aucun"
+  },
+  {
+    "scenario": "E",
+    "name": "Appel de fonds proposé automatiquement/prévu",
+    "status": "PASS",
+    "proof": ""
+  },
+  {
+    "scenario": "F",
+    "name": "Appel créé + envoyé (facture)",
+    "status": "PASS",
+    "proof": "id=cmu2a4sd700pvpg0ymb369hkw"
+  },
+  {
+    "scenario": "F",
+    "name": "Montant = 100 000 exact",
+    "status": "PASS",
+    "proof": "amount=100000"
+  },
+  {
+    "scenario": "F",
+    "name": "§13 Réactivation : disponible +100 000 (net frais 20 %)",
+    "status": "PASS",
+    "proof": "available 6400→86400 (attendu 86400)"
+  },
+  {
+    "scenario": "G",
+    "name": "§9 Cas 1 : prise en charge limitée au plafond (130k×80%=104k > 100k)",
+    "status": "PASS",
+    "proof": "approved=64000"
+  },
+  {
+    "scenario": "G",
+    "name": "Reste assuré explicite",
+    "status": "PASS",
+    "proof": "resté à charge=66000"
+  },
+  {
+    "scenario": "H",
+    "name": "Ordonnance épuisée NON réutilisable",
+    "status": "PASS",
+    "proof": "délivrance1=201 délivrance2=400"
+  },
+  {
+    "scenario": "H",
+    "name": "Ordonnance inconnue → 404",
+    "status": "PASS",
+    "proof": "HTTP 404"
+  },
+  {
+    "scenario": "J",
+    "name": "EXÉCUTION DU SCÉNARIO",
+    "status": "FAIL",
+    "proof": "produit: 400"
+  },
+  {
+    "scenario": "K",
+    "name": "Clôture exécutable (admin)",
+    "status": "FAIL",
+    "proof": "HTTP 400 {\"message\":\"Clôture réservée aux contrats terminés (EXPIRED/TERMINATED)\",\"error\":\"Bad Request\",\"stat"
+  },
+  {
+    "scenario": "L",
+    "name": "EXÉCUTION DU SCÉNARIO",
+    "status": "FAIL",
+    "proof": "produit: 400"
+  },
+  {
+    "scenario": "M",
+    "name": "§25 Dashboard entreprise sans données médicales individuelles",
+    "status": "PASS",
+    "proof": "aucune clé médicale"
+  },
+  {
+    "scenario": "M",
+    "name": "Vues claims entreprise restreintes (administratif seul)",
+    "status": "PASS",
+    "proof": "aucun champ médical"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§41 FRAIS = 200 000 (20 % de 1 000 000)",
+    "status": "PASS",
+    "proof": "managementFees=200000"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§41 BUDGET = 800 000",
+    "status": "PASS",
+    "proof": "benefitBudget=800000"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§43 Inv1 Disponible = Budget − Consommations − Engagements",
+    "status": "PASS",
+    "proof": "available=800000"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§8 Prise en charge = 80 000 (100 000 × 80 %)",
+    "status": "FAIL",
+    "proof": "approved=64000"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§8 Assuré = 20 000 (ticket modérateur)",
+    "status": "FAIL",
+    "proof": "outOfPocket=36000"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§8 Consommation/engagement CTS = 80 000",
+    "status": "FAIL",
+    "proof": "committed=64000 consumed=0"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§43 Inv1 après engagement : disponible = 800 000 − 80 000 = 720 000",
+    "status": "FAIL",
+    "proof": "available=736000"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§43 Inv4 Webhook inconnu : déterministe, pas de double consommation",
+    "status": "PASS",
+    "proof": "HTTP 201/201"
+  },
+  {
+    "scenario": "NUM",
+    "name": "§43 Inv6/7 Journal reconstruit = disponible affiché",
+    "status": "PASS",
+    "proof": "reconstruit=736000 affiché=736000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Essentielle : prix 6000 F/mois",
+    "status": "PASS",
+    "proof": "base=72000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Essentielle : plafond global 500 000 F/an",
+    "status": "PASS",
+    "proof": "cap=500000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Essentielle : reste à charge max 200 000 F/an",
+    "status": "PASS",
+    "proof": "oop=200000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Confort : prix 12000 F/mois",
+    "status": "PASS",
+    "proof": "base=144000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Confort : plafond global 1 200 000 F/an",
+    "status": "PASS",
+    "proof": "cap=1200000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Confort : reste à charge max 150 000 F/an",
+    "status": "PASS",
+    "proof": "oop=150000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Excellence : prix 25000 F/mois",
+    "status": "PASS",
+    "proof": "base=300000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Excellence : plafond global 3 000 000 F/an",
+    "status": "PASS",
+    "proof": "cap=3000000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Santé Excellence : reste à charge max 100 000 F/an",
+    "status": "PASS",
+    "proof": "oop=100000"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Analytique : KPIs exposés",
+    "status": "PASS",
+    "proof": "HTTP 200"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Analytique : RBNS + IBNR (Chain Ladder) exposés",
+    "status": "PASS",
+    "proof": "HTTP 200"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Analytique : loss ratio exposé",
+    "status": "PASS",
+    "proof": "HTTP 200"
+  },
+  {
+    "scenario": "DOCS",
+    "name": "Fonds de solidarité : solde + statut exposés (§4 deck assureurs)",
+    "status": "PASS",
+    "proof": "{\"balance\":0,\"config\":{\"enabled\":true,\"surplusShare\":0.2,\"dynamicShare\":true,\"sh"
+  }
+]

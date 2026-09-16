@@ -1,0 +1,518 @@
+[crypto] FIELD_ENCRYPTION_KEY manquant/invalide — clé dérivée du JWT_SECRET utilisée (définir FIELD_ENCRYPTION_KEY en prod pour persistance)
+WARNING: FIELD_ENCRYPTION_KEY manquant/invalide — clé dérivée du JWT_SECRET utilisée (définir FIELD_ENCRYPTION_KEY en prod pour persistance)
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPrismaModule dependencies initialized[39m[38;5;3m +73ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCommonModule dependencies initialized[39m[38;5;3m +34ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAdminMiscModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAccountingModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mStatsModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mReferentialModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mFilesModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mNotificationsHttpModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mFraudModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUsersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOfflineModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mHospitalModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDistributorsModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCommissionsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAnalyticsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCareModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mProductsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mProvidersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCompanyModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mProviderPortalModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDocumentsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mSubscriptionModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mBirthCertificateModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCtsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mBatchBillingModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mProviderRegistrationModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mClaimsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mContractsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPaymentsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/api/auth}:[39m[38;5;3m +15ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/register, POST} route[39m[38;5;3m +3ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/login, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/refresh, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/logout, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/password, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/me, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUsersController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/me/photo, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/me/photo, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/me, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/me/national-id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/users, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/users/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/users, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/users/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/roles, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/roles/:role/permissions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/roles/:role/permissions, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/me/photo, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/beneficiaries/:id/photo, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/beneficiaries/:id/photo, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mFilesController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/files/:id/view, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/documents, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mProductsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/guarantees, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/guarantees, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/guarantees/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/partners, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/partners, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/partners/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mSubscriptionController {/api/subscription}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/subscription/quote, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/subscription/subscribe, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/subscription/guarantee-change-requests, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/subscription/subscribe-company, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCtsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/cts, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/mine/cts, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/cts, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/cts/portfolio, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/solidarity/fund, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/solidarity-cover, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/cts/simulate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/fund-calls, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/fund-calls, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/fund-calls/:id/send, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/fund-calls/:id/cancel, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/closure, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/closure, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/closures/:id/confirm, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mBirthCertificateController {/api/subscription}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/subscription/birth-certificate/upload, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/subscription/birth-certificate/verify, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/subscription/birth-certificate/status, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mContractsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/mine, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id/card, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id/rotate-token, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id/renew, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id/risk-model, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id/certificate, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id/card-pdf, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/suspend, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/activate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/contracts/:id/terminate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mBeneficiariesController {/api/contracts/:contractId/beneficiaries}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:contractId/beneficiaries, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:contractId/beneficiaries, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:contractId/beneficiaries/:beneficiaryId, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:contractId/beneficiaries/:beneficiaryId/remove, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:contractId/beneficiaries/:beneficiaryId/history, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPaymentsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/payments/methods, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/payments/initiate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/payments/mock/confirm, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/payments/webhook/fedapay, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/payments/webhook/cinetpay, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/payments/:id/status, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/payments/mine, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/payments, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAccountingController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/accounting/entries, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/accounting/summary, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/accounting/export, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/accounting/chart, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mClaimsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/claims/categories, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/claims, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/claims/:id/submit, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/claims/mine, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/claims/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims/:id/authorize, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims/:id/request-info, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims/:id/under-review, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims/:id/approve, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims/:id/reject, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims/:id/cancel, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/claims/:id/mark-paid, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mProvidersController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/providers, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/providers/cities, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/:id/approve, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/:id/suspend, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mProviderPortalController {/api/provider}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/me, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/me/establishment, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/me/photo, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/acts, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/dashboard, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/thirdparty, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/thirdparty/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/verify, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/thirdparty/initiate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/thirdparty/:id/emergency-confirm, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/thirdparty/:id/confirm, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/thirdparty/:id/realize, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/thirdparty/:id/invoice, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/staff, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/staff, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/staff/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mProviderRegistrationController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/providers/register, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/bulk-import, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/providers/register/:id/documents, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/registrations, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/:id/documents, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/:id/documents/review, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/:id/approve-registration, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/providers/:id/reject-registration, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCareController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/medications, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/medications, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/medications, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/acts, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/acts, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/acts/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/consultations, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/consultations, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/consultations/mine, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/prescriptions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/prescriptions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/prescriptions/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/prescriptions/:id/renew, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/prescriptions/:id/cancel, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/prescriptions/scan, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/deliveries, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/deliveries, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/prescriptions/mine, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/consultations/mine-old, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCareRecordController {/api/care-records}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/care-records/mine, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/care-records/provider/care-records, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/care-records/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/care-records/:id/timeline, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCompanyController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/companies/register, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/dashboard, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/group-contract, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/employees, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/employees, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/employees, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/employees/import, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/employees/:id/radiate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/employees/:id/radiate, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/employees/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/employees/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/claims, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mNotificationsController {/api/notifications}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications/:id/read, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/notifications/read-all, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mStatsController {/api/stats}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/stats/admin/dashboard, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/stats/admin/technical-result, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAdminMiscController {/api/admin}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/anomalies/summary, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/anomalies, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/audit, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/config, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/config, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mDocumentsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/contracts/:id/certificate, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/company/me/attestation, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOfflineController {/api/offline}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/offline/sync, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mDistributorsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors/:id/activate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors/:id/suspend, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors/:id/stats, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/distributors/:id/commissions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/distributor/me, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/distributor/me/stats, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/distributor/me/commissions, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/distributors/lookup/:code, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCommissionsController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/commissions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/commissions/stats, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/commissions/:id/approve, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/commissions/:id/reject, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/commissions/:id/pay, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mFraudController {/api/admin/fraud}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/fraud, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/fraud/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/fraud/:id/review, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mBatchBillingController {/api/billing}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/batch-invoices, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/batch-invoices/submit, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/batch-invoices/validate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/batch-invoices/pay, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/batch-invoices, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/batch-invoices/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/rejections, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/rejections/dispute, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/rejections/resolve, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/rejections, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/credit-notes, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/credit-notes/:id/apply, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/credit-notes, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/reconciliations, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/billing/reconciliations, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mProviderBillingController {/api/provider}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/batch-invoices, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/batch-invoices/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/batch-invoices, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/batch-invoices/submit, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/rejections, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/rejections/acknowledge, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/provider/rejections/dispute, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAnalyticsController {/api/analytics}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/analytics/kpis, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/analytics/loss-ratio, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/analytics/technical-reserves, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/analytics/product-profitability, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/analytics/provider-performance, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/analytics/portfolio-evolution, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mReferentialController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/branches, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/branches, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/branches, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/branches/:id, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/diseases, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/diseases, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/diseases, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/diseases/:id, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHospitalController {/api/hospital}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/hospital/entente, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/hospital/ententes, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 60512  - [39m15/09/2026 07:16:57 [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +95ms[39m
+API ready on http://localhost:4000/api
+Environment: development
+Database already has 20 users — skipping seed.
+[EMAIL -> p4_65ig9i4lg1@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 927161009] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_65ig9i4lg1@test.bj] Souscription en cours — CTR-2026-F29E61
+[SMS -> +229 927161009] Souscription en cours — CTR-2026-F29E61
+[EMAIL -> p4_65ig9i4lg1@test.bj] Votre contrat CTR-2026-F29E61 est actif
+[SMS -> +229 927161009] Votre contrat CTR-2026-F29E61 est actif
+[EMAIL -> p4_65ig9i4lg1@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 927161009] Paiement reçu : 82200 FCFA
+[EMAIL -> p4_gkjfh64mdk@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 926469540] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_gkjfh64mdk@test.bj] Souscription en cours — CTR-2026-A41F57
+[SMS -> +229 926469540] Souscription en cours — CTR-2026-A41F57
+[EMAIL -> p4_gkjfh64mdk@test.bj] Votre contrat CTR-2026-A41F57 est actif
+[SMS -> +229 926469540] Votre contrat CTR-2026-A41F57 est actif
+[EMAIL -> p4_gkjfh64mdk@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 926469540] Paiement reçu : 82200 FCFA
+[EMAIL -> p4_88xtvp4n39@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 914808881] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_88xtvp4n39@test.bj] Souscription en cours — CTR-2026-CD23A3
+[SMS -> +229 914808881] Souscription en cours — CTR-2026-CD23A3
+[EMAIL -> p4_88xtvp4n39@test.bj] Votre contrat CTR-2026-CD23A3 est actif
+[SMS -> +229 914808881] Votre contrat CTR-2026-CD23A3 est actif
+[EMAIL -> p4_88xtvp4n39@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 914808881] Paiement reçu : 82200 FCFA
+[SMS -> +229 914808881] Délivrance DEL-2026-7B7F31 — prise en charge 0 FCFA
+[EMAIL -> p4_dvwfdr4o9j@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 954398040] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_dvwfdr4o9j@test.bj] Souscription en cours — CTR-2026-787059
+[SMS -> +229 954398040] Souscription en cours — CTR-2026-787059
+[EMAIL -> p4_dvwfdr4o9j@test.bj] Votre contrat CTR-2026-787059 est actif
+[SMS -> +229 954398040] Votre contrat CTR-2026-787059 est actif
+[EMAIL -> p4_dvwfdr4o9j@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 954398040] Paiement reçu : 82200 FCFA
+[SMS -> +229 954398040] Prise en charge TPE-2026-6043E3
+[SMS -> +229 954398040] Prise en charge TPE-2026-CAB3C4
+[EMAIL -> p4_olguoc4p6v@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 971782427] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_olguoc4p6v@test.bj] Souscription en cours — CTR-2026-34444C
+[SMS -> +229 971782427] Souscription en cours — CTR-2026-34444C
+[EMAIL -> p4_olguoc4p6v@test.bj] Votre contrat CTR-2026-34444C est actif
+[SMS -> +229 971782427] Votre contrat CTR-2026-34444C est actif
+[EMAIL -> p4_olguoc4p6v@test.bj] Paiement reçu : 203000 FCFA
+[SMS -> +229 971782427] Paiement reçu : 203000 FCFA
+[SMS -> +229 971782427] Prise en charge TPE-2026-7F7139
+[SMS -> +229 971782427] Prise en charge TPE-2026-5CC96D
+[SMS -> +229 971782427] Prise en charge TPE-2026-793A14
+[SMS -> +229 971782427] Prise en charge TPE-2026-0ABFAE
+[SMS -> +229 971782427] Prise en charge TPE-2026-3FD3E2
+[SMS -> +229 971782427] Prise en charge TPE-2026-B3A7EE
+[SMS -> +229 971782427] Prise en charge TPE-2026-D12712
+[SMS -> +229 971782427] Prise en charge TPE-2026-F08B7A
+[EMAIL -> p4_xmlw6u4qv3@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 965904416] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_xmlw6u4qv3@test.bj] Souscription en cours — CTR-2026-F368F5
+[SMS -> +229 965904416] Souscription en cours — CTR-2026-F368F5
+[EMAIL -> p4_xmlw6u4qv3@test.bj] Votre contrat CTR-2026-F368F5 est actif
+[SMS -> +229 965904416] Votre contrat CTR-2026-F368F5 est actif
+[EMAIL -> p4_xmlw6u4qv3@test.bj] Paiement reçu : 203000 FCFA
+[SMS -> +229 965904416] Paiement reçu : 203000 FCFA
+[SMS -> +229 965904416] Prise en charge TPE-2026-D8D867
+[SMS -> +229 965904416] Prise en charge TPE-2026-223239
+[SMS -> +229 965904416] Prise en charge TPE-2026-6D9C2C
+[SMS -> +229 965904416] Prise en charge TPE-2026-6F3CDF
+[SMS -> +229 965904416] Prise en charge TPE-2026-640E90
+[SMS -> +229 965904416] Prise en charge TPE-2026-97DE3F
+[SMS -> +229 965904416] Prise en charge TPE-2026-877ABA
+[SMS -> +229 965904416] Prise en charge TPE-2026-78A0FC
+[EMAIL -> p4_xmlw6u4qv3@test.bj] Paiement reçu : 100000 FCFA
+[SMS -> +229 965904416] Paiement reçu : 100000 FCFA
+[EMAIL -> p4_qva25k4so8@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 987760296] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_qva25k4so8@test.bj] Souscription en cours — CTR-2026-5A33DF
+[SMS -> +229 987760296] Souscription en cours — CTR-2026-5A33DF
+[EMAIL -> p4_qva25k4so8@test.bj] Votre contrat CTR-2026-5A33DF est actif
+[SMS -> +229 987760296] Votre contrat CTR-2026-5A33DF est actif
+[EMAIL -> p4_qva25k4so8@test.bj] Paiement reçu : 103000 FCFA
+[SMS -> +229 987760296] Paiement reçu : 103000 FCFA
+[EMAIL -> p4_qva25k4so8@test.bj] Demande SIN-2026-E8FF82 reçue
+[SMS -> +229 987760296] Demande SIN-2026-E8FF82 reçue
+[EMAIL -> p4_qva25k4so8@test.bj] SIN-2026-E8FF82 — Demande partiellement approuvée
+[SMS -> +229 987760296] SIN-2026-E8FF82 — Demande partiellement approuvée
+[EMAIL -> p4_at7nuo4tbb@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 986194551] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_at7nuo4tbb@test.bj] Souscription en cours — CTR-2026-4C049F
+[SMS -> +229 986194551] Souscription en cours — CTR-2026-4C049F
+[EMAIL -> p4_at7nuo4tbb@test.bj] Votre contrat CTR-2026-4C049F est actif
+[SMS -> +229 986194551] Votre contrat CTR-2026-4C049F est actif
+[EMAIL -> p4_at7nuo4tbb@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 986194551] Paiement reçu : 82200 FCFA
+[SMS -> +229 986194551] Délivrance DEL-2026-8CCBC8 — prise en charge 0 FCFA
+[EMAIL -> p4_2rry5k4ua8@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 922891293] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_2rry5k4ua8@test.bj] Souscription en cours — CTR-2026-AF0794
+[SMS -> +229 922891293] Souscription en cours — CTR-2026-AF0794
+[EMAIL -> p4_2rry5k4ua8@test.bj] Votre contrat CTR-2026-AF0794 est actif
+[SMS -> +229 922891293] Votre contrat CTR-2026-AF0794 est actif
+[EMAIL -> p4_2rry5k4ua8@test.bj] Paiement reçu : 103000 FCFA
+[SMS -> +229 922891293] Paiement reçu : 103000 FCFA
+[EMAIL -> p4_ia1qe94v3a@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 923395356] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_ia1qe94v3a@test.bj] Souscription en cours — CTR-2026-2D2CC8
+[SMS -> +229 923395356] Souscription en cours — CTR-2026-2D2CC8
+[EMAIL -> p4_ia1qe94v3a@test.bj] Votre contrat CTR-2026-2D2CC8 est actif
+[SMS -> +229 923395356] Votre contrat CTR-2026-2D2CC8 est actif
+[EMAIL -> p4_ia1qe94v3a@test.bj] Paiement reçu : 1003000 FCFA
+[SMS -> +229 923395356] Paiement reçu : 1003000 FCFA
+[SMS -> +229 923395356] Prise en charge TPE-2026-824231
+[EMAIL -> p4_lm9ho17ngq@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 939492251] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_lm9ho17ngq@test.bj] Souscription en cours — CTR-2026-6ADA22
+[SMS -> +229 939492251] Souscription en cours — CTR-2026-6ADA22
+[EMAIL -> p4_lm9ho17ngq@test.bj] Votre contrat CTR-2026-6ADA22 est actif
+[SMS -> +229 939492251] Votre contrat CTR-2026-6ADA22 est actif
+[EMAIL -> p4_lm9ho17ngq@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 939492251] Paiement reçu : 82200 FCFA
+[EMAIL -> p4_gklc2q7onz@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 975037824] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_gklc2q7onz@test.bj] Souscription en cours — CTR-2026-D365A3
+[SMS -> +229 975037824] Souscription en cours — CTR-2026-D365A3
+[EMAIL -> p4_gklc2q7onz@test.bj] Votre contrat CTR-2026-D365A3 est actif
+[SMS -> +229 975037824] Votre contrat CTR-2026-D365A3 est actif
+[EMAIL -> p4_gklc2q7onz@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 975037824] Paiement reçu : 82200 FCFA
+[EMAIL -> p4_a8150r7pb9@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 968877830] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_a8150r7pb9@test.bj] Souscription en cours — CTR-2026-776A39
+[SMS -> +229 968877830] Souscription en cours — CTR-2026-776A39
+[EMAIL -> p4_a8150r7pb9@test.bj] Votre contrat CTR-2026-776A39 est actif
+[SMS -> +229 968877830] Votre contrat CTR-2026-776A39 est actif
+[EMAIL -> p4_a8150r7pb9@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 968877830] Paiement reçu : 82200 FCFA
+[SMS -> +229 968877830] Délivrance DEL-2026-83E911 — prise en charge 0 FCFA
+[EMAIL -> p4_7l67as7qaa@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 986862050] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_7l67as7qaa@test.bj] Souscription en cours — CTR-2026-189D6E
+[SMS -> +229 986862050] Souscription en cours — CTR-2026-189D6E
+[EMAIL -> p4_7l67as7qaa@test.bj] Votre contrat CTR-2026-189D6E est actif
+[SMS -> +229 986862050] Votre contrat CTR-2026-189D6E est actif
+[EMAIL -> p4_7l67as7qaa@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 986862050] Paiement reçu : 82200 FCFA
+[SMS -> +229 986862050] Prise en charge TPE-2026-586696
+[SMS -> +229 986862050] Prise en charge TPE-2026-5E367E
+[EMAIL -> p4_ibcpio7r1x@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 984709043] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_ibcpio7r1x@test.bj] Souscription en cours — CTR-2026-2B7EBA
+[SMS -> +229 984709043] Souscription en cours — CTR-2026-2B7EBA
+[EMAIL -> p4_ibcpio7r1x@test.bj] Votre contrat CTR-2026-2B7EBA est actif
+[SMS -> +229 984709043] Votre contrat CTR-2026-2B7EBA est actif
+[EMAIL -> p4_ibcpio7r1x@test.bj] Paiement reçu : 203000 FCFA
+[SMS -> +229 984709043] Paiement reçu : 203000 FCFA
+[SMS -> +229 984709043] Prise en charge TPE-2026-0FFF0D
+[SMS -> +229 984709043] Prise en charge TPE-2026-B505EB
+[SMS -> +229 984709043] Prise en charge TPE-2026-F3E25A
+[SMS -> +229 984709043] Prise en charge TPE-2026-324269
+[SMS -> +229 984709043] Prise en charge TPE-2026-5AB879
+[SMS -> +229 984709043] Prise en charge TPE-2026-013A78
+[SMS -> +229 984709043] Prise en charge TPE-2026-79D3B8
+[SMS -> +229 984709043] Prise en charge TPE-2026-11D976
+[EMAIL -> p4_tnndh17sj5@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 925695240] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_tnndh17sj5@test.bj] Souscription en cours — CTR-2026-173769
+[SMS -> +229 925695240] Souscription en cours — CTR-2026-173769
+[EMAIL -> p4_tnndh17sj5@test.bj] Votre contrat CTR-2026-173769 est actif
+[SMS -> +229 925695240] Votre contrat CTR-2026-173769 est actif
+[EMAIL -> p4_tnndh17sj5@test.bj] Paiement reçu : 203000 FCFA
+[SMS -> +229 925695240] Paiement reçu : 203000 FCFA
+[SMS -> +229 925695240] Prise en charge TPE-2026-884A67
+[SMS -> +229 925695240] Prise en charge TPE-2026-C2DF8C
+[SMS -> +229 925695240] Prise en charge TPE-2026-E9FB60
+[SMS -> +229 925695240] Prise en charge TPE-2026-4A64FB
+[SMS -> +229 925695240] Prise en charge TPE-2026-30FE0C
+[SMS -> +229 925695240] Prise en charge TPE-2026-26D739
+[SMS -> +229 925695240] Prise en charge TPE-2026-928C7B
+[SMS -> +229 925695240] Prise en charge TPE-2026-F89DD3
+[EMAIL -> p4_tnndh17sj5@test.bj] Paiement reçu : 100000 FCFA
+[SMS -> +229 925695240] Paiement reçu : 100000 FCFA
+[EMAIL -> p4_cvw2177u40@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 921036539] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_cvw2177u40@test.bj] Souscription en cours — CTR-2026-7802F9
+[SMS -> +229 921036539] Souscription en cours — CTR-2026-7802F9
+[EMAIL -> p4_cvw2177u40@test.bj] Votre contrat CTR-2026-7802F9 est actif
+[SMS -> +229 921036539] Votre contrat CTR-2026-7802F9 est actif
+[EMAIL -> p4_cvw2177u40@test.bj] Paiement reçu : 103000 FCFA
+[SMS -> +229 921036539] Paiement reçu : 103000 FCFA
+[EMAIL -> p4_cvw2177u40@test.bj] Demande SIN-2026-77BA05 reçue
+[SMS -> +229 921036539] Demande SIN-2026-77BA05 reçue
+[EMAIL -> p4_cvw2177u40@test.bj] SIN-2026-77BA05 — Demande partiellement approuvée
+[SMS -> +229 921036539] SIN-2026-77BA05 — Demande partiellement approuvée
+[EMAIL -> p4_ll63cn7uob@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 994094753] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_ll63cn7uob@test.bj] Souscription en cours — CTR-2026-FE0B1F
+[SMS -> +229 994094753] Souscription en cours — CTR-2026-FE0B1F
+[EMAIL -> p4_ll63cn7uob@test.bj] Votre contrat CTR-2026-FE0B1F est actif
+[SMS -> +229 994094753] Votre contrat CTR-2026-FE0B1F est actif
+[EMAIL -> p4_ll63cn7uob@test.bj] Paiement reçu : 82200 FCFA
+[SMS -> +229 994094753] Paiement reçu : 82200 FCFA
+[SMS -> +229 994094753] Délivrance DEL-2026-17C0AF — prise en charge 0 FCFA
+[EMAIL -> p4_idbftv7vhx@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 973446310] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_idbftv7vhx@test.bj] Souscription en cours — CTR-2026-621AE9
+[SMS -> +229 973446310] Souscription en cours — CTR-2026-621AE9
+[EMAIL -> p4_idbftv7vhx@test.bj] Votre contrat CTR-2026-621AE9 est actif
+[SMS -> +229 973446310] Votre contrat CTR-2026-621AE9 est actif
+[EMAIL -> p4_idbftv7vhx@test.bj] Paiement reçu : 103000 FCFA
+[SMS -> +229 973446310] Paiement reçu : 103000 FCFA
+[EMAIL -> p4_3asmg97w7o@test.bj] Bienvenue sur SantéPlus, P4 !
+[SMS -> +229 967326802] Bienvenue sur SantéPlus, P4 !
+[EMAIL -> p4_3asmg97w7o@test.bj] Souscription en cours — CTR-2026-BBE006
+[SMS -> +229 967326802] Souscription en cours — CTR-2026-BBE006
+[EMAIL -> p4_3asmg97w7o@test.bj] Votre contrat CTR-2026-BBE006 est actif
+[SMS -> +229 967326802] Votre contrat CTR-2026-BBE006 est actif
+[EMAIL -> p4_3asmg97w7o@test.bj] Paiement reçu : 1003000 FCFA
+[SMS -> +229 967326802] Paiement reçu : 1003000 FCFA
+[SMS -> +229 967326802] Prise en charge TPE-2026-3EAED1

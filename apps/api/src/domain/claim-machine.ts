@@ -21,11 +21,17 @@ export type ClaimAction =
   | 'CANCEL';
 
 /** États sources autorisés par action (reflète les guards actuels). */
+//  APPROVE accepte en plus les claims THIRDPARTY confirmés (CONFIRMED) : le
+//  tiers-payant est déjà garanti (engagement CTS) ; l'approbation gestionnaire
+//  régularise la prise en charge pour la facturation groupée (audit phase 4,
+//  écart P0 D). Sans effet de bord : recordEngagement est idempotent par
+//  référence, aucun ré-engagement n'a lieu. La garde kind=THIRDPARTY est
+//  appliquée dans le contrôleur (claims.controller.approve).
 export const CLAIM_TRANSITIONS: Record<ClaimAction, readonly string[]> = {
   SUBMIT: ['DRAFT', 'INFO_REQUESTED'],
   REQUEST_INFO: ['SUBMITTED', 'UNDER_REVIEW'],
   UNDER_REVIEW: ['SUBMITTED', 'INFO_REQUESTED'],
-  APPROVE: ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED'],
+  APPROVE: ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED', 'CONFIRMED'],
   REJECT: ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED'],
   AUTHORIZE: ['AUTH_REQUIRED'],
   CONFIRM: ['PENDING_CONFIRMATION', 'AUTHORIZED', 'AUTHORIZED_EMERGENCY'],

@@ -1,0 +1,1415 @@
+PHASE 4 -- AUDIT DE CONFORMITÉ MÉTIER,
+FONCTIONNELLE ET TECHNIQUE
+
+SantéPlus Bénin -- Comparaison des 3 présentations avec la
+plateforme réellement développée
+
+Tu interviens sur le projet SantéPlus Bénin.
+
+Les Phases 1, 2 et 3 ont déjà été réalisées. La Phase 2 a notamment identifié plusieurs anomalies
+critiques et la Phase 3 a été consacrée à leur correction et à leur validation.
+
+OBJECTIF DE CETTE PHASE
+
+Cette Phase 4 a un objectif précis :
+
+          Vérifier que la plateforme SantéPlus réellement développée correspond fidèlement
+          à ce qui est présenté et promis dans les trois documents officiels de présentation du
+          projet.
+
+Il ne s'agit PAS encore d'une refonte UX, d'une optimisation de performance ou d'un audit de sécurité
+complet.
+
+Il s'agit d'un audit de conformité entre le produit spécifié et le produit réellement implémenté.
+
+1. DOCUMENTS DE RÉFÉRENCE OBLIGATOIRES
+
+Tu dois utiliser comme références principales les trois présentations du projet :
+
+DOCUMENT 1 -- Présentation destinée aux assurés / familles
+
+« SantéPlus Bénin -- Document de présentation -- Septembre 2026 »
+
+Il décrit notamment :
+
+        · le fonctionnement général de SantéPlus ;
+        · l'inscription ;
+        · le choix de formule ;
+        · le paiement ;
+        · la carte d'assuré ;
+        · le QR Code ;
+        · les garanties ;
+        · les taux de couverture ;
+        · les tickets restant à charge ;
+        · les limites ;
+        · les délais d'attente ;
+
+                                                                         1
+        · les exclusions ;
+        · le tiers payant ;
+        · les différentes formules ;
+        · les modèles mutualité / individuel ;
+        · la transparence ;
+        · les ayants droit ;
+        · les contrats individuels et familiaux ;
+        · les contrats employeurs.
+
+DOCUMENT 2 -- Présentation destinée aux assureurs / mutuelles
+
+« SantéPlus Bénin -- Plateforme technologique d'assurance maladie -- Septembre 2026 »
+
+Il décrit notamment :
+
+        · le positionnement de SantéPlus ;
+        · le rôle de l'assureur / mutuelle ;
+        · le moteur de remboursement ;
+        · le CTS ;
+        · les primes ;
+        · les frais de gestion ;
+        · les budgets ;
+        · les engagements ;
+        · les consommations ;
+        · les appels de fonds ;
+        · les seuils ;
+        · la réactivation ;
+        · le résultat technique ;
+        · la solidarité ;
+        · le stop-loss ;
+        · les provisions ;
+        · les analyses ;
+        · les contrats ;
+        · les produits ;
+        · les réseaux de prestataires ;
+        · les employeurs ;
+        · la sécurité ;
+        · l'audit ;
+        · la traçabilité ;
+        · les paiements ;
+        · les conventions ;
+        · les commissions ;
+        · le fonctionnement offline.
+
+DOCUMENT 3 -- Présentation destinée aux prestataires
+
+« SantéPlus Bénin -- Développez votre activité avec le tiers payant -- Septembre 2026 »
+
+Il décrit notamment :
+
+        · le tiers payant ;
+
+                                                                         2
+        · la vérification des droits ;
+        · le QR Code ;
+        · le numéro d'assuré ;
+        · les prescriptions ;
+        · les pharmacies ;
+        · les médecins ;
+        · les actes ;
+        · les autorisations préalables ;
+        · les rejets ;
+        · les factures ;
+        · les avoirs ;
+        · les rapprochements ;
+        · les paiements ;
+        · les barèmes conventionnés ;
+        · les dépassements ;
+        · les contrôles anti-fraude ;
+        · les interfaces prestataires ;
+        · le fonctionnement offline.
+
+2. RÈGLE ABSOLUE DE L'AUDIT
+
+Tu dois comparer :
+
+DOCUMENTS DE RÉFÉRENCE  CODE  BASE DE DONNÉES  API  INTERFACE  WORKFLOW
+RÉEL  TESTS
+
+Ne considère jamais qu'une fonctionnalité existe simplement parce que :
+
+        · une page existe ;
+        · un bouton existe ;
+        · une route API existe ;
+        · un modèle de données existe ;
+        · un commentaire dans le code dit qu'elle existe ;
+        · une fonction porte le bon nom.
+Une fonctionnalité ne sera considérée comme réellement conforme que si son fonctionnement est
+démontrable.
+
+3. NE MODIFIE PAS LE CODE AU DÉBUT
+
+IMPORTANT
+
+Pendant la première partie de cette Phase 4 :
+
+NE MODIFIE AUCUN CODE.
+
+                                                                         3
+Ne fais :
+
+        · aucune refactorisation ;
+        · aucune correction ;
+        · aucune migration ;
+        · aucune modification de schéma ;
+        · aucune modification des règles métier ;
+        · aucune modification UX.
+Commence exclusivement par l'audit.
+
+Si tu identifies un problème, documente-le.
+
+Les corrections seront décidées après le rapport d'audit.
+
+4. COMMENCE PAR L'ÉTAT DU PROJET
+
+Avant de tester les fonctionnalités, inspecte :
+
+        · architecture générale ;
+        · frontend ;
+        · backend ;
+        · API ;
+        · base de données ;
+        · migrations ;
+        · services ;
+        · moteurs métier ;
+        · authentification ;
+        · RBAC ;
+        · fichiers de configuration ;
+        · tests ;
+        · scripts ;
+        · environnement ;
+        · seeders ;
+        · données de démonstration ;
+        · workflows existants.
+Vérifie également que les corrections de la Phase 3 sont effectivement présentes et ne sont pas
+uniquement documentées.
+
+5. CONSTRUIS UNE MATRICE DE CONFORMITÉ
+
+Crée une matrice exhaustive.
+
+Pour chaque fonctionnalité issue des trois présentations, indique :
+
+                                                                         4
+ID  Présentation  Exigence  Fonctionnalité     Code  API  DB                 UI  Workflow  Test  Résultat  Preuve
+                            attendue
+
+Utilise obligatoirement les statuts :
+
+        · PASS = conforme et démontré ;
+        · PARTIAL = partiellement implémenté ;
+        · MOCK = uniquement simulé ;
+        · BROKEN = présent mais ne fonctionne pas correctement ;
+        · MISSING = absent ;
+        · NOT_TESTABLE = impossible à vérifier avec l'environnement actuel.
+
+Ne transforme jamais un PARTIAL en PASS.
+
+6. AUDIT DU PARCOURS ASSURÉ
+
+Vérifie intégralement le parcours présenté à l'assuré.
+
+6.1 Création de compte
+
+Vérifier :
+
+        · création du compte ;
+        · validation des informations ;
+        · authentification ;
+        · récupération de compte ;
+        · sécurité minimale ;
+        · statut du compte.
+
+6.2 Souscription
+
+Vérifier :
+
+        · choix de formule ;
+        · calcul du tarif ;
+        · nombre de personnes ;
+        · conjoint ;
+        · enfants ;
+        · ayants droit ;
+        · âge ;
+        · éventuelles majorations ;
+        · périodicité ;
+        · prix affiché ;
+        · récapitulatif avant paiement.
+
+                                            5
+6.3 Paiement
+
+Vérifier :
+
+        · montant ;
+        · statut ;
+        · confirmation ;
+        · idempotence ;
+        · rattachement au contrat ;
+        · activation après paiement ;
+        · absence d'activation prématurée.
+Distinguer impérativement :
+
+        · MOCK ;
+        · SANDBOX ;
+        · PRODUCTION.
+
+6.4 Carte assuré
+
+Vérifier :
+
+        · génération ;
+        · statut ;
+        · numéro ;
+        · QR Code ;
+        · données réellement contenues dans le QR ;
+        · absence de données médicales sensibles dans le QR ;
+        · vérification des droits.
+
+6.5 Consultation des droits
+
+Vérifier que l'assuré peut réellement connaître :
+
+        · son contrat ;
+        · ses garanties ;
+        · ses limites ;
+        · son ticket ;
+        · les périodes d'attente ;
+        · ses consommations ;
+        · son reste disponible ;
+        · son statut.
+
+7. AUDIT DES FORMULES ET GARANTIES
+
+Comparer précisément les produits présentés dans le document assuré avec ceux réellement
+disponibles.
+
+                                                                         6
+Vérifier :
+
+        · nom des formules ;
+        · prix ;
+        · garanties ;
+        · taux ;
+        · limites ;
+        · plafonds ;
+        · ticket ;
+        · exclusions ;
+        · délais d'attente ;
+        · plafonds annuels ;
+        · plafond global ;
+        · plafond individuel ;
+        · plafond familial ;
+        · éventuelles limites par acte.
+
+IMPORTANT
+
+Si les documents présentent par exemple :
+
+        · Santé Essentielle ;
+        · Santé Confort ;
+        · Santé Excellence ;
+
+mais que le logiciel contient :
+
+        · Essential ;
+        · Comfort ;
+        · Premium ;
+
+signale l'écart.
+
+Ne corrige pas automatiquement.
+
+8. AUDIT DU MOTEUR DE REMBOURSEMENT
+
+Vérifie que les règles présentées sont réellement appliquées.
+
+Le moteur doit être capable de gérer selon les règles configurées :
+
+      1. activité du contrat ;
+      2. période d'attente globale ;
+      3. période d'attente par garantie ;
+      4. exclusions ;
+      5. limites par acte ;
+      6. limites par catégorie ;
+      7. limites familiales ;
+      8. limites individuelles ;
+
+                                                                         7
+      9. limite globale ;
+     10. barème ;
+     11. taux de couverture ;
+     12. ticket ;
+     13. plafond annuel de reste à charge ;
+     14. consommation CTS.
+Vérifie les calculs avec des cas numériques contrôlés.
+
+Exemple
+
+Pour une facture de :
+
+100 000 F
+
+avec couverture de :
+
+80 %
+
+vérifier :
+
+        · prise en charge = 80 000 F ;
+        · assuré = 20 000 F ;
+        · consommation CTS = 80 000 F.
+
+9. AUDIT DES LIMITES
+
+Tester notamment :
+
+Cas 1
+
+Limite annuelle = 1 000 000 F
+
+Consommé = 950 000 F
+
+Nouvelle facture théorique couverte = 80 000 F.
+
+Le système doit correctement limiter la prise en charge au disponible contractuel.
+
+Cas 2
+
+Limite épuisée.
+
+Vérifier :
+
+        · prise en charge ;
+        · reste assuré ;
+        · statut ;
+
+                                                                         8
+        · justification ;
+        · consommation CTS.
+
+Cas 3
+
+Limite globale atteinte.
+
+Vérifier le comportement du contrat.
+
+10. AUDIT DU CTS
+
+Le CTS constitue une partie centrale de SantéPlus.
+
+Vérifie réellement :
+
+        · PRIME ;
+        · FEES ;
+        · BUDGET ;
+        · ENGAGEMENT ;
+        · CONSUMPTION ;
+        · CANCELLATION ;
+        · REFUND ;
+        · CALL_FOR_FUNDS ;
+        · PAYMENT ;
+        · RENEWAL_CREDIT ;
+        · STOP_LOSS ;
+        · ADJUSTMENT.
+Vérifie également :
+
+Formule
+
+Frais de gestion = Prime encaissée × taux de gestion
+
+Budget santé
+
+Budget = Prime encaissée - frais de gestion
+
+Disponible
+
+Disponible = Budget - consommations - engagements
+
+Résultat technique provisoire
+
+Résultat = Prime - frais - consommations - engagements
+
+Les engagements doivent être pris en compte.
+
+                                                                         9
+11. AUDIT DES ENGAGEMENTS
+
+Vérifier qu'une prestation validée mais non encore payée peut être enregistrée comme :
+
+ENGAGEMENT
+
+et qu'elle :
+
+        · réduit le disponible ;
+        · apparaît dans le CTS ;
+        · est traçable ;
+        · est ensuite réglée ;
+        · libère ou transforme correctement l'engagement lors du paiement ;
+        · ne peut pas être comptée deux fois.
+
+Tester :
+
+        · création ;
+        · confirmation ;
+        · paiement ;
+        · annulation ;
+        · avoir ;
+        · contre-écriture.
+
+12. AUDIT DE L'ÉPUISEMENT DU CTS
+
+Tester un contrat dont le disponible atteint :
+
+·  50 % ;
+
+        · 30­50 % ;
+        · 10­30 % ;
+        · 0­10 % ;
+        ·0;
+        · valeur négative si techniquement possible.
+
+Vérifier :
+
+· statut ;
+· alertes ;
+· carte ;
+· tiers payant ;
+· engagements ;
+· appel de fonds ;
+· réactivation.
+
+                                                      10
+IMPORTANT
+
+Ne considère pas automatiquement qu'une désactivation mécanique à zéro est correcte.
+Vérifie les règles effectivement implémentées.
+
+13. AUDIT DES APPELS DE FONDS
+
+Vérifier :
+        · génération ;
+        · montant ;
+        · motif ;
+        · facture ;
+        · statut ;
+        · paiement ;
+        · confirmation d'encaissement ;
+        · réactivation ;
+        · traçabilité.
+
+Tester un scénario numérique.
+Exemple :
+Prime :
+1 000 000 F
+Frais :
+20 % = 200 000 F
+Budget :
+800 000 F
+Si appel de fonds = 500 000 F :
+vérifier que le traitement financier réel correspond aux règles implémentées et documentées.
+
+14. AUDIT DE LA RÉACTIVATION
+
+Vérifier qu'une réactivation ne dépend pas uniquement :
+        · de la création d'une facture ;
+        · de son statut ;
+
+                                                                        11
+        · d'un bouton administratif.
+La réactivation doit dépendre de la confirmation financière prévue par le workflow.
+
+Tester :
+
+      1. appel de fonds ;
+      2. paiement ;
+      3. confirmation ;
+      4. mise à jour CTS ;
+      5. réactivation ;
+      6. journal ;
+      7. notification.
+
+15. AUDIT DES AYANTS DROIT
+
+Vérifier la conformité avec le workflow défini dans le projet.
+
+L'assuré doit pouvoir initier :
+
+        · ajout ;
+        · retrait ;
+        · modification.
+Mais ces opérations doivent passer par un workflow contrôlé.
+
+Vérifier :
+
+        · demande ;
+        · statut ;
+        · pièces ;
+        · contrôle ;
+        · validation ;
+        · refus ;
+        · date d'effet ;
+        · recalcul ;
+        · avenant ;
+        · archive ;
+        · notification ;
+        · audit.
+Vérifier particulièrement :
+
+        · absence de suppression physique d'un ayant droit validé ;
+        · historique ;
+        · version du contrat ;
+        · incidence financière ;
+        · incidence CTS.
+
+                                                                        12
+16. AUDIT DES AVENANTS
+
+Vérifier :
+        · génération automatique ;
+        · numérotation ;
+        · version du contrat ;
+        · date ;
+        · motif ;
+        · contenu ;
+        · lien avec la demande ;
+        · archivage ;
+        · historique.
+
+Tester au minimum :
+        · ajout d'enfant ;
+        · retrait d'enfant ;
+        · modification d'ayant droit.
+
+17. AUDIT DU PARCOURS MÉDICAL
+
+Vérifier que le système respecte réellement le parcours métier.
+
+Cas normal
+
+ASSURÉ
+ médecin
+ consultation
+ prescription si nécessaire
+ pharmacie / laboratoire / autre prestataire
+ contrôle des droits
+ tiers payant
+ facture
+ engagement / consommation
+ paiement prestataire.
+
+                                                                        13
+18. AUDIT DES PRESCRIPTIONS
+
+Vérifier impérativement les règles suivantes :
+
+Médecin
+
+Peut créer une prescription s'il est habilité.
+
+Pharmacie
+
+NE DOIT PAS pouvoir créer une prescription médicale.
+
+La pharmacie peut :
+
+        · consulter ;
+        · vérifier ;
+        · utiliser ;
+        · exécuter ;
+        · partiellement exécuter ;
+        · clôturer une prescription ;
+selon les droits prévus.
+
+Tester également :
+
+        · prescription expirée ;
+        · prescription annulée ;
+        · prescription déjà utilisée ;
+        · réutilisation frauduleuse ;
+        · utilisation partielle.
+
+19. AUDIT DU TIERS PAYANT
+
+Tester :
+
+      1. identification assuré ;
+      2. QR / numéro ;
+      3. contrat ;
+      4. statut ;
+      5. droits ;
+      6. garantie ;
+      7. limite ;
+      8. barème ;
+      9. taux ;
+     10. ticket ;
+     11. montant pris en charge ;
+     12. montant assuré ;
+     13. autorisation si nécessaire ;
+
+                                                                        14
+     14. création de facture ;
+     15. engagement ;
+     16. paiement ;
+     17. rapprochement.
+
+Tester également :
+
+        · droits insuffisants ;
+        · limite atteinte ;
+        · contrat suspendu ;
+        · contrat expiré ;
+        · prestation exclue ;
+        · dépassement de barème ;
+        · autorisation nécessaire.
+
+20. AUDIT PHARMACIE
+
+Vérifier spécifiquement :
+
+        · accès pharmacie ;
+        · contrôle assuré ;
+        · lecture prescription ;
+        · validité prescription ;
+        · produits prescrits ;
+        · produits non prescrits ;
+        · limites ;
+        · prise en charge ;
+        · ticket ;
+        · facturation ;
+        · engagement ;
+        · paiement ;
+        · historique.
+
+Vérifier également qu'une pharmacie ne peut pas contourner le parcours médical.
+
+21. AUDIT DES AUTORISATIONS PRÉALABLES
+
+Vérifier les actes nécessitant une autorisation préalable.
+
+Tester :
+
+        · demande ;
+        · création ;
+        · examen ;
+        · acceptation ;
+        · refus ;
+        · expiration ;
+
+                                                                        15
+        · urgence ;
+        · rattachement à la prestation ;
+        · traçabilité.
+
+Vérifier qu'un acte nécessitant une autorisation ne peut pas être artificiellement validé sans celle-ci, sauf
+circuit d'urgence prévu.
+
+22. AUDIT DES PRESTATAIRES
+
+Vérifier :
+
+        · médecin ;
+        · pharmacie ;
+        · laboratoire ;
+        · clinique ;
+        · hôpital ;
+        · autres prestataires.
+
+Pour chaque catégorie :
+
+        · création ;
+        · habilitation ;
+        · convention ;
+        · niveau ;
+        · barème ;
+        · personnel ;
+        · rôles ;
+        · sites ;
+        · facturation ;
+        · paiement ;
+        · historique ;
+        · rejets.
+
+23. AUDIT DES FACTURES PRESTATAIRES
+
+Vérifier :
+
+        · création ;
+        · soumission ;
+        · contrôle ;
+        · validation ;
+        · rejet ;
+        · engagement ;
+        · paiement ;
+        · annulation ;
+        · avoir ;
+        · rapprochement.
+
+                                                                        16
+Vérifier particulièrement les incohérences de nomenclature identifiées précédemment :
+
+THIRD_PARTY
+
+vs
+
+THIRDPARTY
+
+et vérifier qu'aucune différence de valeur ne bloque le fonctionnement réel.
+
+24. AUDIT DES REJETS
+
+Chaque rejet doit permettre de connaître :
+
+        · motif ;
+        · facture ;
+        · prestation ;
+        · assuré ;
+        · prestataire ;
+        · date ;
+        · utilisateur ;
+        · statut ;
+        · possibilité de correction/resoumission si prévue.
+Vérifier qu'un rejet n'est pas simplement une erreur technique sans explication métier.
+
+25. AUDIT EMPLOYEUR
+
+Vérifier le parcours entreprise :
+
+        · création ;
+        · contrat collectif ;
+        · salariés ;
+        · ayants droit ;
+        · import CSV ;
+        · co-participation ;
+        · administration ;
+        · suivi ;
+        · consommation ;
+        · budget ;
+        · disponibilité ;
+        · tendances ;
+        · alertes.
+
+Confidentialité
+
+Vérifier que l'employeur ne peut pas accéder aux données médicales individuelles interdites.
+
+                                                                        17
+26. AUDIT MUTUALITÉ / INDIVIDUEL
+
+Vérifier que les deux modes présentés existent réellement et sont différenciés :
+
+        · MUTUALITY ;
+        · INDIVIDUAL.
+Vérifier :
+
+        · calcul ;
+        · solidarité ;
+        · surplus ;
+        · budget ;
+        · CTS ;
+        · renouvellement ;
+        · sortie ;
+        · règles spécifiques.
+Si une fonctionnalité est seulement prévue dans les documents mais pas réellement implémentée,
+marque-la :
+
+MISSING ou PARTIAL.
+
+27. AUDIT DU FONDS DE SOLIDARITÉ
+
+Vérifier :
+
+        · alimentation ;
+        · règles ;
+        · seuils ;
+        · utilisation ;
+        · reconstitution ;
+        · suivi ;
+        · journal ;
+        · dashboard ;
+        · distinction entre fonds et CTS contractuel.
+Ne pas considérer une simple colonne « solidarité » comme une implémentation fonctionnelle.
+
+28. AUDIT DU STOP-LOSS
+
+Vérifier :
+
+        · seuil ;
+        · déclenchement ;
+
+                                                                        18
+        · plafond ;
+        · budget ;
+        · reconstitution ;
+        · journal ;
+        · contrat ;
+        · assureur ;
+        · impact CTS.
+Si le stop-loss est seulement simulé, indiquer :
+
+MOCK.
+
+29. AUDIT DU RENOUVELLEMENT
+
+Vérifier le traitement du surplus.
+
+Calculer :
+
+EXCÉDENT = Budget - consommations finales - engagements finaux
+
+Vérifier :
+
+        · calcul ;
+        · taux applicable ;
+        · crédit de renouvellement ;
+        · rattachement au renouvellement ;
+        · historique ;
+        · journal.
+Vérifier qu'un excédent n'est pas simplement affiché mais réellement traité conformément aux règles
+prévues.
+
+30. AUDIT DES DÉFICITS
+
+Tester :
+
+consommations + engagements > budget
+
+Vérifier :
+
+        · statut ;
+        · appel de fonds ;
+        · stop-loss ;
+        · fonds ;
+        · blocage éventuel ;
+        · traitement assureur ;
+        · journal ;
+
+                                                                        19
+        · absence de facturation arbitraire non prévue.
+
+31. AUDIT DES DASHBOARDS
+
+Vérifier les dashboards réellement disponibles.
+
+Assuré
+
+        · contrat ;
+        · prime ;
+        · garanties ;
+        · consommations ;
+        · engagements ;
+        · disponible ;
+        · statut ;
+        · alertes ;
+        · appel de fonds ;
+        · renouvellement.
+
+Employeur
+
+        · effectif ;
+        · ayants droit ;
+        · consommation ;
+        · moyenne ;
+        · garanties ;
+        · budget ;
+        · disponible ;
+        · projection ;
+        · alertes.
+
+Assureur / mutuelle
+
+        · portefeuille ;
+        · primes ;
+        · consommations ;
+        · engagements ;
+        · ratios ;
+        · résultats ;
+        · contrats critiques ;
+        · appels de fonds ;
+        · prestataires ;
+        · anomalies.
+
+Prestataire
+
+        · activité ;
+        · factures ;
+        · rejets ;
+        · paiements ;
+
+                                                                        20
+        · rapprochements ;
+        · autorisations ;
+        · patients ;
+        · historique.
+
+32. AUDIT DES ANALYSES
+
+Vérifier si les fonctionnalités annoncées existent réellement :
+
+        · loss ratio ;
+        · RBNS ;
+        · IBNR ;
+        · Chain Ladder ;
+        · rentabilité produit ;
+        · performance prestataire ;
+        · évolution portefeuille ;
+        · projections.
+ATTENTION :
+
+Ne considère pas un simple graphique ou chiffre fictif comme une implémentation réelle.
+
+33. AUDIT OFFLINE
+
+Les présentations annoncent un fonctionnement offline pour certaines interfaces.
+
+Vérifier réellement :
+
+        · installation PWA ;
+        · perte réseau ;
+        · consultation des informations disponibles ;
+        · création d'opération offline ;
+        · stockage local ;
+        · synchronisation ;
+        · conflit ;
+        · reprise réseau ;
+        · traçabilité.
+Si impossible à tester réellement :
+
+NOT_TESTABLE
+
+et expliquer pourquoi.
+
+                                                                        21
+34. AUDIT PAIEMENTS
+
+Vérifier les intégrations annoncées.
+
+Distinguer :
+
+        · paiement simulé ;
+        · sandbox ;
+        · intégration réelle ;
+        · webhook réel ;
+        · idempotence ;
+        · confirmation ;
+        · réconciliation.
+Ne jamais déclarer une intégration « réelle » uniquement parce qu'une API ou un bouton existe.
+
+35. AUDIT DES NOTIFICATIONS
+
+Vérifier les événements devant générer des notifications :
+
+        · souscription ;
+        · paiement ;
+        · activation ;
+        · expiration ;
+        · ajout d'ayant droit ;
+        · retrait ;
+        · avenant ;
+        · rejet ;
+        · appel de fonds ;
+        · paiement prestataire ;
+        · réactivation ;
+        · anomalie.
+Vérifier :
+
+        · génération ;
+        · destinataire ;
+        · contenu ;
+        · statut ;
+        · historique.
+
+36. AUDIT DE LA TRANSPARENCE
+
+Vérifier que l'assuré peut réellement comprendre avant utilisation :
+
+        · garanties ;
+
+                                                                        22
+        · taux ;
+        · ticket ;
+        · limites ;
+        · exclusions ;
+        · délais d'attente ;
+        · reste à charge.
+Vérifier également que les informations financières affichées correspondent aux calculs du backend.
+
+37. AUDIT DES DONNÉES MÉDICALES ET
+FINANCIÈRES
+
+Vérifier la séparation logique entre :
+
+        · données administratives ;
+        · données médicales ;
+        · données financières.
+Vérifier également :
+
+        · RBAC ;
+        · accès inter-rôles ;
+        · accès inter-contrats ;
+        · audit ;
+        · visibilité du CTS ;
+        · confidentialité employeur ;
+        · confidentialité assuré ;
+        · confidentialité prestataire.
+
+38. AUDIT DE COHÉRENCE ENTRE FRONTEND ET
+BACKEND
+
+Pour chaque fonctionnalité importante :
+
+Vérifier :
+
+UI  API  SERVICE  DB  JOURNAL  UI
+
+Chercher notamment :
+
+        · boutons qui ne font rien ;
+        · endpoints non utilisés ;
+        · endpoints sans UI ;
+        · données UI différentes des données API ;
+        · calcul frontend différent du backend ;
+
+                                                                        23
+        · statuts différents ;
+        · champs inutilisés ;
+        · valeurs hardcodées ;
+        · mocks ;
+        · données fictives ;
+        · workflows incomplets.
+
+39. AUDIT DES DONNÉES DE DÉMONSTRATION
+
+Identifier clairement :
+        · données fictives ;
+        · seed data ;
+        · mocks ;
+        · fixtures ;
+        · comptes de démonstration ;
+        · données de test.
+
+Ne pas confondre :
+fonctionnalité réellement opérationnelle
+avec :
+donnée préchargée donnant l'impression que la fonctionnalité existe.
+
+40. TESTS E2E DE CONFORMITÉ
+
+Créer des scénarios E2E couvrant les parcours principaux.
+Minimum :
+
+SCÉNARIO A
+
+Inscription  souscription  paiement  activation  carte.
+
+SCÉNARIO B
+
+Ajout ayant droit  validation  avenant  recalcul  CTS.
+
+SCÉNARIO C
+
+Médecin  consultation  prescription  pharmacie  tiers payant.
+
+                                                                        24
+SCÉNARIO D
+
+Prestataire  facture  validation  engagement  paiement.
+
+SCÉNARIO E
+
+Consommation  baisse CTS  seuil critique  appel de fonds.
+
+SCÉNARIO F
+
+Paiement appel de fonds  confirmation  réactivation.
+
+SCÉNARIO G
+
+Contrat avec limite atteinte.
+
+SCÉNARIO H
+
+Prescription réutilisée.
+
+SCÉNARIO I
+
+Pharmacie tentant de créer une prescription.
+
+SCÉNARIO J
+
+Contrat arrivé à zéro.
+
+SCÉNARIO K
+
+Fin de contrat avec excédent.
+
+SCÉNARIO L
+
+Déficit technique.
+
+SCÉNARIO M
+
+Employeur tentant d'accéder à des données médicales individuelles.
+
+41. TESTS NUMÉRIQUES OBLIGATOIRES
+
+Effectuer plusieurs scénarios avec des montants déterministes.
+Documenter pour chacun :
+
+        · données d'entrée ;
+        · formule ;
+
+                                                                        25
+        · résultat attendu ;
+        · résultat obtenu ;
+        · écart.
+Exemple :
+
+   Prime encaissée : 1 000 000 F
+   Frais de gestion : 20 %
+   Frais : 200 000 F
+   Budget : 800 000 F
+   Consommation : 300 000 F
+   Engagement : 100 000 F
+   Disponible attendu : 400 000 F
+
+Comparer au résultat réel.
+
+42. CONTRÔLE DES STATUTS
+
+Vérifier les state machines réelles :
+
+Claims
+
+DRAFT  SUBMITTED  IN_CONTROL  VALIDATED / REJECTED  COMMITTED  PAID / CANCELLED
+
+Prescription
+
+CREATED  VALIDATED  PARTIALLY_USED  USED / EXPIRED / CANCELLED
+
+Card
+
+ACTIVE  SURVEILLANCE  CRITICAL  SUSPENDED  REACTIVATION_PENDING  ACTIVE
+
+Ayant droit
+
+BROUILLON  SOUMISE  EN_CONTROLE  EN_ATTENTE_VALIDATION  VALIDEE / REJETEE 
+EXECUTEE
+
+Comparer les statuts réellement utilisés dans :
+
+        · DB ;
+        · API ;
+        · frontend ;
+        · tests.
+Identifier toute divergence.
+
+                                                                        26
+43. AUDIT DES INVARIANTS FINANCIERS
+
+Vérifier notamment :
+
+Invariant 1
+
+Disponible = Budget - Consommations - Engagements
+
+Invariant 2
+
+Une consommation validée doit correspondre à une écriture CTS.
+
+Invariant 3
+
+Un engagement doit correspondre à une prestation / facture valide.
+
+Invariant 4
+
+Un paiement ne doit pas créer deux consommations.
+
+Invariant 5
+
+Une annulation doit produire une contre-écriture si nécessaire.
+
+Invariant 6
+
+Aucune écriture financière validée ne doit être physiquement supprimée ou modifiée.
+
+Invariant 7
+
+Les écritures doivent rester auditables.
+
+44. AUDIT DES ÉCARTS ENTRE DOCUMENTS
+
+Pour chaque écart, classer :
+
+CRITIQUE
+
+Empêche le fonctionnement fondamental ou crée un risque financier / médical / contractuel.
+
+HIGH
+
+Fonctionnalité importante incorrecte ou absente.
+
+MEDIUM
+
+Écart fonctionnel significatif mais contournable.
+
+                                                                        27
+LOW
+
+Écart mineur de présentation ou de détail.
+
+45. NE PAS CORRIGER LES DOCUMENTS POUR
+MASQUER UN ÉCART
+
+Si la plateforme ne correspond pas aux présentations :
+
+ne modifie pas silencieusement la présentation pour faire disparaître l'écart.
+
+Documente :
+
+        · ce que le document promet ;
+        · ce que le logiciel fait ;
+        · pourquoi c'est différent ;
+        · impact ;
+        · recommandation.
+La décision de modifier le produit ou la spécification sera prise après l'audit.
+
+46. RAPPORT FINAL
+
+Créer :
+
+   docs/audit-phase4-conformite-2026-09-13.md
+
+Le rapport doit contenir obligatoirement :
+
+1. Résumé exécutif
+
+        · niveau global de conformité ;
+        · nombre de PASS ;
+        · PARTIAL ;
+        · MOCK ;
+        · BROKEN ;
+        · MISSING ;
+        · NOT_TESTABLE.
+
+2. Score global
+
+Présenter un score de conformité mais préciser qu'il s'agit d'un indicateur interne et non d'une
+certification.
+
+                                                                        28
+3. Matrice complète
+
+Toutes les exigences des trois présentations.
+
+4. Écarts critiques
+
+Classés par priorité.
+
+5. Écarts fonctionnels
+6. Écarts financiers
+7. Écarts médicaux
+8. Écarts UX
+9. Écarts techniques
+10. Écarts entre frontend et backend
+11. Fonctionnalités MOCK
+12. Fonctionnalités réellement opérationnelles
+13. Fonctionnalités manquantes
+14. Fonctionnalités impossibles à tester
+15. Scénarios E2E exécutés
+16. Tests numériques
+17. Recommandations
+
+Classées :
+        · P0 -- avant tout pilote ;
+        · P1 -- avant préproduction ;
+        · P2 -- avant commercialisation ;
+        · P3 -- amélioration ultérieure.
+
+47. TABLEAU FINAL DE PRIORISATION
+
+Terminer le rapport par :
+
+                                                                        29
+Priorité Écart Domaine Impact Action recommandée
+
+P0  ...  ...  ...  ...
+
+P1  ...  ...  ...  ...
+
+P2  ...  ...  ...  ...
+
+P3  ...  ...  ...  ...
+
+48. RÈGLE DE CONCLUSION
+
+À la fin de la Phase 4, tu dois répondre clairement à ces questions :
+
+QUESTION 1
+
+La plateforme actuelle correspond-elle réellement aux trois présentations ?
+
+QUESTION 2
+
+Quelles fonctionnalités promises sont réellement opérationnelles ?
+
+QUESTION 3
+
+Quelles fonctionnalités sont seulement partielles ?
+
+QUESTION 4
+
+Quelles fonctionnalités sont encore mockées ?
+
+QUESTION 5
+
+Quelles fonctionnalités sont absentes ?
+
+QUESTION 6
+
+Quels écarts peuvent empêcher un pilote réel ?
+
+QUESTION 7
+
+Quels écarts peuvent provoquer un risque financier ?
+
+QUESTION 8
+
+Quels écarts peuvent provoquer un risque médical ?
+
+QUESTION 9
+
+Quels écarts peuvent provoquer un problème contractuel ou réglementaire ?
+
+              30
+QUESTION 10
+
+Que faut-il impérativement corriger avant de passer à la Phase 5 ?
+
+49. IMPORTANT -- PAS DE CORRECTION
+AUTOMATIQUE
+
+Cette Phase 4 est une PHASE D'AUDIT.
+Ne commence pas à corriger les anomalies découvertes.
+À la fin, fournis uniquement :
+
+      1. le rapport d'audit ;
+      2. la matrice de conformité ;
+      3. les preuves de tests ;
+      4. les écarts ;
+      5. les priorités ;
+      6. la recommandation GO / NO-GO pour la Phase 5.
+La correction des écarts sera traitée dans une phase ultérieure après analyse du rapport.
+
+50. CRITÈRE DE RÉUSSITE
+
+La Phase 4 est réussie si, à sa fin, nous savons précisément :
+          « Voici ce que SantéPlus promet, voici ce que le logiciel fait réellement, voici ce qui
+          fonctionne, voici ce qui ne fonctionne pas, voici ce qui manque et voici ce qu'il faut
+          corriger avant de continuer. »
+
+Ne fais aucune supposition non vérifiée.
+Cherche la preuve dans le code, la base, l'API, l'interface et les tests.
+Commence maintenant par l'audit de l'existant, puis exécute la matrice de conformité complète avant
+de produire le rapport final.
+
+                                                                        31
+

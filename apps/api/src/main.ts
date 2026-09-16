@@ -1,9 +1,30 @@
 import 'reflect-metadata';
+import * as fs from 'fs';
+import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { Request, Response, NextFunction } from 'express';
 import * as helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+// A-02 : chargement explicite du fichier .env du module API (développement uniquement).
+// - Les variables déjà présentes dans le processus ONT TOUJOURS PRIORITÉ (jamais écrasées) :
+//   la plateforme de déploiement (Runsite/Docker) reste maître de la config de production.
+// - NODE_ENV=production ne lit PAS de fichier .env : aucun secret ne peut être injecté
+//   accidentellement depuis le disque en production.
+if (process.env.NODE_ENV !== 'production') {
+  const envPath = path.resolve(__dirname, '../.env');
+  try {
+    if (fs.existsSync(envPath)) {
+      for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+        const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"?([^"#]*)"?\s*$/);
+        if (m && process.env[m[1]] === undefined && m[2] !== '') process.env[m[1]] = m[2].trim();
+      }
+    }
+  } catch {
+    // .env illisible : on continue avec l'environnement du processus seul.
+  }
+}
+
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { config } from './config';
@@ -90,13 +111,17 @@ async function bootstrap(): Promise<void> {
     app.useGlobalFilters(new HttpExceptionFilter());
 
     // Rate limiting — instances réutilisées (pas recréées à chaque requête)
-    const globalLimiter = rateLimit({ windowMs: 60_000, limit: 100, standardHeaders: true, legacyHeaders: false, keyGenerator: (r: Request) => r.ip ?? 'unknown', skip: (r: Request) => r.method === 'OPTIONS' });
-    const loginLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 5, standardHeaders: true, legacyHeaders: false, message: { message: 'Trop de tentatives, réessayez dans 15 minutes' } });
-    const registerLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: true, legacyHeaders: false });
-    const refreshLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
-    const paymentsLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
-    const claimsLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
-    const thirdPartyLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
+    // A-04 : en environnement de test E2E explicite (E2E=1), les plafonds sont
+    // massivement relevés pour permettre le rejeu des suites ; la production et
+    // tout processus sans E2E=1 conservent les limites de sécurité strictes.
+    const e2eMultiplier = process.env.E2E === '1' ? 1000 : 1;
+    const globalLimiter = rateLimit({ windowMs: 60_000, limit: 100 * e2eMultiplier, standardHeaders: true, legacyHeaders: false, keyGenerator: (r: Request) => r.ip ?? 'unknown', skip: (r: Request) => r.method === 'OPTIONS' });
+    const loginLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 5 * e2eMultiplier, standardHeaders: true, legacyHeaders: false, message: { message: 'Trop de tentatives, réessayez dans 15 minutes' } });
+    const registerLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 5 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
+    const refreshLimiter = rateLimit({ windowMs: 60_000, limit: 30 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
+    const paymentsLimiter = rateLimit({ windowMs: 60_000, limit: 20 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
+    const claimsLimiter = rateLimit({ windowMs: 60_000, limit: 30 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
+    const thirdPartyLimiter = rateLimit({ windowMs: 60_000, limit: 20 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
 
     app.use(globalLimiter);
     app.use('/api/auth/login', loginLimiter);

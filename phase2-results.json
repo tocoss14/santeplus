@@ -1,0 +1,8 @@
+[
+  {
+    "section": "ORDONNANCES",
+    "name": "EXÉCUTION DE SECTION",
+    "status": "FAIL",
+    "proof": "apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:4000\nCall log:\n\u001b[2m  - → POST http://127.0.0.1:4000/api/auth/login\u001b[22m\n\u001b[2m    - user-agent: Playwright/1.62.1 (x64; windows 10.0) node/24.18\u001b[22m\n\u001b[2m    - accept: */*\u001b[22m\n\u001b[2m    - accept-encoding: gzip,deflate,br\u001b[22m\n\u001b[2m    - Origin: http"
+  }
+]

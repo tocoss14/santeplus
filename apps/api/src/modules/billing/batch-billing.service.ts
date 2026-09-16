@@ -1,6 +1,7 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.module';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
+import { CtsService } from '../cts/cts.service';
 import { ref } from '../../common/utils';
 
 export interface CreateBatchInvoiceInput {
@@ -57,11 +58,14 @@ export class BatchBillingService {
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
+    @Optional() private cts?: CtsService,
   ) {}
 
   /**
    * Crée une facture groupée (batch) pour un prestataire sur une période.
-   * Agrège les sinistres éligibles (kind=THIRD_PARTY, status=PAID/APPROVED).
+   * Agrège les sinistres tiers-payant éligibles : CONFIRMED (prise en charge
+   * garantie, engagement CTS posé), APPROVED ou PAID. La validation des lignes
+   * reste un acte gestionnaire via validateBatchInvoice.
    */
   async createBatchInvoice(input: CreateBatchInvoiceInput) {
     const provider = await this.prisma.provider.findUnique({ where: { id: input.providerId } });
@@ -79,14 +83,17 @@ export class BatchBillingService {
     });
     if (existing) throw new BadRequestException('Facture groupée déjà existante pour cette période');
 
-    // Récupérer les sinistres tiers-payant payés/approuvés sur la période
-    const claims = await this.prisma.claim.findMany({
+    // Récupérer les sinistres tiers-payant éligibles sur la période.
+    // La déduplication n'utilise pas invoiceNumber : la facturation auto
+    // (attachInvoice, référence FAC-…) poserait un numéro sur tout claim
+    // régularisé et l'exclurait à tort — on s'appuie sur les lignes de facture
+    // groupée existantes (jamais deux lignes pour le même sinistre).
+    const candidates = await this.prisma.claim.findMany({
       where: {
         providerId: input.providerId,
-        kind: 'THIRD_PARTY',
-        status: { in: ['PAID', 'APPROVED'] },
+        kind: 'THIRDPARTY',
+        status: { in: ['CONFIRMED', 'APPROVED', 'PARTIALLY_APPROVED', 'PAID'] },
         careDate: { gte: input.periodStart, lte: input.periodEnd },
-        invoiceNumber: null, // pas encore facturés
       },
       include: {
         items: true,
@@ -95,6 +102,13 @@ export class BatchBillingService {
         beneficiary: { select: { firstName: true, lastName: true, memberNumber: true } },
       },
     });
+    const alreadyBatched = new Set(
+      (await this.prisma.batchInvoiceItem.findMany({
+        where: { claimId: { in: candidates.map(c => c.id) } },
+        select: { claimId: true },
+      })).map(r => r.claimId),
+    );
+    const claims = candidates.filter(c => !alreadyBatched.has(c.id));
 
     if (!claims.length) throw new BadRequestException('Aucun sinistre tiers-payant éligible sur cette période');
 
@@ -255,17 +269,46 @@ export class BatchBillingService {
   }
 
   /**
-   * Marque comme payée (réconciliation paiement).
+   * Marque comme payée (réconciliation paiement) et règle les sinistres :
+   * chaque claim THIRDPARTY rattaché passe à PAID et son engagement CTS est
+   * libéré via recordConsumption (idempotent, non bloquant).
    */
   async payBatchInvoice(batchInvoiceId: string, paymentRef: string) {
-    const invoice = await this.prisma.batchInvoice.findUnique({ where: { id: batchInvoiceId } });
+    const invoice = await this.prisma.batchInvoice.findUnique({
+      where: { id: batchInvoiceId },
+      include: { items: { include: { claim: true } } },
+    });
     if (!invoice) throw new NotFoundException('Facture groupée introuvable');
     if (invoice.status !== 'VALIDATED') throw new BadRequestException(`Facture ${invoice.status} — paiement impossible`);
 
-    return this.prisma.batchInvoice.update({
+    const updated = await this.prisma.batchInvoice.update({
       where: { id: batchInvoiceId },
-      data: { status: 'PAID', paidAt: new Date(), paymentRef },
+      data: {          status: 'PAID', paidAt: new Date(), paymentRef },
     });
+
+    const settledClaimIds = [...new Set(invoice.items.map(i => i.claimId))];
+    const claims = await this.prisma.claim.findMany({
+      where: { id: { in: settledClaimIds }, kind: 'THIRDPARTY', status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } },
+      select: { id: true, contractId: true, beneficiaryId: true, providerId: true, totalApproved: true },
+    });
+    for (const claim of claims) {
+      await this.prisma.claim.update({
+        where: { id: claim.id },
+        data: { status: 'PAID', paidAt: new Date(), paidRef: paymentRef },
+      });
+      try {
+        await this.cts?.recordConsumption(
+          claim.contractId,
+          claim.id,
+          claim.totalApproved ?? 0,
+          { beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, meta: { batchInvoiceId } },
+        );
+      } catch {
+        // CTS non bloquant ici : la consommation sera rattrapable par mark-paid (idempotent).
+      }
+    }
+
+    return updated;
   }
 
   /**

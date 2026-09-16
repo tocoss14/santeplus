@@ -276,7 +276,12 @@ export class CtsService {
   }
 
   private entry(input: CtsEntryInput) {
-    return this.prisma.ctsJournal.create({
+    return this.entryTo(this.prisma, input);
+  }
+
+  /** Écriture de journal via un client de transaction donné (invariant P3-C2). */
+  private entryTo(db: Pick<PrismaService, 'ctsJournal'>, input: CtsEntryInput) {
+    return db.ctsJournal.create({
       data: {
         contractId: input.contractId,
         type: input.type,
@@ -767,21 +772,27 @@ export class CtsService {
     return updated;
   }
 
-  /** Engagement idempotent par sinistre (référence Claim:<id>). */
+  /**
+   * Engagement idempotent par sinistre (référence Claim:<id>).
+   * Si opts.tx est fourni (client de transaction Prisma), l'écriture du compte
+   * et du journal s'effectue dans la transaction de l'appelant : le claim et
+   * son engagement deviennent atomiques (invariant CONFIRMED ⇒ engagement).
+   */
   async recordEngagement(contractId: string, claimId: string, amount: number, opts: CtsMutationOpts = {}) {
     const safe = Math.max(0, amount);
+    const db = (opts as any).tx ?? this.prisma;
     const acc = await this.ensureAccount(contractId);
     const bandNow = await this.evaluateBands(contractId);
     if (safe <= 0) return { account: acc, band: bandNow, deduped: false as const };
     const ref = claimRef(claimId);
-    const existing = await this.prisma.ctsJournal.findFirst({ where: { contractId, type: 'ENGAGEMENT', reference: ref } });
+    const existing = await db.ctsJournal.findFirst({ where: { contractId, type: 'ENGAGEMENT', reference: ref } });
     if (existing) return { account: acc, band: bandNow, deduped: true as const };
     const cfg = await this.loadConfig(contractId);
     const oldAvail = acc.available;
     const committed = acc.committed + safe;
     const d = this.derived({ primeCollected: acc.primeCollected, primeBilled: acc.primeBilled, consumed: acc.consumed, committed }, cfg);
-    const updated = await this.prisma.technicalAccount.update({ where: { id: acc.id }, data: { committed, ...d } });
-    await this.entry({
+    const updated = await db.technicalAccount.update({ where: { id: acc.id }, data: { committed, ...d } });
+    await this.entryTo(db, {
       contractId, type: 'ENGAGEMENT', amount: safe, reference: ref,
       beneficiaryId: opts.beneficiaryId, providerId: opts.providerId,
       actorUserId: opts.actorUserId, meta: opts.meta ?? {},

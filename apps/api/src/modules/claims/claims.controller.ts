@@ -388,12 +388,32 @@ export class ClaimsController {
       });
     }
     if (autoApprovable) {
-      // CTS : engagement idempotent (non bloquant)
+      // P3-C2 : si l'engagement CTS échoue, revenir au statut SUBMITTED
+      // (les relances passe par la file de traitement manuelle des gestionnaires).
       try {
         await this.cts?.recordEngagement(claim.contractId, claim.id, estimation.totals.approved, {
           beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
         });
-      } catch {}
+      } catch (e) {
+        // Rollback statut : basculer en file de traitement manuelle
+        await this.prisma.claim.update({
+          where: { id: claim.id },
+          data: { status: 'SUBMITTED', totalApproved: null, decidedAt: null },
+        }).catch(() => {});
+        try {
+          await this.claims.notifyManagers(
+            'CTS_ENGAGEMENT_FAILED',
+            `Engagement CTS impossible — ${claim.reference}`,
+            `Approbation automatique annulée (${estimation.totals.approved} FCFA). Dossier replacé en file de traitement manuel.`,
+          );
+        } catch {}
+        await this.dispatch.dispatchToUser(auth.id, {
+          topic: 'CLAIM_SUBMITTED',
+          title: `Demande ${claim.reference} soumise — en attente de traitement`,
+          body: 'Votre demande a été soumise et sera traitée par un gestionnaire.',
+        });
+        return { ok: true, autoApproved: false };
+      }
       try { if (claim.providerId) await this.attachInvoice(claim.id); } catch {}
       if (autoAuditSample) {
         await this.claims.notifyManagers(
@@ -484,16 +504,19 @@ export class ClaimsController {
     const sumApproved = items.reduce((a: number, it: any) => a + (it.amountApproved ?? 0), 0);
     const totalApprovedFromClaim = (claim as any).totalApproved;
     const authorizedAmount = sumApproved > 0 ? sumApproved : (typeof totalApprovedFromClaim === 'number' ? totalApprovedFromClaim : (claim as any).totalRequested ?? 0);
-    await this.prisma.claim.update({
-      where: { id },
-      data: { status: 'AUTHORIZED', decisionNote: dto.note ?? null, decidedById: auth.id, decidedAt: new Date(), authorizedAmount } as any,
-    });
-    // CTS : engagement idempotent (non bloquant)
-    try {
-      await this.cts?.recordEngagement((claim as any).contractId, id, authorizedAmount, {
-        beneficiaryId: (claim as any).beneficiaryId, providerId: (claim as any).providerId, actorUserId: auth.id,
+    // P3-C2 : engagement atomique avec l'autorisation (même transaction).
+    await this.prisma.$transaction(async tx => {
+      if (this.cts) {
+        await this.cts.recordEngagement((claim as any).contractId, id, authorizedAmount, {
+          beneficiaryId: (claim as any).beneficiaryId, providerId: (claim as any).providerId,
+          actorUserId: auth.id, tx,
+        } as any);
+      }
+      await tx.claim.update({
+        where: { id },
+        data: { status: 'AUTHORIZED', decisionNote: dto.note ?? null, decidedById: auth.id, decidedAt: new Date(), authorizedAmount } as any,
       });
-    } catch {}
+    });
     if (claim.providerUserId) {
       await this.dispatch.dispatchToUser(claim.providerUserId, {
         topic: 'THIRDPARTY_AUTHORIZED',
@@ -526,6 +549,12 @@ export class ClaimsController {
   @RequirePermissions('claims.decide')
   async approve(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(approveSchema)) dto: any) {
     const claim = await this.decisionGuard(id, 'APPROVE');
+    // CONFIRMED n'est admis en entrée d'APPROVE que pour la régularisation des
+    // prises en charge tiers-payant (écart P0 D, audit phase 4) : l'engagement
+    // CTS est déjà posé et idempotent, aucun ré-engagement n'a lieu.
+    if (claim.status === 'CONFIRMED' && claim.kind !== 'THIRDPARTY') {
+      throw new BadRequestException(`Action APPROVE impossible depuis le statut ${claim.status}`);
+    }
     let overridesMap = new Map<string, any>();
     if (dto.overrides) overridesMap = new Map(dto.overrides.map((o: any) => [o.itemId, o]));
     const full = await this.prisma.claim.findUnique({ where: { id }, include: { items: true } });
@@ -588,16 +617,23 @@ export class ClaimsController {
       }
     }
 
-    await this.prisma.claim.update({
-      where: { id },
-      data: { status: reduced ? 'PARTIALLY_APPROVED' : 'APPROVED', totalApproved, decisionNote: dto.note, decidedById: auth.id, decidedAt: new Date() },
-    });
-    // CTS : engagement idempotent (non bloquant)
-    try {
-      await this.cts?.recordEngagement(claim.contractId, id, totalApproved, {
-        beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
+    // P3-C2 : engagement atomique avec l'approbation.
+    // Un claim CONFIRMED régularisé a déjà son engagement (posé à la
+    // confirmation) : on ne réengage pas — recordEngagement reste idempotent
+    // mais l'appel est inutile et évite des allers-retours imbriqués.
+    const needEngagement = claim.status !== 'CONFIRMED';
+    await this.prisma.$transaction(async tx => {
+      if (this.cts && needEngagement) {
+        await this.cts.recordEngagement(claim.contractId, id, totalApproved, {
+          beneficiaryId: claim.beneficiaryId, providerId: claim.providerId,
+          actorUserId: auth.id, tx,
+        } as any);
+      }
+      await tx.claim.update({
+        where: { id },
+        data: { status: reduced ? 'PARTIALLY_APPROVED' : 'APPROVED', totalApproved, decisionNote: dto.note, decidedById: auth.id, decidedAt: new Date() },
       });
-    } catch {}
+    });
     await this.notifyClaimant(claim.claimantUserId, claim.reference,
       reduced ? 'Demande partiellement approuvée' : 'Demande approuvée',
       `Montant approuvé : ${totalApproved} FCFA. ${dto.note ?? ''}`);

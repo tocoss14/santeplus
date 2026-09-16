@@ -12,7 +12,7 @@ function createMockPrisma() {
     { id: 'mgr-2', role: 'SUPER_ADMIN', status: 'ACTIVE' },
   ];
   const establishment = { id: 'prov-1', name: 'Clinique Test' };
-  return {
+  const prismaObj: any = {
     _claims: claims,
     _auditLogs: auditLogs,
     _careRecordEvents: careRecordEvents,
@@ -88,12 +88,9 @@ function createMockPrisma() {
     },
     notification: { create: vi.fn(async () => ({})) },
     systemConfig: { findUnique: vi.fn(async () => null) },
-    $transaction: vi.fn(async (fn: any) => fn({
-      claim: { create: async (a: any) => ({ id: 'x' }) },
-      fileObject: { create: async () => ({ id: 'f' }) },
-      claimDocument: { create: async () => ({}) },
-    })),
+    $transaction: vi.fn(async (fn: any) => fn(prismaObj)),
   };
+  return prismaObj;
 }
 
 describe('emergency override', () => {

@@ -10,11 +10,14 @@ export function resolveSimulateProductId(formProductId: string, products: Array<
 
 export default function Simulateur() {
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Array<{ category: string; name: string }>>([]);
   const [form, setForm] = useState({
     productId: '', principalAge: '30', spouse: false, spouseAge: '28',
     children: '', frequency: 'ANNUAL', consumption: '50000',
   });
+  const [care, setCare] = useState({ category: '', amount: '10000' });
   const [result, setResult] = useState<any>(null);
+  const [coverage, setCoverage] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // La formule affichée et la formule envoyée doivent toujours correspondre, même
@@ -25,6 +28,11 @@ export default function Simulateur() {
     api.get<any[]>('/products?clientType=INDIVIDUAL').then(list => {
       setProducts(list);
       if (list.length && !form.productId) setForm(f => ({ ...f, productId: list[0].id }));
+    }).catch(() => {});
+    // Référentiel des catégories pour composer le panier de soins simulé.
+    api.get<any[]>('/quote/estimate/categories').then(list => {
+      setCategories(list);
+      if (list.length) setCare(c => (c.category ? c : { ...c, category: list[0].category }));
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -42,15 +50,27 @@ export default function Simulateur() {
     setResult(null);
     try {
       const childrenAges = form.children.split(/[,\s;]+/).map(s => s.trim()).filter(Boolean).map(Number).filter(n => Number.isFinite(n) && n >= 0);
-      const res = await api.post('/cts/simulate', {
-        productId: effectiveProductId,
-        principalAge: Number(form.principalAge),
-        spouseAge: form.spouse ? Number(form.spouseAge) : null,
-        childrenAges,
-        frequency: form.frequency,
-        assumedAnnualConsumption: Number(form.consumption),
-      });
+      // Projection commerciale (prime/budget/épuisement)…
+      const [res, cov] = await Promise.all([
+        api.post('/cts/simulate', {
+          productId: effectiveProductId,
+          principalAge: Number(form.principalAge),
+          spouseAge: form.spouse ? Number(form.spouseAge) : null,
+          childrenAges,
+          frequency: form.frequency,
+          assumedAnnualConsumption: Number(form.consumption),
+        }),
+        // …et prise en charge calculée par le MÊME moteur que les sinistres
+        // (taux, ticket modérateur, barème, plafonds, RAC) : zéro divergence.
+        care.category
+          ? api.post('/quote/estimate', {
+              productId: effectiveProductId,
+              items: [{ categoryId: care.category, amountRequested: Math.max(1, Math.round(Number(care.amount) || 0)) }],
+            })
+          : Promise.resolve(null),
+      ]);
       setResult(res);
+      setCoverage(cov);
     } catch (err: any) {
       setError(err?.message ?? 'Simulation impossible');
     } finally {
@@ -93,6 +113,17 @@ export default function Simulateur() {
         <Field label="Consommation soins annuelle supposée (FCFA)">
           <input className="input" type="number" min={0} step={5000} value={form.consumption} onChange={set('consumption')} required />
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Soin simulé" hint="Calculé par le moteur de remboursement réel">
+            <select className="input" value={care.category} onChange={e => setCare(c => ({ ...c, category: e.target.value }))}>
+              {categories.map(c => <option key={c.category} value={c.category}>{c.name}</option>)}
+              {!categories.length && <option value="">—</option>}
+            </select>
+          </Field>
+          <Field label="Dépense simulée (FCFA)">
+            <input className="input" type="number" min={1} step={500} value={care.amount} onChange={e => setCare(c => ({ ...c, amount: e.target.value }))} />
+          </Field>
+        </div>
         <button className="btn-primary w-full" disabled={busy || !effectiveProductId}>
           {busy ? 'Calcul…' : !products.length ? 'Chargement des formules…' : 'Simuler'}
         </button>
@@ -117,6 +148,19 @@ export default function Simulateur() {
             <p className="text-sm font-medium text-red-700">⚠️ À ce rythme, épuisement potentiel vers le jour {result.exhaustionDay} — projection indicative, pas une certitude.</p>
           ) : (
             <p className="text-sm text-emerald-700">✓ Pas d'épuisement prévu à ce rythme (projection indicative).</p>
+          )}
+          {coverage && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+              <p className="font-semibold text-emerald-900">Prise en charge simulée — moteur de remboursement réel</p>
+              {coverage.items?.map((it: any, i: number) => (
+                <p key={i} className="mt-1 text-emerald-900">
+                  Éligible {fcfa(it.amountEligible)} · taux {it.rateApplied} % · ticket {fcfa(it.copayApplied)} · <b>remboursé {fcfa(it.amountApproved)}</b>
+                </p>
+              ))}
+              <p className="mt-1 text-xs text-emerald-700">
+                Reste à charge assuré : {fcfa(coverage.totals?.outOfPocket)} — barème, plafonds et plafond RAC appliqués par le moteur (avant carence et historique).
+              </p>
+            </div>
           )}
           <p className="text-xs text-slate-400">{result.disclaimer}</p>
         </div>

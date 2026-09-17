@@ -22,6 +22,7 @@ import { NotificationsHttpModule } from './modules/notifications/notifications.c
 import { StatsModule } from './modules/stats/stats.controller';
 import { AdminMiscModule } from './modules/admin-misc/admin-misc.controller';
 import { DocumentsModule } from './modules/documents/documents.controller';
+import { QuoteModule } from './modules/quote/quote.controller';
 import { OfflineModule } from './modules/offline/offline.controller';
 import { DistributorsModule } from './modules/distributors/distributors.controller';
 import { CommissionsModule } from './modules/commissions/commissions.controller';
@@ -61,6 +62,7 @@ import { PaymentReminderJob } from './jobs/payment-reminder.job';
     AdminMiscModule,
     DocumentsModule,
     OfflineModule,
+    QuoteModule,
     DistributorsModule,
     CommissionsModule,
     AccountingModule,

@@ -379,3 +379,32 @@ Le **GO CONDITIONNEL** évolue : il reste **2 P0** (PSP réel, transports de not
 ## Verdict (inchangé)
 
 Restent **2 P0** (PSP réel, transports de notification) avant pilote réel — le correctif du ticket modérateur n'en introduit aucun.
+
+# ADDENDUM (17/09/2026, bis) — Écart P0 ③ : durcissement PSP réel
+
+## Constat affiné
+
+Les adaptateurs CinetPay et FedaPay **existaient déjà** (init + check de statut + webhooks idempotents). L'écart réel portait sur trois failles : ① le webhook pouvait confirmer un succès sans vérification du montant encaissé, ② `POST /payments/mock/confirm` restait activable en production si `MOCK_PAYMENTS=true` s'y glissait, ③ aucun filet si un webhook n'arrive jamais (les PSP réessaient ~24 h, pas indéfiniment).
+
+## Correctifs (commit `55ba1ba`)
+
+- **Vérification serveur-side du montant** : `checkStatus` des adapters renvoie désormais `{ outcome, reportedAmount }` (CinetPay : `amount_transferred`/`amount` du `/v2/payment/check` ; FedaPay : `amount` de la transaction). Un succès n'est confirmé que si le montant rapporté correspond au montant attendu (tolérance 1 F) ; un écart ⇒ `AMOUNT_MISMATCH`, paiement laissé PENDING, alerte `PAYMENT_ANOMALY` aux gestionnaires. Les PSP ne rapportant pas de montant restent tolérés (compatibilité providers simples) — le webhook ne décide jamais seul, il ne fait que déclencher la re-vérification chez le PSP.
+- **Mock verrouillé** : `mock/confirm` est refusé si `NODE_ENV=production` **ou** `MOCK_PAYMENTS=false` — un succès ne peut venir que d'un PSP réel vérifié.
+- **Réconciliation cron** (`*/10 * * * *`) : les paiements `PENDING` des PSP réels (jamais MOCK_MOMO) de plus de 5 min sont re-vérifiés chez le PSP via le service unique `confirmFromProvider` (montant, idempotence, activation, compta, CTS). Compteurs `checked/confirmed/failed/stillPending/errors`.
+- **Config documentée** (`.env.example`) : activation production (`MOCK_PAYMENTS=false`, `PAY_PROVIDERS=CINETPAY,FEDAPAY`), URLs de callback/notify à déclarer chez les PSP, précaution sur l'unité du champ `amount` (XOF entier vs centimes) à confirmer sur sandbox avant passage en live.
+
+## Vérifications
+
+- Suite API : **434/434** (11 nouveaux : montant conforme/bloqué/absent, FAILED, idempotence webhook, PENDING, mock lock prod + flag, réconciliation confirm/skip/erreur), `tsc` OK.
+- Audit E2E Phase 4 : **66/66** sur DB fraîche ; Playwright : **4/4**.
+
+## Verdict actualisé
+
+| Écart P0 | État |
+|---|---|---|
+| ① Facturation groupée TP | **RÉSOLU** |
+| ② P2028 / CTS transactionnel | **RÉSOLU** |
+| ③ PSP réel | **RÉSOLU côté plateforme** — les clés PSP réelles et la déclaration des webhooks restent une étape d'exploitation (sandbox puis live) |
+| ④ Email/SMS console | Ouvert |
+
+Le **GO CONDITIONNEL** évolue : il reste **1 P0** (transports de notification) avant pilote réel.

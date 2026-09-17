@@ -73,9 +73,9 @@ Ordre strict appliqué à chaque poste :
 
 **Il n’y a plus de franchise** (supprimées du moteur, du schéma, des CGA, des certificats et des écrans — migration `20260912_remove_deductibles`).
 
-### 3.3 Taux net effectif
+### 3.3 Ticket modérateur (complément du taux)
 
-Le taux affiché est un taux brut ; le remboursement net estimé (avant barème/plafonds) vaut `brut × (100 − copay) / 100`. Exemples : 70 %+30 % → **49 %** ; 60 %+40 % → **36 %** ; 80 %+20 % → **64 %** ; 90 %+10 % → **81 %**. Ce taux net est affiché dans le comparateur, les offres, la fiche contrat et les CGA.
+Le taux de remboursement est l'unique source de vérité : **approuvé = éligible × taux %**, et le **ticket modérateur est son complément** (ticket = éligible − approuvé). Taux 80 % ⇒ assureur 80 %, assuré 20 % — total 100 %. Le champ hérité `copayRate` des produits est informatif et **n'intervient plus dans le calcul** ; il n'existe **aucun « taux net »** (l'ancienne formule `brut × (100 − copay) / 100` a été supprimée du moteur, du web et des CGA le 17/09). Le plafond annuel de reste à charge (`oopAnnualCap`) reprend le ticket une fois le plafond atteint.
 
 ---
 
@@ -163,4 +163,4 @@ Parcours : identité exacte (prénom/nom/naissance comme sur l’acte ou la piè
 3. **Stop-loss non reconstituant** : alerte + écriture, sans crédit budgétaire automatique (à finaliser).
 4. **Délais de carence et exclusions ESS** (maternité/dentaire/optique/spécialisé) : choix de solvabilité à fort impact commercial et social.
 5. **Suspension J+15 / résiliation J+45** : sévère pour revenus irréguliers ; mécanismes de rattrapage à évaluer.
-6. Le comparateur affiche taux brut **et** net estimé ; vérifier la compréhension réelle par des tests utilisateurs.
+6. Le comparateur affiche le taux de remboursement **et** son ticket modérateur (complément) ; vérifier la compréhension réelle par des tests utilisateurs.

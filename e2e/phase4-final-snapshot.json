@@ -3,7 +3,7 @@
     "scenario": "A",
     "name": "Inscription + acte + souscription + paiement (MOCK_MOMO)",
     "status": "PASS",
-    "proof": "contract=cmu3mpbya000q9x0x1j9gr4vk"
+    "proof": "contract=cmu506l4a000qxtmkwavl8jzb"
   },
   {
     "scenario": "A",
@@ -15,7 +15,7 @@
     "scenario": "A",
     "name": "Carte avec QR (token + payload sans donnée personnelle)",
     "status": "PASS",
-    "proof": "qr={\"t\":\"2c6c38ff8963dfd84fbead57207870eb\"}"
+    "proof": "qr={\"t\":\"9b7152ac568854782e2b8890a728f6d7\"}"
   },
   {
     "scenario": "A",
@@ -81,13 +81,13 @@
     "scenario": "C",
     "name": "Délivrance + tiers payant automatique",
     "status": "PASS",
-    "proof": "status=CONFIRMED reference=DEL-2026-2A64B8"
+    "proof": "status=CONFIRMED reference=DEL-2026-8F7DAA"
   },
   {
     "scenario": "C",
     "name": "Engagement CTS cohérent après délivrance",
     "status": "PASS",
-    "proof": "del=DEL-2026-2A64B8 statut=CONFIRMED couvert=0 committed=0 consumed=0 flags=[\"WAITING_PERIOD:2026-10-15\"] (carence WAITING_PERIOD attendue sur assuré neuf)"
+    "proof": "del=DEL-2026-8F7DAA statut=CONFIRMED couvert=0 committed=0 consumed=0 flags=[\"WAITING_PERIOD:2026-10-16\"] (carence WAITING_PERIOD attendue sur assuré neuf)"
   },
   {
     "scenario": "C",
@@ -111,7 +111,7 @@
     "scenario": "D",
     "name": "Facturation groupée créée (claims THIRDPARTY retrouvés — P3-C)",
     "status": "PASS",
-    "proof": "number=BAT-2026-695925 totalApproved=76800"
+    "proof": "number=BAT-2026-60E45C totalApproved=96000"
   },
   {
     "scenario": "D",
@@ -141,13 +141,13 @@
     "scenario": "D",
     "name": "Engagement CTS libéré après règlement (consommation enregistrée)",
     "status": "PASS",
-    "proof": "committedAvant=76800 committedApres=0 consumed=76800"
+    "proof": "committedAvant=96000 committedApres=0 consumed=96000"
   },
   {
     "scenario": "E",
     "name": "CTS consommé jusqu’à la bande critique",
     "status": "PASS",
-    "proof": "available=6400/160000 band=\"CRITIQUE\" refus=aucun"
+    "proof": "available=16000/160000 band=\"ALERTE\" refus=aucun"
   },
   {
     "scenario": "E",
@@ -159,7 +159,7 @@
     "scenario": "F",
     "name": "Appel créé + envoyé (facture)",
     "status": "PASS",
-    "proof": "id=cmu3mpjtp00rs9x0xpmsuz5ll"
+    "proof": "id=cmu506uma00pgxtmkl5t5oo9q"
   },
   {
     "scenario": "F",
@@ -171,19 +171,19 @@
     "scenario": "F",
     "name": "§13 Réactivation : disponible +100 000 (net frais 20 %)",
     "status": "PASS",
-    "proof": "available 6400→86400 (attendu 86400)"
+    "proof": "available 16000→96000 (attendu 96000)"
   },
   {
     "scenario": "G",
     "name": "§9 Cas 1 : prise en charge limitée au plafond (130k×80%=104k > 100k)",
     "status": "PASS",
-    "proof": "approved=64000"
+    "proof": "approved=80000"
   },
   {
     "scenario": "G",
     "name": "Reste assuré explicite",
     "status": "PASS",
-    "proof": "resté à charge=66000"
+    "proof": "resté à charge=50000"
   },
   {
     "scenario": "H",
@@ -283,27 +283,27 @@
   },
   {
     "scenario": "NUM",
-    "name": "§8 Prise en charge = 64 000 (100 000 × 80 % brut × (1−20 % ticket) = 64 % net)",
+    "name": "§8 Prise en charge = 80 000 (100 000 × taux 80 % — pas de taux net)",
     "status": "PASS",
-    "proof": "approved=64000"
+    "proof": "approved=80000"
   },
   {
     "scenario": "NUM",
-    "name": "§8 Assuré = 36 000 (ticket modérateur 20 % + hors barème 20 %)",
+    "name": "§8 Assuré = 20 000 (ticket modérateur = complément du taux)",
     "status": "PASS",
-    "proof": "outOfPocket=36000"
+    "proof": "outOfPocket=20000"
   },
   {
     "scenario": "NUM",
-    "name": "§8 Engagement CTS = 64 000 (prise en charge réelle)",
+    "name": "§8 Engagement CTS = 80 000 (prise en charge réelle)",
     "status": "PASS",
-    "proof": "committed=64000 consumed=0"
+    "proof": "committed=80000 consumed=0"
   },
   {
     "scenario": "NUM",
-    "name": "§43 Inv1 après engagement : disponible = 800 000 − 64 000 = 736 000",
+    "name": "§43 Inv1 après engagement : disponible = 800 000 − 80 000 = 720 000",
     "status": "PASS",
-    "proof": "available=736000"
+    "proof": "available=720000"
   },
   {
     "scenario": "NUM",
@@ -315,7 +315,7 @@
     "scenario": "NUM",
     "name": "§43 Inv6/7 Journal reconstruit = disponible affiché",
     "status": "PASS",
-    "proof": "reconstruit=736000 affiché=736000"
+    "proof": "reconstruit=720000 affiché=720000"
   },
   {
     "scenario": "DOCS",

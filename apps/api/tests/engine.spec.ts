@@ -127,7 +127,7 @@ describe('estimateClaim', () => {
     usedPerCategory: {},
   };
 
-  it('calcule taux sans franchise (sans copay si non défini)', () => {
+  it('le taux est l\'unique vérité : 80 % approuvés, ticket = complément 20 % (copay non utilisé)', () => {
     const r = estimateClaim(
       ctx,
       new Date('2026-06-10'),
@@ -136,10 +136,11 @@ describe('estimateClaim', () => {
         { categoryId: 'PHARMACY', amountRequested: 50000 },
       ],
     );
-    expect(r.items[0].amountApproved).toBe(400000);
+    expect(r.items[0].amountApproved).toBe(400000); // 500 000 × 80 % — le taux décide
+    expect(r.items[0].copayApplied).toBe(100000); // ticket = complément 20 %
     expect(r.items[1].deductibleApplied).toBe(0);
     expect(r.items[1].amountApproved).toBe(Math.round(50000 * 0.7));
-    expect(r.items[1].copayApplied).toBe(0);
+    expect(r.items[1].copayApplied).toBe(15000); // ticket = complément de 70 % ⇒ 30 %
     expect(r.totals.approved).toBe(r.items[0].amountApproved + r.items[1].amountApproved);
     expect(r.ok).toBe(true);
   });
@@ -155,10 +156,10 @@ describe('estimateClaim', () => {
     const r = estimateClaim(ctxWithCopay, new Date('2026-06-10'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 500000 },
     ]);
-    // 500000 éligible, pas de franchise, taux 80% → 400000 couvert, copay 20% → 80000
-    expect(r.items[0].copayApplied).toBe(80000);
-    expect(r.items[0].amountApproved).toBe(320000);
-    expect(r.items[0].outOfPocket).toBe(180000); // 500000 - 320000
+    // 500000 éligible, pas de franchise, taux 80% → 400000 couvert, copay 20% sur éligible = 100000
+    expect(r.items[0].copayApplied).toBe(100000);
+    expect(r.items[0].amountApproved).toBe(400000);
+    expect(r.items[0].outOfPocket).toBe(100000); // 500000 - 400000
   });
 
   it('applique le barème médical (maxUnitPrice)', () => {

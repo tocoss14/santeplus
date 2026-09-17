@@ -168,9 +168,9 @@ async function testCts() {
     const tp = await tpRes.json();
     const confTp = await pres.post(`/api/provider/thirdparty/${tp.id}/confirm`, { data: {} });
     const engAcc = await getCtsOverview(admin, cid);
-    // Le fonds doit : montant approuvé × (1 − copay) = 100k × 80 % × 80 % = 64 000
-    record('CTS', '§9 Engagement = 64 000 (part fonds : 80 % × 80 %)', confTp.ok() && engAcc.committed === 64000, `committed=${engAcc.committed}`);
-    record('CTS', '§9 Disponible après engagement = 736 000', engAcc.available === 736000, `available=${engAcc.available}`);
+    // Le fonds engage la prise en charge réelle : 100k × taux 80 % = 80 000 (ticket = complément 20 % — décision 17/09)
+    record('CTS', '§9 Engagement = 80 000 (100 000 × taux 80 %)', confTp.ok() && engAcc.committed === 80000, `committed=${engAcc.committed}`);
+    record('CTS', '§9 Disponible après engagement = 720 000', engAcc.available === 720000, `available=${engAcc.available}`);
 
     const realRes = await pres.post(`/api/provider/thirdparty/${tp.id}/realize`, { data: {} });
     const invRes = await pres.post(`/api/provider/thirdparty/${tp.id}/invoice`, { data: {} });

@@ -559,7 +559,7 @@ async function scenarioNUM() {
   const card = await (await m.ctx.get(`/api/contracts/${contract.id}/card`)).json();
   const cats = await (await m.ctx.get('/api/claims/categories')).json();
   const catCons = (cats.find(c => /CONS/i.test(c.category)) ?? cats[0]).category;
-  // Facture 100 000 : taux brut 80 %, ticket 20 % → 64 % net (sémantique multiplicative documentée : deck assureurs « 70 % + ticket 30 % = 49 % net »)
+  // Facture 100 000 : taux 80 % ⇒ assureur 80 000, ticket = complément 20 000 (aucun taux net — décision produit 17/09)
   const r = await pres.post('/api/provider/thirdparty/initiate', {
     multipart: { payload: JSON.stringify({ cardToken: card.cardToken, items: [{ code: 'P4-N1', label: 'Consultation NUM', categoryId: catCons, quantity: 1, unitPrice: 100000 }] }) },
   });
@@ -569,14 +569,13 @@ async function scenarioNUM() {
     const tp = await r.json();
     const est = tp.estimation ?? {};
     const approved = est.totals?.approved;
-    // Sémantique deck (pipeline §13 : taux → ticket modérateur → plafond RAC),
-    // arbitrage du 16/09 : net = taux × (1 − ticket) ; 70/20 ⇒ 64 % net.
-    record('NUM', '§8 Prise en charge = 64 000 (100 000 × 80 % brut × (1−20 % ticket) = 64 % net)', approved === 64000, `approved=${JSON.stringify(approved)}`);
-    record('NUM', '§8 Assuré = 36 000 (ticket modérateur 20 % + hors barème 20 %)', est.totals?.outOfPocket === 36000, `outOfPocket=${JSON.stringify(est.totals?.outOfPocket)}`);
+    // Le taux est l'unique vérité : 100 000 × 80 % = 80 000 remboursés, ticket = complément 20 000.
+    record('NUM', '§8 Prise en charge = 80 000 (100 000 × taux 80 % — pas de taux net)', approved === 80000, `approved=${JSON.stringify(approved)}`);
+    record('NUM', '§8 Assuré = 20 000 (ticket modérateur = complément du taux)', est.totals?.outOfPocket === 20000, `outOfPocket=${JSON.stringify(est.totals?.outOfPocket)}`);
     await pres.post(`/api/provider/thirdparty/${tp.id}/confirm`, { data: {} });
     const acc1 = await getCts(admin, contract.id);
-    record('NUM', '§8 Engagement CTS = 64 000 (prise en charge réelle)', acc1.committed === 64000 || acc1.consumed === 64000, `committed=${acc1.committed} consumed=${acc1.consumed}`);
-    record('NUM', '§43 Inv1 après engagement : disponible = 800 000 − 64 000 = 736 000', acc1.available === 736000, `available=${acc1.available}`);
+    record('NUM', '§8 Engagement CTS = 80 000 (prise en charge réelle)', acc1.committed === 80000 || acc1.consumed === 80000, `committed=${acc1.committed} consumed=${acc1.consumed}`);
+    record('NUM', '§43 Inv1 après engagement : disponible = 800 000 − 80 000 = 720 000', acc1.available === 720000, `available=${acc1.available}`);
   }
   // Webhook idempotence (§43 Inv4/Inv6)
   const wh1 = await m.ctx.post('/api/payments/webhook/cinetpay', { data: { cpm_trans_id: 'P4-UNKNOWN' } });

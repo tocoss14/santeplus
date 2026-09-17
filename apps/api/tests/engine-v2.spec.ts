@@ -184,8 +184,7 @@ describe('specialistConsultationsPerYear', () => {
 });
 
 // ─── Advanced copay scenarios ─────────────────────────
-describe('advanced copay scenarios', () => {
-  it('copay applied after rate calculation on covered amount', () => {
+describe('advanced copay scenarios', () => {  it('copay is informational: rate decides (80% approved), ticket = complement 20%', () => {
     const ctx = baseCtx({
       rules: [
         { categoryId: 'HOSPITALIZATION', annualLimit: 1500000, rate: 80, copayRate: 25 },
@@ -194,12 +193,13 @@ describe('advanced copay scenarios', () => {
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 100000 },
     ]);
-    // eligible: 100000, no deductible, rate 80% = 80000, copay 25% of 80000 = 20000, approved = 60000
+    // eligible: 100000, rate 80% ⇒ approved 80000; copayRate 25% is NOT used,
+    // copayApplied reports the complement (20% = 20000) and outOfPocket = 20000
     expect(r.items[0].amountEligible).toBe(100000);
     expect(r.items[0].deductibleApplied).toBe(0);
     expect(r.items[0].copayApplied).toBe(20000);
-    expect(r.items[0].amountApproved).toBe(60000);
-    expect(r.items[0].outOfPocket).toBe(40000);
+    expect(r.items[0].amountApproved).toBe(80000);
+    expect(r.items[0].outOfPocket).toBe(20000);
   });
 
   it('copay applied without deductible (franchises supprimées)', () => {
@@ -211,23 +211,20 @@ describe('advanced copay scenarios', () => {
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 100000 },
     ]);
-    // eligible: 100000, no deductible (removed), rate 80%: 80000, copay 20%: 16000, approved: 64000
+    // eligible: 100000, no deductible (removed), rate 80%: 80000, copay 20% on eligible: 20000, approved: 80000
     expect(r.items[0].deductibleApplied).toBe(0);
-    expect(r.items[0].copayApplied).toBe(16000);
-    expect(r.items[0].amountApproved).toBe(64000);
-    expect(r.items[0].outOfPocket).toBe(36000);
-  });
-
-  it('copay = 0 means no copay applied', () => {
+    expect(r.items[0].copayApplied).toBe(20000);
+    expect(r.items[0].amountApproved).toBe(80000);
+    expect(r.items[0].outOfPocket).toBe(20000);
+  });  it('ticket is the rate complement even when copayRate = 0', () => {
     const ctx = baseCtx({
       rules: [
         { categoryId: 'CONSULTATION', annualLimit: 120000, rate: 70, copayRate: 0 },
-      ],
-    });
+      ],    });
     const r = estimateClaim(ctx, new Date('2026-06-15'), [
       { categoryId: 'CONSULTATION', amountRequested: 15000 },
     ]);
-    expect(r.items[0].copayApplied).toBe(0);
+    expect(r.items[0].copayApplied).toBe(4500); // complément de 70 % ⇒ 30 %
     expect(r.items[0].amountApproved).toBe(10500); // 15000 * 70%
   });
 });

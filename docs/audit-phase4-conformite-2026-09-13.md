@@ -279,6 +279,8 @@ Conformément au suivi post-audit, le premier écart P0 a été **corrigé et v�
 
 ## Arbitrage rendu (16/09) : sémantique du ticket modérateur
 
+> **Révisé le 17/09 (décision produit finale)** : le ticket modérateur est **le complément du taux** — `approuvé = éligible × taux %`, `ticket = éligible − approuvé` ; il n'existe **aucun taux net**. L'arbitrage ci-dessous (rétablissement du « 49 % net ») est **supersédé** ; voir l'addendum du 17/09 en fin de rapport. La variante « assureur paie le taux plein » reste écartée.
+
 Constat : une variante du moteur (commit `8260c94`, « copay appliqué sur le montant éligible ») rendait le ticket **informatif** — l'assureur paie le taux plein et le ticket reste à la charge de l'assuré, couvrable par le plafond annuel de reste à charge. Cette variante contredisait le NUM §8 de l'audit (64 000 attendus) et le deck assuré (l. 32 : « 70 % + ticket 30 % = 49 % net »).
 
 **Décision : la sémantique deck est rétablie — net = taux × (1 − ticket).** Justification financière :
@@ -353,3 +355,27 @@ Confirmations TP 100 % concurrentes sur le **même** compte technique (le pire c
 | ④ Email/SMS console | Ouvert |
 
 Le **GO CONDITIONNEL** évolue : il reste **2 P0** (PSP réel, transports de notification), tous deux des intégrations externes, avant pilote réel.
+
+# ADDENDUM (17/09/2026) — Sémantique finale du ticket modérateur (décision produit)
+
+## Décision
+
+**Le taux de remboursement est l'unique source de vérité ; le ticket modérateur est son complément. Il n'existe aucun « taux net ».** Taux 80 % ⇒ l'assureur paie 80 % et l'assuré 20 % (son ticket) — total 100 %, c'est tout. Cette décision supersède l'arbitrage du 16/09 (qui rétablissait la double déduction « 49 % net ») ; la variante « assureur paie le taux plein » (commit `8260c94`) reste écartée.
+
+## Alignements appliqués
+
+- `src/domain/engine.ts` : `approuvé = éligible × taux %`, `copay = éligible − approuvé` ; le champ hérité `copayRate` des produits est **informatif** et n'intervient plus dans le calcul (les produits seedés étaient déjà complémentaires : 60+40, 70+30, 75+25, 80+20, 100+0).
+- Specs API réalignés (`engine.spec`, `engine-v2`, `quote-estimate.spec`) : le taux décide même quand `copayRate` diverge ; **423/423** verts, `tsc` OK.
+- Web — le « taux net » est **supprimé de toute l'UI** : `format.ts` (`netCoverageRate`/`netCoverageLabel` remplacés par `ticketModerateur`/`ticketModerateurLabel`), comparateur de formules, offres, fiche contrat, CGA (colonne « Net estimé » retirée, exemples chiffrés corrigés : 15 000 au barème 10 000 à 70 % ⇒ remboursé 7 000, ticket 3 000). Tests web 27/27.
+- Decks et docs : deck assuré (tableau des formules et encadré « taux = remboursement, ticket = complément »), `mecanisme-gestion-sante.md` §3.3 réécrit, arbitrage du 16/09 marqué supersédé. Le patch de la variante RAC (`docs/copay-variante-rac-8260c94.patch`) est **supprimé**.
+- Scripts d'audit réalignés sur la sémantique finale : NUM §8 (80 000 remboursés / 20 000 assuré / engagement 80 000 / disponible 720 000) et phase 2 §9 (engagement 80 000).
+
+## Vérifications non-régression (17/09)
+
+- Suite API : **423/423**, `tsc` OK ; web `tsc` OK, **27/27**.
+- Audit E2E Phase 4 : **66/66** sur DB fraîche (NUM §8 confirme 80 000 = 100 000 × 80 %).
+- Playwright : **4/4** sur DB fraîche.
+
+## Verdict (inchangé)
+
+Restent **2 P0** (PSP réel, transports de notification) avant pilote réel — le correctif du ticket modérateur n'en introduit aucun.

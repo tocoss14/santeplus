@@ -21,7 +21,7 @@ Souscrivez une mutuelle santé **100 % en ligne**, payez par **mobile money**, r
 | **Prix** | 6 000 F/mois | 12 000 F/mois | 25 000 F/mois |
 | Conjoint/adulte | +4 000 F/mois | +9 000 F/mois | +20 000 F/mois |
 | Enfant | +4 000 F/mois | +9 000 F/mois | +20 000 F/mois |
-| Consultations | 70 % (net ~49 %) | 80 % (net ~64 %) | 90 % (net ~81 %) |
+| Consultations | 70 % (ticket 30 %) | 80 % (ticket 20 %) | 90 % (ticket 10 %) |
 | Hospitalisation | 60 %, max 150 000 F/an | 75 %, max 500 000 F/an | 90 %, max 1 500 000 F/an |
 | Pharmacie | 60 %, max 180 000 F/an | 70 %, max 360 000 F/an | 90 %, max 600 000 F/an |
 | Maternité | non couverte | forfait 200 000 F, **sans ticket** | 80 %, max 400 000 F/an |
@@ -29,7 +29,7 @@ Souscrivez une mutuelle santé **100 % en ligne**, payez par **mobile money**, r
 | Plafond global/an | 500 000 F | 1 200 000 F | 3 000 000 F |
 | **Reste à charge max/an** | **200 000 F** | **150 000 F** | **100 000 F** |
 
-> **Le taux affiché est un taux brut.** Nous affichons aussi le **taux net estimé** (après ticket modérateur, avant barème) : par exemple 70 % + ticket 30 % = 49 % net. Pas de frais cachés, pas de franchise.
+> **Le taux affiché est votre taux de remboursement.** Le **ticket modérateur** est son complément : taux 70 % ⇒ nous payons 70 % et vous payez 30 % — total 100 %, c'est tout. Pas de frais cachés, pas de franchise.
 
 **Reste à charge maximum garanti** : une fois ce montant payé de votre poche sur des soins couverts dans l’année, la mutuelle prend le relais. Une maladie grave ne vous ruinera pas.
 

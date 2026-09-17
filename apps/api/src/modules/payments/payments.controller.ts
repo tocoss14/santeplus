@@ -8,7 +8,7 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { ref } from '../../common/utils';
 import { config } from '../../config';
-import { getProvider, getProviders } from './providers';
+import { getProvider, getProviders, ProviderStatusCheck } from './providers';
 import { extractCinetpayReference, extractFedapayTransactionId } from '../../domain/payment-mapping';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { AccountingService, AccountingModule } from '../accounting/accounting.controller';
@@ -114,12 +114,37 @@ export class PaymentsService {
 
     const provider = getProvider(input.provider);
     if (!provider) throw new BadRequestException('Fournisseur inconnu');
-    const outcome = await provider.checkStatus({
+    const check = await provider.checkStatus({
       reference: payment.reference,
       amount: payment.amount,
       externalRef: payment.externalRef,
     });
+    // Le résultat peut être un simple outcome (providers de test) ou un check
+    // complet avec montant rapporté (adapters PSP réels).
+    const outcome = typeof check === 'string' ? check : check.outcome;
     if (outcome === 'PENDING') return { ok: true, status: 'PENDING' };
+    if (outcome === 'SUCCESS') {
+      // Vérification serveur-side (P0 ③) : le montant encaissé rapporté par le
+      // PSP — jamais le webhook seul — doit correspondre au montant attendu.
+      // Écart ⇒ confirmation bloquée, paiement laissé PENDING, alerte gestion.
+      const reportedAmount = typeof check === 'string' ? null : (check as ProviderStatusCheck).reportedAmount;
+      if (reportedAmount != null && Math.abs(reportedAmount - payment.amount) > 1) {
+        console.error(`[payments] ÉCART MONTANT payment=${payment.reference} attendu=${payment.amount} rapporté=${reportedAmount} — confirmation bloquée`);
+        try {
+          const managers = await this.prisma.user.findMany({
+            where: { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER'] }, status: 'ACTIVE' },
+            select: { id: true },
+          });
+          for (const m of managers) {
+            await this.notify(m.id, 'PAYMENT_ANOMALY',
+              `Anomalie de montant — paiement ${payment.reference}`,
+              `Attendu ${payment.amount} FCFA, PSP rapporte ${reportedAmount} FCFA. Confirmation bloquée, à instruire.`);
+          }
+        } catch {}
+        return { ok: false, status: 'AMOUNT_MISMATCH' };
+      }
+      return this.confirmPayment(payment.id, 'SUCCESS', payment.externalRef ?? undefined);
+    }
     return this.confirmPayment(payment.id, outcome, payment.externalRef ?? undefined);
   }
 
@@ -268,7 +293,9 @@ export class PaymentsController {
 
   @Post('payments/mock/confirm')
   async mockConfirm(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(mockConfirmSchema)) dto: any) {
-    if (!config.mockPayments) throw new ForbiddenException('Simulation de paiement désactivée');
+    // Simulation interdite en production et dès que MOCK_PAYMENTS=false :
+    // un succès ne peut venir que d'un PSP réel vérifié.
+    if (config.isProd || !config.mockPayments) throw new ForbiddenException('Simulation de paiement désactivée');
     const payment = await this.payments.findPayment(dto.paymentId);
     if (!payment) throw new NotFoundException('Paiement introuvable');
     const allowed =
@@ -361,5 +388,5 @@ export class PaymentsController {
   }
 }
 
-@Module({ imports: [AccountingModule, CtsModule], controllers: [PaymentsController], providers: [PaymentsService] })
+@Module({ imports: [AccountingModule, CtsModule], controllers: [PaymentsController], providers: [PaymentsService], exports: [PaymentsService] })
 export class PaymentsModule {}

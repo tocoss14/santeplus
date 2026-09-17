@@ -79,3 +79,18 @@ export function extractCinetpayReference(body: any): string | null {
   const ref = body.cpm_trans_id ?? body.transaction_id ?? body.data?.transaction_id;
   return ref ? String(ref) : null;
 }
+
+/** Montant encaissé rapporté par CinetPay (payment/check) : amount_transferred
+ *  est le montant réellement transféré ; on retombe sur amount (demandé). */
+export function extractCinetpayAmount(body: any): number | null {
+  const a = body?.data?.amount_transferred ?? body?.data?.amount ?? body?.amount_transferred ?? body?.amount;
+  const n = Number(a);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Montant de la transaction FedaPay (GET /transactions/:id). */
+export function extractFedapayAmount(body: any): number | null {
+  const a = body?.transaction?.amount ?? body?.entity?.transaction?.amount ?? body?.amount;
+  const n = Number(a);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}

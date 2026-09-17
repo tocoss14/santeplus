@@ -3,6 +3,8 @@ import {
   buildCinetpayCheckPayload,
   buildCinetpayPaymentPayload,
   buildFedapayTransactionPayload,
+  extractCinetpayAmount,
+  extractFedapayAmount,
   extractFedapayStatus,
   mapCinetpayStatus,
   mapFedapayStatus,
@@ -20,13 +22,22 @@ export interface ProviderPaymentInfo {
   externalRef?: string | null;
 }
 
+/** Résultat d'une vérification PSP : l'outcome ET le montant encaissé rapporté
+ *  par le PSP quand il l'expose (null sinon). Le service compare ce montant au
+ *  montant attendu avant toute confirmation — le webhook ne peut pas décider
+ *  seul d'un succès (P0 ③, addendum 17/09 de l'audit). */
+export interface ProviderStatusCheck {
+  outcome: ProviderOutcome;
+  reportedAmount: number | null;
+}
+
 export interface PaymentProvider {
   code: string;
   label: string;
   kind: 'MOBILE_MONEY' | 'CARD' | 'BANK' | 'CASH' | 'TEST';
   available: boolean;
   initiate(payment: { reference: string; amount: number; method: string; customerPhone?: string }): Promise<PaymentInitiation>;
-  checkStatus(payment: ProviderPaymentInfo): Promise<ProviderOutcome>;
+  checkStatus(payment: ProviderPaymentInfo): Promise<ProviderOutcome> | Promise<ProviderStatusCheck>;
 }
 
 async function httpJson(method: 'GET' | 'POST', url: string, body?: any, headers?: Record<string, string>): Promise<any> {
@@ -68,8 +79,8 @@ class MockMobileMoneyProvider implements PaymentProvider {
     };
   }
 
-  async checkStatus(): Promise<ProviderOutcome> {
-    return 'PENDING';
+  async checkStatus(): Promise<ProviderStatusCheck> {
+    return { outcome: 'PENDING', reportedAmount: null };
   }
 }
 
@@ -121,15 +132,18 @@ class FedaPayAdapter implements PaymentProvider {
     };
   }
 
-  async checkStatus(payment: ProviderPaymentInfo): Promise<ProviderOutcome> {
-    if (!payment.externalRef) return 'PENDING';
+  async checkStatus(payment: ProviderPaymentInfo): Promise<ProviderStatusCheck> {
+    if (!payment.externalRef) return { outcome: 'PENDING', reportedAmount: null };
     const res = await httpJson(
       'GET',
       `${this.baseUrl()}/transactions/${payment.externalRef}`,
       undefined,
       this.headers(),
     );
-    return mapFedapayStatus(extractFedapayStatus(res));
+    return {
+      outcome: mapFedapayStatus(extractFedapayStatus(res)),
+      reportedAmount: extractFedapayAmount(res),
+    };
   }
 }
 
@@ -171,14 +185,17 @@ class CinetPayAdapter implements PaymentProvider {
     };
   }
 
-  async checkStatus(payment: ProviderPaymentInfo): Promise<ProviderOutcome> {
+  async checkStatus(payment: ProviderPaymentInfo): Promise<ProviderStatusCheck> {
     const res = await httpJson(
       'POST',
       'https://api-checkout.cinetpay.com/v2/payment/check',
       buildCinetpayCheckPayload(config.cinetpayApiKey, config.cinetpaySiteId, payment.reference),
     );
-    if (res?.code !== '00') return 'PENDING';
-    return mapCinetpayStatus(res?.data?.status);
+    if (res?.code !== '00') return { outcome: 'PENDING', reportedAmount: null };
+    return {
+      outcome: mapCinetpayStatus(res?.data?.status),
+      reportedAmount: extractCinetpayAmount(res),
+    };
   }
 }
 

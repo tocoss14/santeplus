@@ -39,6 +39,7 @@ import { FraudDetectionJob } from './jobs/fraud-detection.job';
 import { RetentionJob } from './jobs/retention.job';
 import { CommissionFraudJob } from './jobs/commission-fraud.job';
 import { PaymentReminderJob } from './jobs/payment-reminder.job';
+import { PaymentReconciliationJob } from './jobs/payment-reconciliation.job';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { PaymentReminderJob } from './jobs/payment-reminder.job';
     RetentionJob,
     CommissionFraudJob,
     PaymentReminderJob,
+    PaymentReconciliationJob,
     CronService,
   ],
 })

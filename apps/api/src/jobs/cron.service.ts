@@ -8,6 +8,7 @@ import { FraudDetectionJob } from './fraud-detection.job';
 import { RetentionJob } from './retention.job';
 import { CommissionFraudJob } from './commission-fraud.job';
 import { PaymentReminderJob } from './payment-reminder.job';
+import { PaymentReconciliationJob } from './payment-reconciliation.job';
 
 @Injectable()
 export class CronService implements OnApplicationBootstrap {
@@ -19,6 +20,7 @@ export class CronService implements OnApplicationBootstrap {
     private retentionJob?: RetentionJob,
     private commissionFraudJob?: CommissionFraudJob,
     private paymentReminderJob?: PaymentReminderJob,
+    private paymentReconciliationJob?: PaymentReconciliationJob,
   ) {}
 
   onApplicationBootstrap() {
@@ -29,6 +31,9 @@ export class CronService implements OnApplicationBootstrap {
     cron.schedule('0 3 * * *', () => void this.checkRetention().catch((e) => console.error('[cron] retention error', e)));
     cron.schedule('30 3 * * *', () => void this.checkCommissionFraud().catch((e) => console.error('[cron] commissionFraud error', e)));
     cron.schedule('0 9 * * *', () => void this.sendPaymentReminders().catch((e) => console.error('[cron] paymentReminder error', e)));
+    // Réconciliation PSP : toutes les 10 min, filet de sécurité si un webhook
+    // n'arrive jamais (P0 ③) — le statut est toujours re-vérifié chez le PSP.
+    cron.schedule('*/10 * * * *', () => void this.reconcilePayments().catch((e) => console.error('[cron] paymentReconciliation error', e)));
     // also delegate to dedicated job if injected
     if (this.renewalAlertJob) {
       // already scheduled above; also ensure job's own schedule is not double
@@ -73,6 +78,13 @@ export class CronService implements OnApplicationBootstrap {
     }
     const job = new CommissionFraudJob(this.prisma as any, this.dispatch as any);
     return job.run(now);
+  }
+
+  async reconcilePayments(now = new Date()) {
+    if (this.paymentReconciliationJob) {
+      return this.paymentReconciliationJob.run(now);
+    }
+    return { checked: 0, confirmed: 0, failed: 0, stillPending: 0, errors: 0 };
   }
 
   async sendPaymentReminders(now = new Date()) {

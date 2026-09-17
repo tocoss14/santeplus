@@ -1,14 +1,4 @@
 import { Link } from 'react-router-dom';
-import { netCoverageLabel } from '../format';
-
-function parseStaticPercent(value: string): number {
-  if (value.trim() === '—') return 0;
-  return Number(value.replace('%', '').replace(',', '.'));
-}
-
-function netStaticRate(rate: string, copay: string): string {
-  return netCoverageLabel(parseStaticPercent(rate), parseStaticPercent(copay));
-}
 
 const FORMULAS = [
   {
@@ -146,8 +136,8 @@ const FORMULAS = [
 const COST_CONTROL_MECHANISMS = [
   {
     title: '🎫 Ticket modérateur (Copay)',
-    description: "L'assuré paie toujours une partie des frais (10% à 50% selon la formule et la catégorie). Le copay s'applique après le taux brut : un taux de 70% avec un copay de 30% correspond à un remboursement net estimé de 49%, avant barème et plafonds.",
-    detail: 'Exemple réaliste (Essentielle, consultation) : facture 15 000 FCFA, barème 10 000 FCFA, taux 70%, copay 30% → base éligible 10 000 FCFA, couverture 7 000 FCFA, copay 2 100 FCFA, remboursement 4 900 FCFA, reste à charge 10 100 FCFA dont 5 000 FCFA de dépassement. Exemple hospitalisation (taux 75%, copay 25%, facture 100 000 FCFA, sans franchise) : couverture 75 000 FCFA, copay 18 750 FCFA, remboursement 56 250 FCFA, reste à charge 43 750 FCFA.',
+    description: "L'assuré paie le ticket modérateur, complément du taux de remboursement : taux 70 % ⇒ l'assureur paie 70 % et l'assuré 30 % — total 100 %, avant barème et plafonds.",
+    detail: 'Exemple réaliste (Essentielle, consultation) : facture 15 000 FCFA, barème 10 000 FCFA, taux 70% → base éligible 10 000 FCFA, remboursement 7 000 FCFA, ticket modérateur 3 000 FCFA, reste à charge 8 000 FCFA dont 5 000 FCFA de dépassement. Exemple hospitalisation (taux 75%, facture 100 000 FCFA, sans franchise) : remboursement 75 000 FCFA, ticket 25 000 FCFA.',
   },
   {
     title: '📋 Plafonds par acte (Barème médical)',
@@ -323,8 +313,7 @@ export default function CGA() {
                     <thead>
                       <tr className="bg-slate-50">
                         <th className="p-2.5 text-left text-xs font-semibold text-slate-600">Catégorie</th>
-                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Taux brut</th>
-                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Net estimé</th>
+                        <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Taux de remboursement</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Plafond/an</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Max par acte</th>
                         <th className="p-2.5 text-center text-xs font-semibold text-slate-600">Copay</th>
@@ -336,7 +325,6 @@ export default function CGA() {
                         <tr key={g.category} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
                         <td className="p-2.5 font-medium text-slate-700">{g.category}</td>
                         <td className="p-2.5 text-center font-bold text-brand-700">{g.rate}</td>
-                        <td className="p-2.5 text-center font-semibold text-emerald-700">{netStaticRate(g.rate, g.copay)}</td>
                         <td className="p-2.5 text-center text-slate-600">{g.cap}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.perAct}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.copay}</td>
@@ -347,7 +335,7 @@ export default function CGA() {
                   </table>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  Net estimé = taux brut × (100 − copay) / 100, avant barème par acte, plafonds annuels et plafond annuel de reste à charge.
+                  Le ticket modérateur complète le taux de remboursement (taux + ticket = 100 %) : taux 70 % ⇒ assureur 70 %, assuré 30 %. Remboursement réel après barème par acte, plafonds annuels et plafond annuel de reste à charge.
                 </p>
               </div>
 

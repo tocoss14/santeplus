@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { fcfa, netCoverageLabel, CATEGORY_LABELS } from '../format';
+import { fcfa, ticketModerateurLabel, CATEGORY_LABELS } from '../format';
 
 export default function Offers() {
   const [products, setProducts] = useState<any[]>([]);
@@ -40,7 +40,7 @@ export default function Offers() {
                   <div key={g.id} className="flex items-baseline justify-between gap-3 text-sm border-b border-dashed border-slate-100 pb-1.5">
                     <span>{CATEGORY_LABELS[g.guarantee.category] ?? g.guarantee.name}</span>
                     <span className="shrink-0 text-xs text-slate-500">
-                      {g.rate}% brut · net {netCoverageLabel(g.rate, g.copayRate)} {g.annualLimit != null && `· plafond ${fcfa(g.annualLimit)}`}
+                      {g.rate}% · ticket {ticketModerateurLabel(g.rate)} {g.annualLimit != null && `· plafond ${fcfa(g.annualLimit)}`}
                     </span>
                   </div>
                 ))}
@@ -73,19 +73,19 @@ export default function Offers() {
             </div>
             <h4 className="label mt-4">Garanties</h4>
             <table className="w-full text-sm">
-              <thead><tr><th className="th">Garantie</th><th className="th">Taux brut</th><th className="th">Net estimé</th><th className="th">Plafond annuel</th></tr></thead>
+              <thead><tr><th className="th">Garantie</th><th className="th">Taux de remboursement</th><th className="th">Ticket modérateur</th><th className="th">Plafond annuel</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {detail.guarantees.map((g: any) => (
                   <tr key={g.id}>
                     <td className="td">{CATEGORY_LABELS[g.guarantee.category]}</td>
                     <td className="td">{g.rate}%</td>
-                    <td className="td font-semibold text-emerald-700">{netCoverageLabel(g.rate, g.copayRate)}</td>
+                    <td className="td font-semibold text-emerald-700">{ticketModerateurLabel(g.rate)}</td>
                     <td className="td">{g.annualLimit == null ? 'Illimité' : fcfa(g.annualLimit)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="mt-2 text-xs text-slate-500">Net estimé avant barème, plafonds et plafond annuel de reste à charge.</p>
+            <p className="mt-2 text-xs text-slate-500">Le ticket modérateur complète le taux (taux + ticket = 100 %). Remboursement réel après barème, plafonds et plafond annuel de reste à charge.</p>
             {detail.exclusions?.length > 0 && (
               <>
                 <h4 className="label mt-4">Exclusions</h4>

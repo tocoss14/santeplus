@@ -1,4 +1,4 @@
-import { fcfa, netCoverageLabel, CATEGORY_LABELS } from '../format';
+import { fcfa, ticketModerateurLabel, CATEGORY_LABELS } from '../format';
 
 interface Product {
   id: string;
@@ -54,7 +54,7 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
         <h2 className="text-lg font-bold">Comparez nos formules</h2>
         <p className="mt-1 text-sm text-brand-100">
           Choisissez la couverture qui correspond à vos besoins et votre budget.
-          Tous les tarifs sont en FCFA. Le taux net estimé tient compte du ticket modérateur, avant barème et plafonds.
+          Tous les tarifs sont en FCFA. Le ticket modérateur complète le taux de remboursement (taux + ticket = 100 %) ; le remboursement réel s'applique après barème et plafonds.
         </p>
       </div>
 
@@ -175,7 +175,7 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
                     <td key={p.id} className="p-3 text-center">
                       <div className="font-bold text-brand-700">{g.rate ?? 100}% brut</div>
                       <div className="text-xs font-semibold text-emerald-700">
-                        Net estimé : {netCoverageLabel(g.rate ?? 100, g.copayRate)}
+                        Ticket modérateur : {ticketModerateurLabel(g.rate ?? 100)}
                       </div>
                       {g.annualLimit && (
                         <div className="text-xs text-slate-500 mt-0.5">
@@ -276,7 +276,7 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
                   <div key={g.guarantee.category} className="rounded-lg bg-slate-50 p-2">
                     <span className="text-slate-400">{CATEGORY_LABELS[g.guarantee.category]?.split(' ')[0] ?? g.guarantee.category}</span>
                     <span className="ml-1 font-bold text-slate-700">{g.rate ?? 100}% brut</span>
-                    <span className="ml-1 font-semibold text-emerald-700">· net {netCoverageLabel(g.rate ?? 100, g.copayRate)}</span>
+                    <span className="ml-1 font-semibold text-emerald-700">· ticket {ticketModerateurLabel(g.rate ?? 100)}</span>
                   </div>
                 ))}
               </div>

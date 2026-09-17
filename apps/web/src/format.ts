@@ -172,15 +172,12 @@ function clampPercent(value: number | null | undefined): number {
 }
 
 /**
- * Taux net estimé avant barème et plafonds : taux brut × (100 − copay) / 100.
- * Exemple : 70 % brut avec 30 % de copay → 49 % net estimé.
+ * Ticket modérateur = le complément du taux de remboursement (décision produit
+ * du 17/09) : le taux est l'unique vérité. Taux 80 % ⇒ l'assureur paie 80 % et
+ * l'assuré 20 % (son ticket) — total 100 %, c'est tout. Aucun « taux net ».
  */
-export const netCoverageRate = (rate: number | null | undefined, copayRate: number | null | undefined): number => {
-  const net = (clampPercent(rate) * (100 - clampPercent(copayRate))) / 100;
-  return Math.round(net * 10) / 10;
-};
+export const ticketModerateur = (rate: number | null | undefined): number =>
+  Math.round((100 - clampPercent(rate)) * 10) / 10;
 
-export const netCoverageLabel = (rate: number | null | undefined, copayRate: number | null | undefined): string => {
-  const net = netCoverageRate(rate, copayRate);
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(net)} %`;
-};
+export const ticketModerateurLabel = (rate: number | null | undefined): string =>
+  `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(ticketModerateur(rate))} %`;

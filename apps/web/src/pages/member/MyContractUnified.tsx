@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link } from 'react-router-dom';
 import { api, API_BASE } from '../../api';
-import { cardQrPayload, fcfa, fmtDate, netCoverageLabel, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
+import { cardQrPayload, fcfa, fmtDate, ticketModerateurLabel, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
 
 type Tab = 'contrat' | 'paiements' | 'carte';
@@ -239,7 +239,7 @@ function ContractTab({ detail }: { detail: any }) {
                     <div className="flex items-baseline justify-between text-sm">
                       <span className="font-medium">{c.label}</span>
                       <span className="text-xs text-slate-500">
-                        taux brut {c.rate}% · net {netCoverageLabel(c.rate, c.copayRate)} · reste {c.remaining == null ? 'illimité' : fcfa(c.remaining)}
+                        remboursement {c.rate}% · ticket {ticketModerateurLabel(c.rate)} · reste {c.remaining == null ? 'illimité' : fcfa(c.remaining)}
                         {c.annualLimit != null && ` / ${fcfa(c.annualLimit)}`}
                       </span>
                     </div>

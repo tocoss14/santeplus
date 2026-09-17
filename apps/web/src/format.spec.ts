@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardQrPayload, netCoverageLabel, netCoverageRate, prescriptionStatusLabel, statusLabel } from './format';
+import { cardQrPayload, ticketModerateur, ticketModerateurLabel, prescriptionStatusLabel, statusLabel } from './format';
 
 // P6/7 : libellés FR §5 (ordonnances) et §27 (factures).
 // Les statuts techniques API sont inchangés — seul l'affichage est mappé.
@@ -40,19 +40,19 @@ describe('cardQrPayload — charge utile canonique de vérification', () => {
   });
 });
 
-describe('netCoverageRate — taux net estimé avant barème/plafonds', () => {
+describe('ticketModerateur — complément du taux (taux + ticket = 100 %)', () => {
   it.each([
-    [70, 30, 49],
-    [60, 40, 36],
-    [80, 20, 64],
-    [90, 10, 81],
-    [100, 0, 100],
-  ])('%i %% brut avec %i %% de copay → %i %% net', (rate, copay, net) => {
-    expect(netCoverageRate(rate, copay)).toBe(net);
+    [70, 30],
+    [60, 40],
+    [80, 20],
+    [90, 10],
+    [100, 0],
+  ])('taux %i %% ⇒ ticket %i %%', (rate, ticket) => {
+    expect(ticketModerateur(rate)).toBe(ticket);
   });
 
-  it('formate le net en français', () => {
-    expect(netCoverageLabel(70, 30)).toBe('49 %');
+  it('formate le ticket en français', () => {
+    expect(ticketModerateurLabel(70)).toBe('30 %');
   });
 });
 

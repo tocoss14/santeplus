@@ -58,7 +58,7 @@ export default function Landing() {
                   Créer mon compte
                 </Link>
               </div>
-              <div className="mt-8 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white/50">
+              <div className="mt-8 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white/70">
                 <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-laterite-500" /> Sans papier</span>
                 <span className="text-white/20">·</span>
                 <span>Sans déplacement</span>
@@ -66,8 +66,18 @@ export default function Landing() {
                 <span>Résiliable à l’échéance</span>
               </div>
               <div className="mt-8 overflow-hidden rounded-[20px] border border-white/10 bg-white/5 backdrop-blur">
-                <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800&h=500&fit=crop" alt="Famille protégée SantéPlus" className="h-48 w-full object-cover sm:h-56" loading="lazy" />
-                <div className="px-4 py-2.5 text-center font-mono text-[10px] uppercase tracking-widest text-white/60">Famille protégée · Soins à portée de main</div>
+                <img
+                  src="/img/famille-protegee-800.jpg"
+                  srcSet="/img/famille-protegee-400.jpg 400w, /img/famille-protegee-800.jpg 800w"
+                  sizes="(min-width: 1024px) 560px, 92vw"
+                  alt="Famille protégée SantéPlus"
+                  width="800"
+                  height="500"
+                  fetchPriority="high"
+                  decoding="async"
+                  className="h-48 w-full object-cover sm:h-56"
+                />
+                <div className="px-4 py-2.5 text-center font-mono text-[10px] uppercase tracking-widest text-white/75">Famille protégée · Soins à portée de main</div>
               </div>
             </div>
 
@@ -82,7 +92,7 @@ export default function Landing() {
                     <p className="eyebrow">Simulateur familial</p>
                     <p className="mt-1 font-display text-xl font-bold text-ink">Combien pour ma famille ?</p>
                   </div>
-                  <span className="rounded-full bg-laterite-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">En direct</span>
+                  <span className="rounded-full bg-laterite-600 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">En direct</span>
                 </div>
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
@@ -117,19 +127,19 @@ export default function Landing() {
                 </div>
 
                 <div className="mt-6 rounded-2xl bg-ink p-5 text-white">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/50">Cotisation estimée</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">Cotisation estimée</p>
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className="font-mono text-3xl font-bold tracking-tight">{simProduct ? fcfa(Math.round(simTotal / 12)) : '—'}</span>
-                    <span className="text-sm font-bold text-white/50">/ mois</span>
+                    <span className="text-sm font-bold text-white/70">/ mois</span>
                   </div>
-                  <p className="mt-1 font-mono text-xs text-white/40">soit {simProduct ? fcfa(simTotal) : '—'} / an · Famille {adults} adulte{adults > 1 ? 's' : ''}{children ? ` + ${children} enfant${children > 1 ? 's' : ''}` : ''}</p>
+                  <p className="mt-1 font-mono text-xs text-white/65">soit {simProduct ? fcfa(simTotal) : '—'} / an · Famille {adults} adulte{adults > 1 ? 's' : ''}{children ? ` + ${children} enfant${children > 1 ? 's' : ''}` : ''}</p>
                     <Link to={simProduct ? `/register?productId=${simProduct.id}` : '/register'} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-sm font-bold text-ink hover:bg-sand transition">
                     Souscrire cette formule <span aria-hidden>→</span>
                   </Link>
-                  <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-white/30">Tarifs indicatifs · Devis détaillé à l’étape suivante</p>
+                  <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-white/65">Tarifs indicatifs · Devis détaillé à l’étape suivante</p>
                 </div>
               </div>
-              <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">Paiement mobile money · Carte QR instantanée</p>
+              <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-white/65">Paiement mobile money · Carte QR instantanée</p>
             </div>
           </div>
         </div>
@@ -145,8 +155,7 @@ export default function Landing() {
               <span key={b} className="rounded-full border border-mist bg-sand px-3.5 py-1.5 font-mono text-xs font-bold text-ink">{b}</span>
             ))}
           </div>
-          <p className="hidden items-center gap-2 font-mono text-xs text-stone sm:flex">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" /> Plateforme agréée · Partenaires assureurs conventionnés
+          <p className="hidden items-center gap-2 font-mono text-xs text-stone sm:flex">              <span className="h-2 w-2 rounded-full bg-emerald-700" /> Plateforme agréée · Partenaires assureurs conventionnés
           </p>
         </div>
       </section>
@@ -170,7 +179,7 @@ export default function Landing() {
               <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-ink font-mono text-sm font-bold text-white">{n}</span>
               <p className="mt-4 font-display text-[17px] font-bold leading-tight">{t}</p>
               <p className="mx-auto mt-1.5 max-w-[18ch] text-sm leading-relaxed text-stone">{d}</p>
-              {arrow && <span className="absolute -right-2 top-[38px] hidden h-8 w-8 place-items-center rounded-full bg-laterite-500 text-white sm:grid">→</span>}
+              {arrow && <span className="absolute -right-2 top-[38px] hidden h-8 w-8 place-items-center rounded-full bg-laterite-600 text-white sm:grid">→</span>}
             </div>
           ))}
         </div>
@@ -201,14 +210,14 @@ export default function Landing() {
               <ul className="mt-5 flex-1 space-y-2.5 text-sm">
                 {p.guarantees.slice(0, 5).map((g: any) => (
                   <li key={g.id} className="flex items-start gap-2.5">
-                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-500 text-[11px] font-bold text-white">✓</span>
+                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-700 text-[11px] font-bold text-white">✓</span>
                     <span className="flex-1 font-medium leading-snug">{g.guarantee.name}</span>
                     {g.annualLimit ? <span className="ml-auto shrink-0 font-mono text-xs text-stone">jusqu’à {fcfa(g.annualLimit)}</span> : null}
                   </li>
                 ))}
               </ul>
               <Link to="/offres" className={`mt-6 w-full ${isPopular ? 'btn-primary rounded-full' : 'btn-outline rounded-full'}`}>Voir la formule</Link>
-              <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-stone/60">Sans engagement · Détails à l’étape suivante</p>
+              <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-stone">Sans engagement · Détails à l’étape suivante</p>
             </div>
             );
           })}
@@ -239,7 +248,7 @@ export default function Landing() {
           <div className="relative rounded-2xl bg-ink p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-white/50">Import salariés · SOTRABEN SARL</p>
-              <span className="rounded-full bg-emerald-500 px-2.5 py-1 font-mono text-[10px] font-bold text-white">3 ajoutés</span>
+              <span className="rounded-full bg-emerald-700 px-2.5 py-1 font-mono text-[10px] font-bold text-white">3 ajoutés</span>
             </div>
             <div className="mt-4 overflow-hidden rounded-xl bg-white">
               <table className="w-full text-left text-xs">
@@ -251,7 +260,7 @@ export default function Landing() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-white/40">CSV validé ligne par ligne · 0 doublon</p>
+            <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-white/65">CSV validé ligne par ligne · 0 doublon</p>
           </div>
         </div>
       </section>
@@ -261,7 +270,7 @@ export default function Landing() {
         <div className="pointer-events-none absolute inset-0 opacity-[0.06]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='48' height='24' viewBox='0 0 48 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 12 L12 0 L24 12 L36 0 L48 12 L36 24 L24 12 L12 24 Z' fill='white'/%3E%3C/svg%3E")`, backgroundSize: '48px 24px' }} />
         <div className="relative mx-auto grid max-w-6xl gap-8 px-4 md:grid-cols-[1.35fr_0.65fr] md:items-center">
           <div>
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-white/50">Réseau de soins</p>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Réseau de soins</p>
             <h2 className="mt-2 font-display text-2xl sm:text-[32px] font-bold leading-tight">Partout au Bénin, vous êtes reconnu</h2>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65">
               Hôpitaux, cliniques, pharmacies, laboratoires et spécialistes conventionnés — trouvez « une pharmacie près de moi » directement dans l’app.
@@ -274,7 +283,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="rounded-[24px] bg-white p-6 text-ink shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-stone">Établissements partenaires</p>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-stone/80">Établissements partenaires</p>
             <p className="mt-2 font-display text-5xl font-bold tracking-tight">{providerCount || 12}<span className="text-laterite-600">+</span></p>
             <p className="mt-1 text-sm font-medium text-stone">référencés dans la démo, partout sur le territoire</p>
             <Link to="/reseau" className="btn-outline mt-5 w-full rounded-full">Explorer le réseau</Link>
@@ -305,7 +314,7 @@ export default function Landing() {
             <Link to="/offres" className="btn-primary bg-white px-8 !text-ink hover:!bg-sand">Souscrire maintenant</Link>
             <Link to="/inscription-prestataire" className="rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-bold text-white hover:bg-white hover:text-ink transition">🏥 Prestataire ? Rejoindre le réseau</Link>
           </div>
-          <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-white/30">Paiement sécurisé · Données chiffrées</p>
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-white/65">Paiement sécurisé · Données chiffrées</p>
         </div>
       </section>
     </div>

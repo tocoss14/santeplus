@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 // A-02 : chargement explicite du fichier .env du module API (développement uniquement).
 // - Les variables déjà présentes dans le processus ONT TOUJOURS PRIORITÉ (jamais écrasées) :
 //   la plateforme de déploiement (Runsite/Docker) reste maître de la config de production.
@@ -64,6 +65,17 @@ async function bootstrap(): Promise<void> {
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
     // Cookies httpOnly (sp_access / sp_refresh) — requis avant les routes auth
     app.use(cookieParser());
+
+    // Perf : gzip des réponses JSON/JS/CSS (paquets API pouvant dépasser 100 Ko).
+    // Le client web est servi par le CDN statique — inutile de re-compresser ici.
+    app.use(
+      compression({
+        filter: (req, res) => {
+          if (req.headers['x-no-compression']) return false;
+          return compression.filter(req, res);
+        },
+      }),
+    );
 
     // Anti-CSRF : les mutations authentifiées par COOKIE exigent une Origin/Referer autorisée.
     // - Requêtes Bearer : insensibles au CSRF (pas de cookies) → passent.

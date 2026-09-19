@@ -67,16 +67,32 @@ function emitApiError(err: ApiError, method: string, path: string): void {
 
 // Renouvellement silencieux : un seul vol en cours partagé entre les requêtes
 // concurrentes (anti-rafale), une seule tentative par requête (anti-boucle).
+// Exporté pour les sondes de session (AuthProvider) : évite le GET /auth/me
+// invariablement en 401 pour les visiteurs non connectés (erreur console + surcoût refresh).
 let refreshPromise: Promise<boolean> | null = null;
-function silentRefresh(): Promise<boolean> {
+export function silentRefresh(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+    // Sonde 200-toujours : un visiteur sans session obtient {authenticated:false}
+    // au lieu d'un 401 (que le navigateur loggerait en console quoi qu'il arrive).
+    // Repli sur /auth/refresh si l'endpoint n'est pas encore déployé (404).
+    refreshPromise = fetch(`${API_BASE}/api/auth/session-probe`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
     })
-      .then(r => r.ok)
+      .then(async r => {
+        if (r.status === 404) {
+          const legacy = await fetch(`${API_BASE}/api/auth/refresh`, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          return legacy.ok;
+        }
+        if (!r.ok) return false;
+        const data = await r.json().catch(() => null);
+        return !!data?.authenticated;
+      })
       .catch(() => false)
       .finally(() => {
         refreshPromise = null;

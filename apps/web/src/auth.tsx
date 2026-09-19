@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { api } from './api';
+import { api, silentRefresh } from './api';
 
 export interface Me {
   id: string;
@@ -35,6 +35,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async (): Promise<Me | null> => {
+    // Sonde de session : d'abord le refresh silencieux (200 si session vivante,
+    // 401 attendu si visiteur public — mais son statut est déjà consommé ici,
+    // aucune erreur console). /auth/me n'est appelé QUE si la session existe.
+    try {
+      const alive = await silentRefresh();
+      if (!alive) {
+        setMe(null);
+        return null;
+      }
+    } catch {
+      setMe(null);
+      return null;
+    }
     try {
       // Auth par cookies httpOnly — la couche api renouvelle silencieusement si besoin.
       const user = await api.get<Me>('/auth/me');

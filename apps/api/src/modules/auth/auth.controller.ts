@@ -36,6 +36,28 @@ export class AuthController {
     return { ...tokens, user: this.publicUser(user) };
   }
 
+  /**
+   * Sonde de session pour le boot des SPA publiques : répond TOUJOURS 200.
+   * - `authenticated: false` pour un visiteur sans session (pas d'erreur console,
+   *   pas de tentatives de refresh en cascade côté front).
+   * - `authenticated: true` + rotation des cookies si la session est vivante.
+   * Remplace le GET /auth/me en 401 invariablement loggé par le navigateur
+   * lors du chargement des pages publiques.
+   */
+  @Public()
+  @Post('session-probe')
+  async sessionProbe(@Req() req: Request, @Res({ passthrough: true }) res?: Response) {
+    const token: string | undefined = (req.cookies as any)?.[REFRESH_COOKIE];
+    if (!token) return { authenticated: false };
+    try {
+      const tokens = await this.auth.refresh(token);
+      if (res) setAuthCookies(res, tokens);
+      return { authenticated: true, user: this.publicUser((tokens as any).user) };
+    } catch {
+      return { authenticated: false };
+    }
+  }
+
   @Public()
   @Post('refresh')
   async refresh(@Req() req: Request, @Body(new ZodPipe(refreshSchema)) dto: any, @Res({ passthrough: true }) res?: Response) {

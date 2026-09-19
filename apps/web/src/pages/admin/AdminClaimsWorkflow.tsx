@@ -208,8 +208,8 @@ export default function AdminClaimsWorkflow() {
                     ))}
                   </ul>
                 )}
-                <p className="mt-2 text-xs text-slate-400">
-                  Les pièces sont ajoutées lors de la déclaration initiale ; l’ajout ultérieur reste à implémenter côté API.
+                <p className="mt-2 text-xs text-slate-500">
+                  L’assuré peut ajouter des pièces complémentaires tant que le dossier est en « Demande d’information » ; le dossier repasse alors en analyse.
                 </p>
               </div>
 
@@ -227,13 +227,13 @@ export default function AdminClaimsWorkflow() {
                   {['SUBMITTED', 'INFO_REQUESTED'].includes(detail.status) && (
                     <button className="btn-primary btn-sm" disabled={busy} onClick={() => act('under-review')}>Passer en instruction</button>
                   )}
-                  {['SUBMITTED', 'UNDER_REVIEW'].includes(detail.status) && (
+                  {['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED'].includes(detail.status) && (
                     <button
                       className="btn-outline btn-sm"
                       disabled={busy || note.trim().length < 3}
                       onClick={() => act('request-info', { note: note.trim() })}
                     >
-                      Demander des informations
+                      {detail.status === 'INFO_REQUESTED' ? 'Relancer la demande d’information' : 'Demander des informations'}
                     </button>
                   )}
                   {['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED'].includes(detail.status) && (

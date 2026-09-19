@@ -209,6 +209,11 @@ const createClaimSchema = z.object({
   docTypes: z.array(z.enum(['INVOICE', 'PRESCRIPTION', 'OTHER'])).optional(),
 });
 
+// Demande d'information : note visible par l'assuré (3 caractères minimum).
+export const requestInfoSchema = z.object({
+  note: z.string().min(3).max(1000),
+});
+
 const approveSchema = z.object({
   note: z.string().max(1000).optional(),
   overrides: z.array(z.object({ itemId: z.string(), amountApproved: z.number().int().min(0), amountEligible: z.number().int().min(0).optional() })).optional(),
@@ -620,10 +625,10 @@ export class ClaimsController {
 
   @Post('admin/claims/:id/request-info')
   @RequirePermissions('claims.viewAll')
-  async requestInfo(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ note: z.string().min(3).max(1000) }))) dto: any) {
+  async requestInfo(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body(new ZodPipe(requestInfoSchema)) dto: any) {
     const claim = await this.decisionGuard(id, 'REQUEST_INFO');
     await this.prisma.claim.update({ where: { id }, data: { status: 'INFO_REQUESTED', decisionNote: dto.note } });
-    await this.notifyClaimant(claim.claimantUserId, claim.reference, `Documents complÃ©mentaires requis`, dto.note);
+    await this.notifyClaimant(claim.claimantUserId, claim.reference, `Documents complémentaires requis`, dto.note);
     return { ok: true };
   }
 

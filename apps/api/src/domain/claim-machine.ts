@@ -29,7 +29,10 @@ export type ClaimAction =
 //  appliquée dans le contrôleur (claims.controller.approve).
 export const CLAIM_TRANSITIONS: Record<ClaimAction, readonly string[]> = {
   SUBMIT: ['DRAFT', 'INFO_REQUESTED'],
-  REQUEST_INFO: ['SUBMITTED', 'UNDER_REVIEW'],
+  // INFO_REQUESTED inclus : le gestionnaire peut relancer/préciser sa demande
+  // tant que l'assuré n'a pas répondu (le complément de pièces repasse le
+  // dossier en analyse via SUBMIT).
+  REQUEST_INFO: ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED'],
   UNDER_REVIEW: ['SUBMITTED', 'INFO_REQUESTED'],
   APPROVE: ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED', 'CONFIRMED'],
   REJECT: ['SUBMITTED', 'UNDER_REVIEW', 'INFO_REQUESTED'],

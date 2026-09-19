@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Query, Res } from '@nestjs/common';
+import { BadRequestException, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Query, Req, Res } from '@nestjs/common';
 import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { Response } from 'express';
@@ -8,6 +8,8 @@ import { CurrentUser } from '../../common/decorators';
 import { PrismaService } from '../../common/prisma.module';
 import { config } from '../../config';
 import { sha256 } from '../../common/crypto';
+import { JwtService } from '../../common/guards/jwt.service';
+import { ACCESS_COOKIE } from '../auth/cookies';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
 
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -16,6 +18,34 @@ const MAX_SIZE = 8 * 1024 * 1024;
 @Injectable()
 export class StorageService {
   private s3: S3Client | null = null;
+
+  /**
+   * Identification de repli : sur une route @Public() où le guard n'a pas
+   * peuplé req.user (token absent, expiré…) mais où un token valide est
+   * quand même fourni, on l'identifie ici. Sans cela, toute pièce jointe
+   * renvoyait 403 même pour le staff et le propriétaire — la route publique
+   * court-circuitait le guard avant le chargement de l'utilisateur.
+   */
+  private async resolveAuth(auth: AuthUser | null | undefined, req?: any): Promise<AuthUser | null> {
+    if (auth) return auth;
+    if (!req?.headers && !req?.cookies) return null;
+    const header: string | undefined = req.headers?.['authorization'];
+    const bearer = typeof header === 'string' && header.startsWith('Bearer ') ? header.slice(7) : undefined;
+    const raw = bearer ?? (typeof req.cookies?.[ACCESS_COOKIE] === 'string' ? req.cookies[ACCESS_COOKIE] : undefined);
+    if (!raw) return null;
+    try {
+      const payload = this.jwt.verify(raw);
+      if (payload.type !== 'access') return null;
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, email: true, role: true, status: true, companyId: true, providerId: true },
+      });
+      if (!user || user.status === 'SUSPENDED') return null;
+      return { id: user.id, email: user.email, role: user.role, companyId: user.companyId, providerId: user.providerId };
+    } catch {
+      return null;
+    }
+  }
 
   private s3Enabled(): boolean {
     return Boolean(config.s3Endpoint && config.s3Bucket && config.s3AccessKeyId && config.s3SecretAccessKey);
@@ -91,24 +121,25 @@ export class StorageService {
     }
   }
 
-  async open(auth: AuthUser, fileId: string, res: Response) {
+  async open(auth: AuthUser | null | undefined, fileId: string, res: Response, req?: any) {
+    const user = await this.resolveAuth(auth, req);
     const f = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
     if (!f) throw new NotFoundException('Fichier introuvable');
     // Provider photos are public
     if ((f as any).documentType === 'PROVIDER_PHOTO') {
       // allow public
     } else {
-      const isStaff = auth && ['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT'].includes(auth.role);
-      if (f.ownerId !== auth?.id && !isStaff) {
+      const isStaff = user && ['SUPER_ADMIN', 'INSURANCE_MANAGER', 'SUPPORT_AGENT'].includes(user.role);
+      if (f.ownerId !== user?.id && !isStaff) {
         const doc = await this.prisma.claimDocument.findFirst({
           where: { fileId },
           select: { claim: { select: { claimantUserId: true, contract: { select: { principalUserId: true, companyId: true } } } } },
         });
         const allowed =
           doc &&
-          (doc.claim.claimantUserId === auth?.id ||
-            doc.claim.contract.principalUserId === auth?.id ||
-            (auth?.role === 'COMPANY_ADMIN' && auth?.companyId && doc.claim.contract.companyId === auth.companyId));
+          (doc.claim.claimantUserId === user?.id ||
+            doc.claim.contract.principalUserId === user?.id ||
+            (user?.role === 'COMPANY_ADMIN' && user?.companyId && doc.claim.contract.companyId === user.companyId));
         if (!allowed) throw new ForbiddenException();
       }
     }
@@ -125,7 +156,7 @@ export class StorageService {
     createReadStream(path).pipe(res);
   }
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private jwt: JwtService) {}
 }
 
 @Controller()
@@ -134,8 +165,8 @@ export class FilesController {
 
   @Get('files/:id/view')
   @Public()
-  view(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Res() res: Response) {
-    return this.storage.open(auth ?? { id: '', role: '', providerId: null, companyId: null } as any, id, res);
+  view(@CurrentUser() auth: AuthUser, @Req() req: any, @Param('id') id: string, @Res() res: Response) {
+    return this.storage.open(auth, id, res, req);
   }
 
   @Get('admin/documents')

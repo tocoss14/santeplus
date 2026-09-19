@@ -12,11 +12,40 @@ export default function ClaimDetail() {
   const [claim, setClaim] = useState<any>(null);
   const [error, setError] = useState<string | null>((location.state as any)?.justSubmitted ? null : null);
   const [submittedBanner, setSubmittedBanner] = useState(Boolean((location.state as any)?.justSubmitted));
+  const [docType, setDocType] = useState('PRESCRIPTION');
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
-  useEffect(() => {
+  function loadClaim() {
     if (!id) return;
     api.get(`/claims/${id}`).then(setClaim).catch(e => setError(e?.message));
+  }
+
+  useEffect(() => {
+    loadClaim();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function uploadDocs() {
+    if (!id || !files?.length) return;
+    setBusy(true);
+    setUploadMsg(null);
+    try {
+      const fd = new FormData();
+      for (const f of Array.from(files)) fd.append('documents', f);
+      fd.append('docTypes', JSON.stringify([docType, ...Array.from(files).slice(1).map(() => 'OTHER')]));
+      const res = await api.post<{ added: number }>(`/claims/${id}/documents`, fd);
+      setUploadMsg(`✅ ${res.added} pièce(s) transmise(s) — votre demande est de retour en analyse.`);
+      setFiles(null);
+      loadClaim();
+    } catch (e: any) {
+      setUploadMsg(null);
+      setError(e?.message ?? 'Envoi impossible');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (error) return <ErrorBanner message={error} />;
   if (!claim) return <Spinner />;
@@ -137,6 +166,41 @@ export default function ClaimDetail() {
 
       <div className="card-p">
         <p className="label">Justificatifs ({claim.documents.length})</p>
+
+        {claim.status === 'INFO_REQUESTED' && (
+          <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+            <p className="text-sm text-orange-800">
+              Le gestionnaire attend des documents complémentaires{claim.decisionNote ? ` : « ${claim.decisionNote} »` : ''}.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <select className="input max-w-[190px]" value={docType} onChange={e => setDocType(e.target.value)} aria-label="Type de document">
+                <option value="PRESCRIPTION">Ordonnance</option>
+                <option value="INVOICE">Facture</option>
+                <option value="OTHER">Autre document</option>
+              </select>
+              <label className="btn-outline btn-sm cursor-pointer">
+                📎 Choisir des fichiers
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={e => setFiles(e.target.files)}
+                />
+              </label>
+              <button className="btn-primary btn-sm" disabled={busy || !files?.length} onClick={uploadDocs}>
+                {busy ? 'Envoi…' : 'Envoyer au gestionnaire'}
+              </button>
+            </div>
+            {files && files.length > 0 && (
+              <p className="mt-1 text-xs text-orange-700">{files.length} fichier(s) sélectionné(s)</p>
+            )}
+          </div>
+        )}
+        {uploadMsg && (
+          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{uploadMsg}</div>
+        )}
+
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {claim.documents.map((d: any) => (
             <li key={d.id}>

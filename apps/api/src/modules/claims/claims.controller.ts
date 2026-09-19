@@ -214,6 +214,20 @@ const approveSchema = z.object({
   overrides: z.array(z.object({ itemId: z.string(), amountApproved: z.number().int().min(0), amountEligible: z.number().int().min(0).optional() })).optional(),
 });
 
+// En multipart, les champs FormData arrivent en chaînes : docTypes peut être
+// un tableau JS ou une chaîne JSON ('["PRESCRIPTION"]') selon le client.
+export const addDocumentsSchema = z.object({
+  docTypes: z.preprocess(
+    v => {
+      if (typeof v === 'string') {
+        try { return JSON.parse(v); } catch { return [v]; }
+      }
+      return v;
+    },
+    z.array(z.enum(['INVOICE', 'PRESCRIPTION', 'OTHER'])).optional(),
+  ),
+});
+
 @Controller()
 @UseInterceptors(AuditInterceptor)
 export class ClaimsController {
@@ -438,6 +452,82 @@ export class ClaimsController {
       });
     }
     return { ok: true, autoApproved: autoApprovable };
+  }
+
+  /**
+   * Ajout de pièces après demande d'information du gestionnaire. Le membre
+   * (ou l'assuré principal) complète son dossier en statut INFO_REQUESTED ;
+   * les fichiers sont stockés et dédoublonnés (même empreinte qu'à la
+   * création), puis le dossier repasse en analyse et les gestionnaires
+   * impliqués sont notifiés.
+   */
+  @Post('claims/:id/documents')
+  @UseInterceptors(FilesInterceptor('documents', 5))
+  async addDocuments(
+    @CurrentUser() auth: AuthUser,
+    @Param('id') id: string,
+    @UploadedFiles() files: Express.Multer.File[] | undefined,
+    @Body(new ZodPipe(addDocumentsSchema)) dto: any,
+  ) {
+    if (!files?.length) throw new BadRequestException('Aucun fichier fourni');
+    const claim = await this.ownClaim(auth, id);
+    if (claim.status !== 'INFO_REQUESTED') {
+      throw new BadRequestException(`L'ajout de pièces n'est possible que sur une demande d'information (statut actuel : ${claim.status})`);
+    }
+
+    const docTypes: string[] = Array.isArray(dto.docTypes) && dto.docTypes.length
+      ? dto.docTypes
+      : (files ?? []).map(() => 'OTHER');
+
+    // Dédoublonnage : refuser un fichier déjà présent sur un dossier non rejeté
+    const stored: { storagePath: string; mime: string; size: number; sha256: string; docType: string; fileName: string }[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const saved = await this.storage.save(auth.id, f);
+      stored.push({ ...saved, docType: docTypes[i] ?? 'OTHER', fileName: f.originalname });
+    }
+    const dupFiles = await this.prisma.claimDocument.findMany({
+      where: { sha256: { in: stored.map(s => s.sha256) }, claim: { status: { notIn: ['REJECTED'] } } },
+      select: { sha256: true, claim: { select: { reference: true } } },
+      take: 1,
+    });
+    if (dupFiles.length) throw new BadRequestException('Ce document a déjà été transmis (fichier identique détecté)');
+
+    await this.prisma.$transaction(async tx => {
+      for (const sDoc of stored) {
+        const fileObj = await tx.fileObject.create({
+          data: { storagePath: sDoc.storagePath, mime: sDoc.mime, size: sDoc.size, sha256: sDoc.sha256, ownerId: auth.id },
+        });
+        await tx.claimDocument.create({
+          data: {
+            claimId: claim.id,
+            fileId: fileObj.id,
+            docType: sDoc.docType,
+            fileName: sDoc.fileName,
+            mime: sDoc.mime,
+            size: sDoc.size,
+            sha256: sDoc.sha256,
+          },
+        });
+      }
+      // Retour en analyse — transition SUBMIT depuis INFO_REQUESTED (machine à états)
+      await tx.claim.update({
+        where: { id: claim.id },
+        data: { status: 'SUBMITTED' },
+      });
+    });
+
+    await this.claims.notifyManagers(
+      'CLAIM_DOCS_ADDED',
+      `Documents complémentaires reçus — ${claim.reference}`,
+      `L'assuré a ajouté ${files.length} pièce(s) jointe(s) demandée(s). Le dossier est de retour en analyse.`,
+    );
+    await this.dispatch.dispatchToUser(auth.id, {
+      topic: 'CLAIM_STATUS',
+      title: `Demande ${claim.reference} — documents reçus`,
+      body: `Vos ${files.length} pièce(s) ont été transmises. Votre demande est de retour en analyse.`,
+    });
+    return { ok: true, added: files.length };
   }
 
   @Get('claims/mine')

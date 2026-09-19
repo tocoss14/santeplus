@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Injectable, Module, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuditInterceptor } from '../../common/audit.interceptor';
 import { Public } from '../../common/guards/jwt-auth.guard';
@@ -238,6 +238,9 @@ export class ProductsController {
 
   @Public()
   @Get('products')
+  // Référentiel quasi statique : cache client 5 min + stale-while-revalidate.
+  // Élimine le layout shift des pages publiques (cartes offres qui apparaissent après fetch).
+  @Header('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
   listPublic(@Query('clientType') clientType?: string) {
     return this.products.listPublic(clientType);
   }

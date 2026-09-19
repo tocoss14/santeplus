@@ -13,7 +13,7 @@ export default function PublicLayout() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2 font-bold text-lg text-brand-800">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white text-sm">SP</span>
-            SantéPlus <span className="text-slate-400 hidden sm:inline text-sm font-medium">Bénin</span>
+            SantéPlus <span className="text-slate-600 hidden sm:inline text-sm font-medium">Bénin</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600">
             <NavLink to="/offres" className="rounded-lg px-3 py-2 hover:bg-slate-100">Nos formules</NavLink>
@@ -75,7 +75,7 @@ export default function PublicLayout() {
             <p className="font-semibold text-slate-700">Produits</p>
             <ul className="mt-2 space-y-1.5 text-slate-500">
               <li><Link className="hover:text-brand-700" to="/offres">Formules individuelles</Link></li>
-              <li><span className="text-slate-400">Offres entreprises</span></li>
+              <li><span className="text-slate-600">Offres entreprises</span></li>
               <li><Link className="hover:text-brand-700" to="/cga">Conditions Générales</Link></li>
               <li><Link className="hover:text-brand-700" to="/reseau">Réseau de soins</Link></li>
             </ul>
@@ -88,7 +88,7 @@ export default function PublicLayout() {
               <li>Cotonou, Bénin</li>
             </ul>
           </div>
-          <div className="md:col-span-1 text-xs text-slate-400">
+          <div className="md:col-span-1 text-xs text-slate-600">
             <p>SantéPlus est une plateforme technologique d’intermédiation. Les contrats sont portés par des assureurs et mutuelles partenaires agréés.</p>
             <p className="mt-2">© 2026 SantéPlus — Démonstration.</p>
           </div>

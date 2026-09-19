@@ -184,10 +184,10 @@ export default function CGA() {
         <h1 className="text-3xl font-extrabold text-slate-900">
           Conditions Générales d'Assurance
         </h1>
-        <p className="mt-2 text-lg text-slate-500">
+        <p className="mt-2 text-lg text-slate-600">
           SantéPlus Bénin — Formules d'assurance maladie v2.0
         </p>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-slate-600">
           Version 2.0 · Équilibre Technique · Août 2026
         </p>
       </div>
@@ -227,12 +227,12 @@ export default function CGA() {
                 <tr key={f.code} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                   <td className="p-3">
                     <div className="font-bold text-slate-800">{f.name}</div>
-                    <div className="text-xs text-slate-400">{f.tagline}</div>
+                    <div className="text-xs text-slate-600">{f.tagline}</div>
                   </td>
                   <td className="p-3 text-center font-bold text-brand-700">{f.monthlyPrice} F</td>
                   <td className="p-3 text-center font-semibold">{f.copay}</td>
                   <td className="p-3 text-center">{f.globalCap} F</td>
-                  <td className="p-3 text-center text-xs">{f.waitingMaternity === 'Non couverte' ? <span className="text-red-500 font-medium">✗ Non</span> : <span className="text-emerald-600 font-medium">✓ {f.waitingMaternity}</span>}</td>
+                  <td className="p-3 text-center text-xs">{f.waitingMaternity === 'Non couverte' ? <span className="text-red-700 font-medium">✗ Non</span> : <span className="text-emerald-700 font-medium">✓ {f.waitingMaternity}</span>}</td>
                   <td className="p-3 text-center text-xs">{f.waitingDefault}</td>
                 </tr>
               ))}
@@ -254,11 +254,11 @@ export default function CGA() {
               <div className="flex items-center gap-4 text-sm">
                 <div className="text-center">
                   <div className="text-2xl font-extrabold text-white">{f.monthlyPrice}<span className="text-sm font-normal"> F</span></div>
-                  <div className="text-xs text-slate-400">Adhérent/mois</div>
+                  <div className="text-xs text-slate-600">Adhérent/mois</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-extrabold text-amber-300">{f.copay}</div>
-                  <div className="text-xs text-slate-400">Copay</div>
+                  <div className="text-xs text-slate-600">Copay</div>
                 </div>
               </div>
             </div>
@@ -267,19 +267,19 @@ export default function CGA() {
               {/* Tarification */}
               <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <div className="text-slate-400 text-xs">Adhérent seul</div>
+                  <div className="text-slate-600 text-xs">Adhérent seul</div>
                   <div className="font-bold text-slate-800">{f.monthlyPrice} F/mois</div>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <div className="text-slate-400 text-xs">Conjoint / adulte</div>
+                  <div className="text-slate-600 text-xs">Conjoint / adulte</div>
                   <div className="font-bold text-slate-800">{f.adultPrice} F/mois</div>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <div className="text-slate-400 text-xs">Enfant</div>
+                  <div className="text-slate-600 text-xs">Enfant</div>
                   <div className="font-bold text-slate-800">{f.childPrice} F/mois</div>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
-                  <div className="text-slate-400 text-xs">Ayants droit max</div>
+                  <div className="text-slate-600 text-xs">Ayants droit max</div>
                   <div className="font-bold text-slate-800">{f.maxBeneficiaries} (max {f.childMaxAge})</div>
                 </div>
               </div>
@@ -289,16 +289,16 @@ export default function CGA() {
                 <h4 className="text-sm font-bold text-slate-700 mb-2">⏳ Délais de carence</h4>
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div className="rounded-lg border border-slate-200 p-3 text-center">
-                    <div className="text-xs text-slate-400">Soins externes</div>
+                    <div className="text-xs text-slate-600">Soins externes</div>
                     <div className="font-bold text-slate-800">{f.waitingDefault}</div>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-3 text-center">
-                    <div className="text-xs text-slate-400">Hospitalisation</div>
+                    <div className="text-xs text-slate-600">Hospitalisation</div>
                     <div className="font-bold text-slate-800">{f.waitingHospitalization}</div>
                   </div>
                   <div className="rounded-lg border border-slate-200 p-3 text-center">
-                    <div className="text-xs text-slate-400">Maternité</div>
-                    <div className={`font-bold ${f.waitingMaternity === 'Non couverte' ? 'text-red-500' : 'text-slate-800'}`}>
+                    <div className="text-xs text-slate-600">Maternité</div>
+                    <div className={`font-bold ${f.waitingMaternity === 'Non couverte' ? 'text-red-700' : 'text-slate-800'}`}>
                       {f.waitingMaternity}
                     </div>
                   </div>
@@ -328,13 +328,13 @@ export default function CGA() {
                         <td className="p-2.5 text-center text-slate-600">{g.cap}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.perAct}</td>
                           <td className="p-2.5 text-center text-slate-600">{g.copay}</td>
-                          <td className="p-2.5 text-center text-xs text-slate-500">{'limit' in g ? (g as any).limit ?? '—' : '—'}</td>
+                          <td className="p-2.5 text-center text-xs text-slate-600">{'limit' in g ? (g as any).limit ?? '—' : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-slate-600">
                   Le ticket modérateur complète le taux de remboursement (taux + ticket = 100 %) : taux 70 % ⇒ assureur 70 %, assuré 30 %. Remboursement réel après barème par acte, plafonds annuels et plafond annuel de reste à charge.
                 </p>
               </div>
@@ -345,7 +345,7 @@ export default function CGA() {
                   <h4 className="text-sm font-bold text-slate-700 mb-2">❌ Exclusions</h4>
                   <div className="flex flex-wrap gap-2">
                     {f.exclusions.map(ex => (
-                      <span key={ex} className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600">
+                      <span key={ex} className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
                         {ex}
                       </span>
                     ))}
@@ -381,7 +381,7 @@ export default function CGA() {
             <div key={m.title} className="card-p space-y-2">
               <h3 className="font-bold text-slate-800">{m.title}</h3>
               <p className="text-sm text-slate-600 leading-relaxed">{m.description}</p>
-              <p className="text-xs text-slate-400 italic">{m.detail}</p>
+              <p className="text-xs text-slate-600 italic">{m.detail}</p>
             </div>
           ))}
         </div>
@@ -412,7 +412,7 @@ export default function CGA() {
               </span>
               <div>
                 <p className="font-semibold text-slate-800">{s.title}</p>
-                <p className="text-xs text-slate-500">{s.detail}</p>
+                <p className="text-xs text-slate-600">{s.detail}</p>
               </div>
             </li>
           ))}
@@ -433,7 +433,7 @@ export default function CGA() {
         <div className="grid grid-cols-3 gap-3 text-sm">
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center">
             <div className="font-bold text-emerald-700">PREMIUM</div>
-            <div className="text-xs text-emerald-600 mt-1">CHU, cliniques de référence</div>
+            <div className="text-xs text-emerald-700 mt-1">CHU, cliniques de référence</div>
           </div>
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
             <div className="font-bold text-blue-700">PLUS</div>

@@ -19,16 +19,17 @@ export default function Offers() {
       <div className="mt-4 card-p bg-brand-50 border-brand-100 text-center">
         <p className="text-sm text-slate-600">Famille, entreprise, budget soins : estimez prime, budget et risque d'épuisement avant de souscrire.</p>
         <Link to="/simulateur" className="btn-primary btn-sm mt-3">📊 Ouvrir le simulateur commercial</Link>
-        <p className="mt-1 text-[11px] text-slate-400">Estimation indicative, sans engagement.</p>
+        <p className="mt-1 text-[11px] text-slate-600">Estimation indicative, sans engagement.</p>
       </div>
 
       <div className="mt-8 space-y-4">
+        {products.length === 0 && <div className="card p-8 text-center text-stone" style={{ minHeight: 240 }}>Chargement des formules…</div>}
         {products.map(p => (
           <div key={p.id} className="card overflow-hidden sm:flex">
             <div className={`sm:w-64 p-6 ${p.code === 'CONF' ? 'bg-brand-600 text-white' : 'bg-brand-50'}`}>
-              <h3 className={`font-bold text-lg ${p.code === 'CONF' ? '' : 'text-brand-800'}`}>{p.name}</h3>
+              <h2 className={`font-bold text-lg ${p.code === 'CONF' ? '' : 'text-brand-800'}`}>{p.name}</h2>
               <p className={`mt-2 text-2xl font-extrabold ${p.code === 'CONF' ? '' : 'text-brand-700'}`}>{fcfa(p.basePremiumAnnual)}</p>
-              <p className={`text-xs ${p.code === 'CONF' ? 'text-brand-100' : 'text-slate-400'}`}>par an — assuré principal</p>
+              <p className={`text-xs ${p.code === 'CONF' ? 'text-brand-100' : 'text-slate-600'}`}>par an — assuré principal</p>
               <Link to={`/app/souscrire?productId=${p.id}`} state={{ productId: p.id }} className={`mt-4 w-full ${p.code === 'CONF' ? 'btn bg-white text-brand-800 hover:bg-brand-50' : 'btn-primary'}`}>
                 Souscrire
               </Link>
@@ -39,13 +40,13 @@ export default function Offers() {
                 {p.guarantees.map((g: any) => (
                   <div key={g.id} className="flex items-baseline justify-between gap-3 text-sm border-b border-dashed border-slate-100 pb-1.5">
                     <span>{CATEGORY_LABELS[g.guarantee.category] ?? g.guarantee.name}</span>
-                    <span className="shrink-0 text-xs text-slate-500">
+                    <span className="shrink-0 text-xs text-slate-600">
                       {g.rate}% · ticket {ticketModerateurLabel(g.rate)} {g.annualLimit != null && `· plafond ${fcfa(g.annualLimit)}`}
                     </span>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-600">
                 {p.insurerPartner?.name && <span>Porté par <b>{p.insurerPartner.name}</b></span>}
                 {p.waitingPeriodDays > 0 && <span>Délai de carence : {p.waitingPeriodDays} j</span>}
                 {p.oopAnnualCap != null && <span className="font-semibold text-emerald-700">Reste à charge max/an : {fcfa(p.oopAnnualCap)}</span>}
@@ -69,7 +70,7 @@ export default function Offers() {
           <div className="card max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center">
               <h3 className="font-bold">{detail.name} — conditions</h3>
-              <button onClick={() => setDetail(null)} className="text-slate-400">✕</button>
+              <button onClick={() => setDetail(null)} className="text-slate-600">✕</button>
             </div>
             <h4 className="label mt-4">Garanties</h4>
             <table className="w-full text-sm">
@@ -85,7 +86,7 @@ export default function Offers() {
                 ))}
               </tbody>
             </table>
-            <p className="mt-2 text-xs text-slate-500">Le ticket modérateur complète le taux (taux + ticket = 100 %). Remboursement réel après barème, plafonds et plafond annuel de reste à charge.</p>
+            <p className="mt-2 text-xs text-slate-600">Le ticket modérateur complète le taux (taux + ticket = 100 %). Remboursement réel après barème, plafonds et plafond annuel de reste à charge.</p>
             {detail.exclusions?.length > 0 && (
               <>
                 <h4 className="label mt-4">Exclusions</h4>

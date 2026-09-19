@@ -13,7 +13,7 @@ const PROVIDER_TYPES: Record<string, string> = {
 };
 
 const CONVENTION_COLORS: Record<string, string> = {
-  PREMIUM: 'bg-laterite-500 text-white',
+  PREMIUM: 'bg-laterite-600 text-white',
   PLUS: 'bg-ink text-white',
   BASIC: 'bg-sand text-ink',
 };
@@ -52,7 +52,7 @@ export default function PublicProvidersDirectory() {
       {/* Hero */}
       <section className="bg-ink text-white py-12 sm:py-16">
         <div className="mx-auto max-w-6xl px-4 text-center">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-white/50">Réseau de soins</p>
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Réseau de soins</p>
           <h1 className="mt-3 font-display text-3xl sm:text-[42px] font-bold leading-tight">
             Partout au Bénin, <span className="italic text-[#FACC15]">vous êtes reconnu</span>
           </h1>
@@ -100,6 +100,7 @@ export default function PublicProvidersDirectory() {
           />
           <div className="flex flex-wrap gap-2">
             <select
+              aria-label="Filtrer par type d'établissement"
               className="rounded-xl border border-mist bg-white px-4 py-2 text-sm outline-none focus:border-brand-500 transition"
               value={type}
               onChange={e => setType(e.target.value)}
@@ -110,6 +111,7 @@ export default function PublicProvidersDirectory() {
               ))}
             </select>
             <select
+              aria-label="Filtrer par ville"
               className="rounded-xl border border-mist bg-white px-4 py-2 text-sm outline-none focus:border-brand-500 transition"
               value={city}
               onChange={e => setCity(e.target.value)}
@@ -181,7 +183,7 @@ export default function PublicProvidersDirectory() {
 
         {/* CTA */}
         <div className="card-wax mt-10 overflow-hidden rounded-[24px] bg-ink p-8 text-center text-white">
-          <h3 className="font-display text-2xl font-bold">Vous êtes prestataire ?</h3>
+          <h2 className="font-display text-2xl font-bold">Vous êtes prestataire ?</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-white/60">
             Rejoignez notre réseau de soins conventionnés et bénéficiez d'un afflux de patients assurés SantéPlus.
           </p>

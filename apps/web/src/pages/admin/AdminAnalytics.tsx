@@ -48,6 +48,29 @@ export default function AdminAnalytics() {
       </div>
 
       <div className="card-p">
+        <h2 className="font-semibold">Traçabilité soin ↔ sinistre</h2>
+        <div className="mt-2 flex flex-wrap items-end gap-4">
+          <div>
+            <p className="text-3xl font-bold" aria-label={`${Math.round((data.kpis.tpDossierRatio ?? 0) * 100)} pour cent des prises en charge avec dossier de soins`}>
+              {ratioPct(data.kpis.tpDossierRatio ?? 0)}
+            </p>
+            <p className="text-sm text-slate-500">
+              des prises en charge tiers-payant ont un dossier de soins ({data.kpis.tpWithDossier ?? 0}/{data.kpis.tpTotal ?? 0})
+            </p>
+          </div>
+          <div className="h-2 min-w-[180px] flex-1 overflow-hidden rounded-full bg-slate-100" role="presentation">
+            <div
+              className="h-full rounded-full bg-emerald-600"
+              style={{ width: `${Math.round(Math.min(1, data.kpis.tpDossierRatio ?? 0) * 100)}%` }}
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Chaque prise en charge naît dans un dossier de soins (invariant plateforme). Les sinistres classiques sont rattachés manuellement depuis l'instruction et ne comptent pas ici.
+        </p>
+      </div>
+
+      <div className="card-p">
         <h2 className="font-semibold">Sinistralité mensuelle</h2>
         <div className="mt-2 overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">

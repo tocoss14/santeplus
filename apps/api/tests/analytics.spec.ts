@@ -56,4 +56,48 @@ describe('analytics calculations', () => {
       thirdPartyVolume: 2,
     });
   });
+
+  it('expose la métrique de traçabilité soin ↔ sinistre dans les KPIs', async () => {
+    const prisma: any = {
+      contract: { count: vi.fn(async () => 3) },
+      user: { count: vi.fn(async () => 5) },
+      payment: { aggregate: vi.fn(async () => ({ _sum: { amount: 1000000 } })) },
+      claim: {
+        aggregate: vi.fn(async () => ({ _sum: { totalApproved: 250000 } })),
+        count: vi.fn()
+          .mockResolvedValueOnce(4)   // openClaims
+          .mockResolvedValueOnce(20)  // TP avec dossier
+          .mockResolvedValueOnce(25), // TP total
+      },
+      systemConfig: { findUnique: vi.fn(async () => null) },
+      ctsJournal: { aggregate: vi.fn(async () => ({ _sum: { amount: 0 } })) },
+      product: { findMany: vi.fn(async () => []) },
+      claimItem: { aggregate: vi.fn(async () => ({ _sum: { amountApproved: 0 }, _count: 0 })) },
+    };
+    const kpis = await new AnalyticsService(prisma).getGlobalKPIs();
+
+    expect(kpis.tpWithDossier).toBe(20);
+    expect(kpis.tpTotal).toBe(25);
+    expect(kpis.tpDossierRatio).toBeCloseTo(0.8);
+  });
+
+  it('met la métrique à 1 (100 %) quand aucun sinistre tiers-payant n’existe encore', async () => {
+    const prisma: any = {
+      contract: { count: vi.fn(async () => 0) },
+      user: { count: vi.fn(async () => 0) },
+      payment: { aggregate: vi.fn(async () => ({ _sum: { amount: 0 } })) },
+      claim: {
+        aggregate: vi.fn(async () => ({ _sum: { totalApproved: 0 } })),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      systemConfig: { findUnique: vi.fn(async () => null) },
+      ctsJournal: { aggregate: vi.fn(async () => ({ _sum: { amount: 0 } })) },
+      product: { findMany: vi.fn(async () => []) },
+      claimItem: { aggregate: vi.fn(async () => ({ _sum: { amountApproved: 0 }, _count: 0 })) },
+    };
+    const kpis = await new AnalyticsService(prisma).getGlobalKPIs();
+
+    expect(kpis.tpTotal).toBe(0);
+    expect(kpis.tpDossierRatio).toBe(1);
+  });
 });

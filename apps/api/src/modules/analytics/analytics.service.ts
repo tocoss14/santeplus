@@ -416,6 +416,8 @@ export class AnalyticsService {
       openClaims,
       technicalReserves,
       productProfitability,
+      tpLinked,
+      tpTotal,
     ] = await Promise.all([
       this.prisma.contract.count({ where: { status: 'ACTIVE' } }),
       this.prisma.user.count({ where: { role: 'MEMBER', status: 'ACTIVE' } }),
@@ -430,6 +432,9 @@ export class AnalyticsService {
       this.prisma.claim.count({ where: { status: { in: ['SUBMITTED', 'APPROVED', 'CONFIRMED'] } } }),
       this.getTechnicalReserves(),
       this.getProductProfitability(),
+      // Traçabilité soin ↔ sinistre : part des prises en charge nées d'un dossier de soins.
+      this.prisma.claim.count({ where: { kind: 'THIRDPARTY', careRecord: { isNot: null } } }),
+      this.prisma.claim.count({ where: { kind: 'THIRDPARTY' } }),
     ]);
 
     const p = totalPremiumsYTD._sum.amount ?? 0;
@@ -445,6 +450,9 @@ export class AnalyticsService {
       technicalReserves: technicalReserves.total,
       combinedRatio: productProfitability.reduce((a, b) => a + b.combinedRatio, 0) / (productProfitability.length || 1),
       avgLossRatio: productProfitability.reduce((a, b) => a + b.lossRatio, 0) / (productProfitability.length || 1),
+      tpWithDossier: tpLinked,
+      tpTotal,
+      tpDossierRatio: tpTotal > 0 ? tpLinked / tpTotal : 1,
     };
   }
 }

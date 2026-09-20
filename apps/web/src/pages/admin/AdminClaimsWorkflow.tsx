@@ -192,6 +192,54 @@ export default function AdminClaimsWorkflow() {
                 </div>
               )}
 
+              {(detail as any).careDossier && (
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold">Dossier de soins lié</h3>
+                  {(() => {
+                    const dos = (detail as any).careDossier;
+                    return (
+                      <>
+                        <p className="mt-1 text-sm">
+                          <span className="font-mono text-xs font-semibold">{dos.reference}</span>
+                          {dos.provider?.name ? <span> · {dos.provider.name}</span> : null}
+                          <span className="ml-2 text-xs text-slate-500">
+                            ouvert le {fmtDate(dos.createdAt)} · statut {dos.status.toLowerCase()}
+                          </span>
+                        </p>
+                        <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                          {dos.consultation && (
+                            <li>
+                              🩺 Consultation <span className="font-mono text-xs">{dos.consultation.reference}</span>
+                              {' '}— {fmtDate(dos.consultation.createdAt)}
+                            </li>
+                          )}
+                          {dos.prescription && (
+                            <li>
+                              📋 Ordonnance <span className="font-mono text-xs">{dos.prescription.number}</span>
+                              {' '}— {(dos.prescription.lines ?? []).length} produit(s)
+                              {(dos.prescription.lines ?? []).length > 0 && (
+                                <span className="text-slate-500">
+                                  {' '}({dos.prescription.lines.map((l: any) => `${l.name} ×${l.quantity}`).join(', ')})
+                                </span>
+                              )}
+                            </li>
+                          )}
+                          {dos.delivery && (
+                            <li>
+                              💊 Délivrance <span className="font-mono text-xs">{dos.delivery.reference}</span>
+                              {' '}— {(dos.delivery.lines ?? []).length} ligne(s), {fcfa(dos.delivery.totalAmount ?? 0)}
+                            </li>
+                          )}
+                        </ul>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Ce sinistre tiers-payant a été généré par le parcours de soins ci-dessus (même épisode de soins).
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
               <div className="border-t pt-4">
                 <h3 className="font-semibold">Pièces ({detail.documents?.length ?? 0})</h3>
                 {(detail.documents ?? []).length === 0 ? (

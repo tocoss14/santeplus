@@ -554,7 +554,35 @@ export class ClaimsController {
     const claim = await this.loadClaim(id);
     await this.assertView(auth, claim);
     const docs = await this.prisma.claimDocument.findMany({ where: { claimId: claim.id }, orderBy: { id: 'asc' } });
-    return { ...this.sanitize(claim), documents: docs };
+    // Dossier de soins lié (tiers-payant) : l'épisode de soins qui a généré le sinistre.
+    const careDossier = await this.prisma.careRecord.findUnique({
+      where: { claimId: claim.id },
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        type: true,
+        createdAt: true,
+        provider: { select: { name: true } },
+        consultation: { select: { reference: true, createdAt: true } },
+        prescription: {
+          select: {
+            number: true,
+            createdAt: true,
+            lines: { select: { code: true, name: true, quantity: true }, take: 12, orderBy: { id: 'asc' } },
+          },
+        },
+        delivery: {
+          select: {
+            reference: true,
+            createdAt: true,
+            totalAmount: true,
+            lines: { select: { code: true, name: true, quantity: true }, take: 12, orderBy: { id: 'asc' } },
+          },
+        },
+      },
+    });
+    return { ...this.sanitize(claim), documents: docs, careDossier: careDossier ?? null };
   }
 
   @Get('admin/claims')

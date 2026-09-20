@@ -58,6 +58,9 @@ export default function AdminClaimsWorkflow() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [note, setNote] = useState('');
+  const [dosCandidates, setDosCandidates] = useState<any[] | null>(null);
+  const [dosRef, setDosRef] = useState('');
+  const [dosBusy, setDosBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -71,6 +74,17 @@ export default function AdminClaimsWorkflow() {
       .then(setData)
       .catch((err: any) => setError(err?.message ?? 'Chargement impossible'));
   }, [status, q, page]);
+
+  // Candidats au rattachement : dossiers de soins du même assuré (principal ou ayant droit).
+  useEffect(() => {
+    setDosCandidates(null);
+    setDosRef('');
+    if (!detail || (detail as any).careDossier || detail.kind !== 'REIMBURSEMENT') return;
+    api
+      .get(`/admin/care-records?${qs({ claimantUserId: detail.claimantUserId || undefined, beneficiaryId: detail.beneficiaryId || undefined })}`)
+      .then((r: any) => setDosCandidates(r.items ?? []))
+      .catch(() => setDosCandidates([]));
+  }, [detail]);
 
   const open = async (id: string) => {
     setSelectedId(id);
@@ -87,6 +101,34 @@ export default function AdminClaimsWorkflow() {
   const reloadList = async () => {
     const refreshed = await api.get(`/admin/claims?${qs({ status: status || undefined, q: q || undefined, page })}`);
     setData(refreshed);
+  };
+
+  const attachDossier = async (body: { reference?: string; careRecordId?: string }) => {
+    if (!selectedId) return;
+    setDosBusy(true);
+    setError(null);
+    try {
+      await api.post(`/admin/claims/${selectedId}/care-dossier`, body);
+      setDetail(await api.get(`/claims/${selectedId}`));
+    } catch (err: any) {
+      setError(err?.message ?? 'Rattachement impossible');
+    } finally {
+      setDosBusy(false);
+    }
+  };
+
+  const detachDossier = async () => {
+    if (!selectedId) return;
+    setDosBusy(true);
+    setError(null);
+    try {
+      await api.del(`/admin/claims/${selectedId}/care-dossier`);
+      setDetail(await api.get(`/claims/${selectedId}`));
+    } catch (err: any) {
+      setError(err?.message ?? 'Détachement impossible');
+    } finally {
+      setDosBusy(false);
+    }
   };
 
   const act = async (endpoint: string, body: Record<string, unknown> = {}) => {
@@ -231,12 +273,68 @@ export default function AdminClaimsWorkflow() {
                             </li>
                           )}
                         </ul>
-                        <p className="mt-2 text-xs text-slate-500">
-                          Ce sinistre tiers-payant a été généré par le parcours de soins ci-dessus (même épisode de soins).
-                        </p>
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs text-slate-500">
+                            {detail.kind === 'REIMBURSEMENT'
+                              ? 'Dossier de soins rattaché manuellement à ce sinistre classique.'
+                              : 'Ce sinistre tiers-payant a été généré par le parcours de soins ci-dessus (même épisode de soins).'}
+                          </p>
+                          <button
+                            className="btn-outline btn-sm"
+                            disabled={dosBusy}
+                            onClick={() => { if (window.confirm('Détacher ce dossier de soins du sinistre ?')) void detachDossier(); }}
+                          >
+                            Détacher
+                          </button>
+                        </div>
                       </>
                     );
                   })()}
+                </div>
+              )}
+
+              {detail.kind === 'REIMBURSEMENT' && !(detail as any).careDossier && (
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold">Dossier de soins</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Rattachez ce sinistre classique à l’épisode de soins correspondant (traçabilité soin → remboursement).
+                  </p>
+                  {dosCandidates && dosCandidates.length > 0 && (
+                    <ul className="mt-2 divide-y divide-slate-100">
+                      {dosCandidates.map((d: any) => (
+                        <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                          <span>
+                            <span className="font-mono text-xs font-semibold">{d.reference}</span>
+                            {' '}· {d.provider?.name ?? '—'} · {fmtDate(d.createdAt)}
+                            {d.claimId && <span className="ml-2 text-xs text-slate-400">déjà lié</span>}
+                          </span>
+                          {!d.claimId && (
+                            <button className="btn-outline btn-sm" disabled={dosBusy} onClick={() => attachDossier({ careRecordId: d.id })}>
+                              Rattacher
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {dosCandidates && dosCandidates.length === 0 && (
+                    <p className="mt-2 text-sm text-slate-500">Aucun dossier de soins connu pour cet assuré.</p>
+                  )}
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      className="input flex-1"
+                      value={dosRef}
+                      onChange={e => setDosRef(e.target.value)}
+                      placeholder="Ou référence dossier (ex. DOS-2026-… )"
+                    />
+                    <button
+                      className="btn-outline btn-sm"
+                      disabled={dosBusy || dosRef.trim().length < 4}
+                      onClick={() => attachDossier({ reference: dosRef.trim() })}
+                    >
+                      Rattacher par référence
+                    </button>
+                  </div>
                 </div>
               )}
 

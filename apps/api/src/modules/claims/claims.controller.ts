@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Injectable, Module, NotFoundException, Optional, Param, Post, Query, UploadedFiles } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Injectable, Module, NotFoundException, Optional, Param, Post, Query, UploadedFiles } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuditInterceptor, UseInterceptors } from '../../common/audit.interceptor';
@@ -213,6 +213,17 @@ const createClaimSchema = z.object({
 export const requestInfoSchema = z.object({
   note: z.string().min(3).max(1000),
 });
+
+// Rattachement d'un sinistre classique à un dossier de soins existant :
+// soit par référence DOS, soit par identifiant — exactement l'un des deux.
+export const attachCareDossierSchema = z
+  .object({
+    reference: z.string().min(4).optional(),
+    careRecordId: z.string().min(4).optional(),
+  })
+  .refine(v => Boolean(v.reference) !== Boolean(v.careRecordId), {
+    message: 'Fournir soit reference (DOS-…) soit careRecordId, pas les deux',
+  });
 
 const approveSchema = z.object({
   note: z.string().max(1000).optional(),
@@ -614,6 +625,101 @@ export class ClaimsController {
       this.prisma.claim.count({ where }),
     ]);
     return { items, total, page: Number(page), pages: Math.ceil(total / take) };
+  }
+
+  // ---- Symbiose soin ↔ sinistre : rattachement manuel d'un sinistre classique ----
+
+  @Get('admin/care-records')
+  @RequirePermissions('claims.viewAll')
+  async adminCareRecords(@Query('q') q?: string, @Query('claimantUserId') claimantUserId?: string, @Query('beneficiaryId') beneficiaryId?: string) {
+    const where: any = {};
+    if (claimantUserId) where.patientUserId = claimantUserId;
+    if (beneficiaryId) where.beneficiaryId = beneficiaryId;
+    if (q) where.reference = { contains: q };
+    const items = await this.prisma.careRecord.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        type: true,
+        createdAt: true,
+        claimId: true,
+        patientUser: { select: { firstName: true, lastName: true, memberNumber: true } },
+        beneficiary: { select: { firstName: true, lastName: true, memberNumber: true } },
+        provider: { select: { name: true } },
+        _count: { select: { events: true } },
+      },
+    });
+    return { items };
+  }
+
+  @Post('admin/claims/:id/care-dossier')
+  @RequirePermissions('claims.decide')
+  async attachCareDossier(
+    @CurrentUser() auth: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodPipe(attachCareDossierSchema)) body: { reference?: string; careRecordId?: string },
+  ) {
+    const claim = await this.loadClaim(id);
+    if (claim.kind !== 'REIMBURSEMENT') {
+      throw new BadRequestException('Seuls les sinistres classiques (REIMBURSEMENT) se rattachent manuellement ; les prises en charge tiers-payant sont liées automatiquement par le parcours de soins.');
+    }
+    const existingLink = await this.prisma.careRecord.findUnique({ where: { claimId: claim.id }, select: { reference: true } });
+    if (existingLink) throw new BadRequestException(`Ce sinistre est déjà rattaché au dossier ${existingLink.reference}.`);
+    const dossier = await this.prisma.careRecord.findUnique({
+      where: body.careRecordId ? { id: body.careRecordId } : { reference: body.reference ?? '' },
+      include: { claim: { select: { reference: true } } },
+    });
+    if (!dossier) throw new NotFoundException('Dossier de soins introuvable');
+    if (dossier.claimId) {
+      throw new BadRequestException(`Le dossier ${dossier.reference} est déjà rattaché au sinistre ${dossier.claim?.reference ?? dossier.claimId}.`);
+    }
+    // Cohérence patient : le dossier doit concerner le même assuré que le sinistre
+    // (assuré principal via patientUserId, ou même ayant droit via beneficiaryId).
+    const samePatient =
+      dossier.patientUserId === claim.claimantUserId ||
+      (Boolean(claim.beneficiaryId) && dossier.beneficiaryId === claim.beneficiaryId);
+    if (!samePatient) {
+      throw new BadRequestException('Le dossier de soins ne concerne pas le même assuré (principal ou ayant droit) que le sinistre.');
+    }
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.careRecord.update({ where: { id: dossier.id }, data: { claimId: claim.id } });
+      await tx.careRecordEvent.create({
+        data: {
+          careRecordId: dossier.id,
+          type: 'CLAIM_ATTACHED',
+          title: `Sinistre ${claim.reference} rattaché`,
+          detail: 'Remboursement classique rattaché manuellement au dossier',
+          actorUserId: auth.id,
+          actorRole: auth.role,
+        },
+      });
+    });
+    return { ok: true, dossierId: dossier.id, reference: dossier.reference };
+  }
+
+  @Delete('admin/claims/:id/care-dossier')
+  @RequirePermissions('claims.decide')
+  async detachCareDossier(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
+    const claim = await this.loadClaim(id);
+    const link = await this.prisma.careRecord.findUnique({ where: { claimId: claim.id }, select: { id: true, reference: true } });
+    if (!link) throw new NotFoundException('Aucun dossier de soins rattaché à ce sinistre');
+    await this.prisma.$transaction(async (tx: any) => {
+      await tx.careRecord.update({ where: { id: link.id }, data: { claimId: null } });
+      await tx.careRecordEvent.create({
+        data: {
+          careRecordId: link.id,
+          type: 'CLAIM_DETACHED',
+          title: `Sinistre ${claim.reference} détaché`,
+          actorUserId: auth.id,
+          actorRole: auth.role,
+        },
+      });
+    });
+    return { ok: true };
   }
 
   @Post('admin/claims/:id/authorize')

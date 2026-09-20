@@ -96,12 +96,17 @@ async function getCts(admin, contractId) {
   return (await r.json()).account;
 }
 
+// Produits d'audit créés pendant le run — rétrogradés DRAFT en fin de script.
+const p4ProductIds = [];
+
 async function makeProduct(admin, { premium = 1000000, pharmaLimit = 2000000, consLimit = 2000000, copay = 20, rate = 80, globalCap = 900000, oopCap = null, waiting = 0 }) {
   const res = await admin.post('/api/admin/products', {
     data: {
       code: 'P4' + uid().toUpperCase(), name: 'P4 Audit', clientType: 'INDIVIDUAL',
       basePremiumAnnual: premium, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
       minAge: 0, maxAge: 65,      waitingPeriodDays: waiting, globalAnnualCap: globalCap, ...(oopCap != null ? { oopAnnualCap: oopCap } : {}),
+      // ACTIVE pendant l'audit (la souscription l'exige), rétrogradé DRAFT en fin
+      // de run (makeProductDrafts) pour ne pas polluer le catalogue public.
       status: 'ACTIVE', sortOrder: 99,
       ctsConfig: { managementRate: 20, warnRatio: 50, alertRatio: 30, criticalRatio: 10, carryRate: 70, renewalMode: 'DEDUCT' },
       guarantees: await gidsFor(admin, ['CONSULTATION', 'PHARMACY'], [
@@ -111,7 +116,9 @@ async function makeProduct(admin, { premium = 1000000, pharmaLimit = 2000000, co
     },
   });
   if (!res.ok()) throw new Error('produit: ' + res.status());
-  return { id: (await res.text()).replace(/"/g, '').trim() };
+  const id = (await res.text()).replace(/"/g, '').trim();
+  p4ProductIds.push(id);
+  return { id };
 }
 
 async function tpCycle(presCtx, cardToken, categoryId, unitPrice, code) {
@@ -626,6 +633,16 @@ for (const [name, fn] of Object.entries(SCENARIOS)) {
   try { await fn(); } catch (e) {
     record(name, 'EXÉCUTION DU SCÉNARIO', false, String(e.message ?? e).slice(0, 250));
   }
+}
+
+// Rétrograde les produits d'audit en DRAFT : invisibles au public (landing/offres),
+// les contrats déjà souscrits restent valides — l'environnement reste propre après run.
+if (p4ProductIds.length) {
+  const admin = await adminLogin();
+  for (const id of [...new Set(p4ProductIds)]) {
+    await admin.patch(`/api/admin/products/${id}`, { data: { status: 'DRAFT' } }).catch(() => null);
+  }
+  await admin.dispose();
 }
 
 console.log('\n════════ RÉSULTATS ════════');

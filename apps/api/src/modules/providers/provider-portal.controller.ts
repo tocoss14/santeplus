@@ -540,6 +540,29 @@ export class ProviderPortalController {
         },
         include: { items: true },
       });
+      // Symbiose soin ↔ sinistre : toute prise en charge naît dans son dossier de
+      // soins, écrit dans la MÊME transaction que le claim (invariant : aucun
+      // claim TP sans dossier — si le dossier échoue, le claim est rejeté).
+      const dossier = await tx.careRecord.create({
+        data: {
+          reference: ref('DOS'),
+          patientUserId: contract.principalUser.id,
+          beneficiaryId: beneficiaryId ?? null,
+          providerId: establishment.id,
+          claimId: created.id,
+          status: 'OPEN',
+        },
+      });
+      await tx.careRecordEvent.create({
+        data: {
+          careRecordId: dossier.id,
+          type: 'CLAIM_CREATED',
+          title: `Prise en charge ${created.reference}`,
+          detail: `Couvert estimé ${estimation.totals.approved} FCFA${authRequired ? ' — autorisation préalable requise' : ''}`,
+          actorUserId: auth.id,
+          actorRole: auth.role,
+        },
+      });
       for (const sDoc of stored) {
         const fileObj = await tx.fileObject.create({
           data: { storagePath: sDoc.storagePath, mime: sDoc.mime, size: sDoc.size, sha256: sDoc.sha256, ownerId: auth.id },
@@ -548,21 +571,22 @@ export class ProviderPortalController {
           data: { claimId: created.id, fileId: fileObj.id, docType: 'OTHER', fileName: sDoc.fileName, mime: sDoc.mime, size: sDoc.size, sha256: sDoc.sha256 },
         });
       }
-      return created;
+      return { claim: created, dossierId: dossier.id };
     });
 
     if (authRequired) {
       await this.dispatch.dispatchToMany(
         (await this.prisma.user.findMany({ where: { role: { in: ['SUPER_ADMIN', 'INSURANCE_MANAGER'] }, status: 'ACTIVE' }, select: { id: true } })).map(m => m.id),
-        { topic: 'THIRDPARTY_AUTH_REQUEST', title: `Autorisation demandée — ${claim.reference}`, body: `${establishment.name} — montant couvert estimé : ${estimation.totals.approved} FCFA` },
+        { topic: 'THIRDPARTY_AUTH_REQUEST', title: `Autorisation demandée — ${claim.claim.reference}`, body: `${establishment.name} — montant couvert estimé : ${estimation.totals.approved} FCFA` },
       );
     }
 
     return {
-      id: claim.id,
-      reference: claim.reference,
+      id: claim.claim.id,
+      reference: claim.claim.reference,
       status,
       authRequired,
+      careRecordId: claim.dossierId,
       estimation,
       holder: `${contract.principalUser.firstName} ${contract.principalUser.lastName}`,
       memberNumber: contract.principalUser.memberNumber,

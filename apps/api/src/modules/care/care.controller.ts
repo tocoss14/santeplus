@@ -816,6 +816,7 @@ export class CareController {
 @Module({
   controllers: [CareController, CareRecordController],
   providers: [CareService],
+  exports: [CareService],
   imports: [ClaimsModule, CtsModule],
 })
 export class CareModule {}

@@ -103,6 +103,8 @@ function createInitiateMocks(opts: {
           },
           fileObject: { create: vi.fn(async ({ data }: any) => ({ id: 'file-1', ...data })) },
           claimDocument: { create: vi.fn(async () => ({})) },
+          careRecord: { create: vi.fn(async ({ data }: any) => ({ id: 'dos-1', ...data })) },
+          careRecordEvent: { create: vi.fn(async () => ({})) },
         };
         return fn(tx);
       }

@@ -20,6 +20,12 @@ export class AnalyticsController {
     return this.analytics.getGlobalKPIs();
   }
 
+  @Get('care-dossier-evolution')
+  @RequirePermissions('stats.admin')
+  async getCareDossierEvolution(@Query(new ZodPipe(monthsSchema)) dto: { months: number }) {
+    return this.analytics.getCareDossierEvolution(dto.months);
+  }
+
   @Get('loss-ratio')
   @RequirePermissions('stats.admin')
   async getLossRatio(@Query(new ZodPipe(monthsSchema)) dto: { months: number }) {

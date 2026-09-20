@@ -81,6 +81,43 @@ describe('analytics calculations', () => {
     expect(kpis.tpDossierRatio).toBeCloseTo(0.8);
   });
 
+  it('construit la série mensuelle de traçabilité (ordre chronologique, mois courant en dernier)', async () => {
+    // Sémantique identique à getLossRatio : la fenêtre [mois courant−N+1 … courant]
+    // est rendue en ordre chronologique, le mois courant en dernière position.
+    const now = new Date();
+    const pad = (n: number) => `${n}`.padStart(2, '0');
+    const ym = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
+    const m1 = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    let call = 0;
+    // Boucle service : i=0 (courant) → counts[0], i=1 (m-1) → counts[1] ; unshift inverse.
+    const counts = [[3, 3], [4, 5]]; // [avecDossier, total]
+    const prisma: any = {
+      claim: {
+        count: vi.fn(async () => {
+          const [withD, total] = counts[Math.floor(call / 2) % counts.length];
+          call++;
+          return (call % 2 === 0) ? total : withD;
+        }),
+      },
+    };
+    const result = await new AnalyticsService(prisma).getCareDossierEvolution(2);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].period).toBe(ym(m1));
+    expect(result[1].period).toBe(ym(now));
+    expect(result[0]).toMatchObject({ withDossier: 4, total: 5, ratio: 0.8 });
+    expect(result[1]).toMatchObject({ withDossier: 3, total: 3, ratio: 1 });
+  });
+
+  it('mois sans sinistre TP : ratio neutre à 1 (pas un échec)', async () => {
+    const prisma: any = {
+      claim: { count: vi.fn(async () => 0) },
+    };
+    const result = await new AnalyticsService(prisma).getCareDossierEvolution(1);
+
+    expect(result[0]).toMatchObject({ withDossier: 0, total: 0, ratio: 1 });
+  });
+
   it('met la métrique à 1 (100 %) quand aucun sinistre tiers-payant n’existe encore', async () => {
     const prisma: any = {
       contract: { count: vi.fn(async () => 0) },

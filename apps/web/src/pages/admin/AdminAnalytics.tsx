@@ -15,9 +15,10 @@ export default function AdminAnalytics() {
       api.get('/analytics/product-profitability'),
       api.get('/analytics/provider-performance'),
       api.get('/analytics/portfolio-evolution?months=12'),
+      api.get('/analytics/care-dossier-evolution?months=6'),
     ])
-      .then(([kpis, lossRatio, reserves, products, providers, evolution]) => {
-        setData({ kpis, lossRatio, reserves, products, providers, evolution });
+      .then(([kpis, lossRatio, reserves, products, providers, evolution, dossierEvolution]) => {
+        setData({ kpis, lossRatio, reserves, products, providers, evolution, dossierEvolution });
       })
       .catch((err: any) => setError(err?.message ?? 'Chargement impossible'));
   }, []);
@@ -68,6 +69,31 @@ export default function AdminAnalytics() {
         <p className="mt-2 text-xs text-slate-500">
           Chaque prise en charge naît dans un dossier de soins (invariant plateforme). Les sinistres classiques sont rattachés manuellement depuis l'instruction et ne comptent pas ici.
         </p>
+        {Array.isArray(data.dossierEvolution) && data.dossierEvolution.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">6 derniers mois (base : prises en charge du mois)</h3>
+            <table className="mt-2 w-full max-w-md text-sm">
+              <thead>
+                <tr>
+                  <th className="th text-left" scope="col">Mois</th>
+                  <th className="th text-right" scope="col">Avec dossier</th>
+                  <th className="th text-right" scope="col">Ratio</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.dossierEvolution.map((row: any) => (
+                  <tr key={row.period}>
+                    <td className="td font-mono text-xs">{row.period}</td>
+                    <td className="td text-right">{row.withDossier}/{row.total}</td>
+                    <td className={`td text-right font-semibold ${row.ratio < 1 && row.total > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                      {ratioPct(row.ratio)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card-p">

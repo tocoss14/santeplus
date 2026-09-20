@@ -407,6 +407,32 @@ export class AnalyticsService {
   /**
    * Dashboard KPIs globaux
    */
+  /**
+   * Évolution mensuelle de la traçabilité soin ↔ sinistre : pour chaque mois,
+   * part des prises en charge tiers-payant créées AVEC un dossier de soins.
+   * Base = claims TP du mois (careDate), pas un cumul — mesure la qualité du flux.
+   */
+  async getCareDossierEvolution(months = 6): Promise<Array<{ period: string; withDossier: number; total: number; ratio: number }>> {
+    const periods: Array<{ period: string; withDossier: number; total: number; ratio: number }> = [];
+    for (let i = 0; i < months; i++) {
+      const periodStart = startOfMonth(subMonths(new Date(), i));
+      const periodEnd = endOfMonth(subMonths(new Date(), i));
+      const [withDossier, total] = await Promise.all([
+        this.prisma.claim.count({
+          where: { kind: 'THIRDPARTY', careDate: { gte: periodStart, lte: periodEnd }, careRecord: { isNot: null } },
+        }),
+        this.prisma.claim.count({ where: { kind: 'THIRDPARTY', careDate: { gte: periodStart, lte: periodEnd } } }),
+      ]);
+      periods.unshift({
+        period: formatYearMonth(periodStart),
+        withDossier,
+        total,
+        ratio: total > 0 ? withDossier / total : 1,
+      });
+    }
+    return periods;
+  }
+
   async getGlobalKPIs() {
     const [
       activeContracts,

@@ -20,6 +20,20 @@ export type WorkflowStatus = (typeof WORKFLOW_STATUSES)[number];
 
 const STAGE_LABELS = ['Brouillon', 'Soumis', 'Instruction', 'Décision', 'Paiement'] as const;
 
+// Icônes de la timeline d'un dossier de soins (types CareRecordEvent).
+export const CARE_EVENT_ICONS: Record<string, string> = {
+  CONSULTATION_CREATED: '🩺',
+  PRESCRIPTION_CREATED: '📋',
+  DELIVERY_CREATED: '💊',
+  CLAIM_CREATED: '🧾',
+  CLAIM_ATTACHED: '🔗',
+  CLAIM_DETACHED: '✂️',
+};
+
+export function careEventIcon(type: string): string {
+  return CARE_EVENT_ICONS[type] ?? '📌';
+}
+
 export function claimWorkflowStage(status: string): { stage: number; label: string; terminal: boolean } {
   switch (status) {
     case 'DRAFT':
@@ -61,6 +75,8 @@ export default function AdminClaimsWorkflow() {
   const [dosCandidates, setDosCandidates] = useState<any[] | null>(null);
   const [dosRef, setDosRef] = useState('');
   const [dosBusy, setDosBusy] = useState(false);
+  const [timeline, setTimeline] = useState<any[] | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -91,6 +107,8 @@ export default function AdminClaimsWorkflow() {
     setDetail(null);
     setNote('');
     setError(null);
+    setTimeline(null);
+    setTimelineOpen(false);
     try {
       setDetail(await api.get(`/claims/${id}`));
     } catch (err: any) {
@@ -128,6 +146,21 @@ export default function AdminClaimsWorkflow() {
       setError(err?.message ?? 'Détachement impossible');
     } finally {
       setDosBusy(false);
+    }
+  };
+
+  const toggleTimeline = async (dossierId: string) => {
+    if (timelineOpen) {
+      setTimelineOpen(false);
+      return;
+    }
+    setTimelineOpen(true);
+    if (timeline) return; // déjà chargée
+    try {
+      const res: any = await api.get(`/care-records/${dossierId}/timeline`);
+      setTimeline(res.events ?? []);
+    } catch {
+      setTimeline([]);
     }
   };
 
@@ -273,6 +306,38 @@ export default function AdminClaimsWorkflow() {
                             </li>
                           )}
                         </ul>
+                        <div className="mt-2">
+                          <button
+                            className="btn-outline btn-sm"
+                            disabled={dosBusy}
+                            onClick={() => void toggleTimeline(dos.id)}
+                          >
+                            {timelineOpen ? 'Masquer la timeline' : 'Voir la timeline du dossier'}
+                          </button>
+                          {timelineOpen && (
+                            <div className="mt-2">
+                              {timeline === null ? (
+                                <Spinner />
+                              ) : timeline.length === 0 ? (
+                                <p className="text-sm text-slate-500">Aucun événement sur ce dossier.</p>
+                              ) : (
+                                <ol className="space-y-2 border-l-2 border-slate-100 pl-3">
+                                  {timeline.map((ev: any) => (
+                                    <li key={ev.id} className="text-sm">
+                                      <span className="mr-1" aria-hidden>{careEventIcon(ev.type)}</span>
+                                      <span className="font-medium">{ev.title}</span>
+                                      {ev.detail && <span className="text-slate-500"> — {ev.detail}</span>}
+                                      <span className="ml-2 text-xs text-slate-400">
+                                        {fmtDate(ev.createdAt)}
+                                        {ev.actorRole ? ` · ${ev.actorRole.toLowerCase()}` : ''}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ol>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                           <p className="text-xs text-slate-500">
                             {detail.kind === 'REIMBURSEMENT'

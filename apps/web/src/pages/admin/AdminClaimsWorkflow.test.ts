@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { claimWorkflowStage } from './AdminClaimsWorkflow';
+import { claimWorkflowStage, careEventIcon } from './AdminClaimsWorkflow';
 
 describe('claimWorkflowStage', () => {
   it('maps canonical claim statuses to instruction stages', () => {
@@ -10,5 +10,16 @@ describe('claimWorkflowStage', () => {
     expect(claimWorkflowStage('APPROVED')).toMatchObject({ stage: 3, terminal: false });
     expect(claimWorkflowStage('PAID')).toMatchObject({ stage: 4, terminal: true });
     expect(claimWorkflowStage('REJECTED')).toMatchObject({ terminal: true });
+  });
+});
+
+describe('careEventIcon', () => {
+  it('couvre les types d événements connus et le repli', () => {
+    expect(careEventIcon('CONSULTATION_CREATED')).toBe('🩺');
+    expect(careEventIcon('PRESCRIPTION_CREATED')).toBe('📋');
+    expect(careEventIcon('DELIVERY_CREATED')).toBe('💊');
+    expect(careEventIcon('CLAIM_ATTACHED')).toBe('🔗');
+    expect(careEventIcon('CLAIM_DETACHED')).toBe('✂️');
+    expect(careEventIcon('TYPE_INCONNU')).toBe('📌');
   });
 });

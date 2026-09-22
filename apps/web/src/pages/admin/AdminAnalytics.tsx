@@ -24,6 +24,24 @@ export default function AdminAnalytics() {
       .catch((err: any) => setError(err?.message ?? 'Chargement impossible'));
   }, []);
 
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [fixError, setFixError] = useState<string | null>(null);
+
+  async function fixMismatch(row: any) {
+    if (!window.confirm(`Détacher le dossier ${row.dossierReference} du sinistre ${row.reference} ?\n\nLe dossier redeviendra rattachable au bon sinistre depuis l'écran « Instruction dossiers ».`)) return;
+    setFixing(row.dossierId);
+    setFixError(null);
+    try {
+      await api.del(`/admin/claims/${row.id}/care-dossier`);
+      const anomalies = await api.get('/analytics/care-dossier-anomalies');
+      setData((d: any) => (d ? { ...d, anomalies } : d));
+    } catch (err: any) {
+      setFixError(err?.message ?? 'Correction impossible');
+    } finally {
+      setFixing(null);
+    }
+  }
+
   if (error) {
     return (
       <div className="space-y-4">
@@ -154,6 +172,7 @@ export default function AdminAnalytics() {
                         <th className="th text-left" scope="col">Dossier</th>
                         <th className="th text-left" scope="col">Type</th>
                         <th className="th text-right" scope="col">Date de soin</th>
+                        <th className="th text-right" scope="col"><span className="sr-only">Action</span></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -163,12 +182,26 @@ export default function AdminAnalytics() {
                           <td className="td font-mono text-xs">{row.dossierReference}</td>
                           <td className="td text-xs">{row.kind}</td>
                           <td className="td text-right text-xs">{row.careDate ? fmtDate(row.careDate) : '—'}</td>
+                          <td className="td text-right">
+                            <button
+                              type="button"
+                              onClick={() => fixMismatch(row)}
+                              disabled={fixing !== null}
+                              aria-label={`Détacher le dossier ${row.dossierReference} du sinistre ${row.reference}`}
+                              className="rounded bg-rose-600 px-2 py-1 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                            >
+                              {fixing === row.dossierId ? 'Correction…' : 'Corriger'}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 )}
               </div>
+              {fixError && (
+                <p role="alert" className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-700">{fixError}</p>
+              )}
               <p className="text-xs text-slate-500">
                 Correction depuis l'écran « Instruction dossiers » : rattacher un dossier (sans dossier) ou détacher/rattacher le bon dossier (incohérence). Le watchdog quotidien alerte aussi les gestionnaires sur chaque anomalie.
               </p>

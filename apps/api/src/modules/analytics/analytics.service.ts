@@ -433,6 +433,40 @@ export class AnalyticsService {
     return periods;
   }
 
+  /**
+   * Anomalies de traçabilité actives (les deux dérives surveillées par le
+   * watchdog quotidien) — mêmes requêtes que le job, même loi que la route
+   * de rattachement, pour que la vue et l'alerte ne puissent pas diverger.
+   */
+  async getCareDossierAnomalies(): Promise<{
+    withoutDossier: Array<{ id: string; reference: string; careDate: Date | null; totalRequested: number | null; kind: string }>;
+    patientMismatch: Array<{ id: string; reference: string; dossierId: string; dossierReference: string; careDate: Date | null; kind: string }>;
+  }> {
+    const [withoutDossier, mismatchRows] = await Promise.all([
+      // Dérive 1 : prises en charge sans dossier (scan d'état : tout historique,
+      // pas seulement le mois précédent — la vue liste ce qui reste à corriger).
+      this.prisma.claim.findMany({
+        where: { kind: 'THIRDPARTY', careRecord: { is: null } },
+        select: { id: true, reference: true, careDate: true, totalRequested: true, kind: true },
+        orderBy: { createdAt: 'asc' },
+        take: 25,
+      }),
+      // Dérive 2 : dossiers rattachés à un sinistre d'un autre assuré
+      // (Prisma ne compare pas deux colonnes : SQL calquée sur la route attach).
+      this.prisma.$queryRaw<Array<{ id: string; reference: string; dossierId: string; dossierReference: string; careDate: Date | null; kind: string }>>`
+        SELECT c.id, c."reference", cr.id AS "dossierId", cr."reference" AS "dossierReference",
+               c."careDate", c.kind::text AS kind
+        FROM "CareRecord" cr
+        JOIN "Claim" c ON c.id = cr."claimId"
+        WHERE NOT (cr."patientUserId" = c."claimantUserId")
+          AND NOT (c."beneficiaryId" IS NOT NULL AND cr."beneficiaryId" = c."beneficiaryId")
+        ORDER BY c."createdAt" ASC
+        LIMIT 25
+      `,
+    ]);
+    return { withoutDossier, patientMismatch: mismatchRows };
+  }
+
   async getGlobalKPIs() {
     const [
       activeContracts,

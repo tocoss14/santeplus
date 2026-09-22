@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { fcfa, ratioPct } from '../../format';
+import { fcfa, fmtDate, ratioPct } from '../../format';
 import { ErrorBanner, Spinner, StatCard } from '../../components/ui';
 
 export default function AdminAnalytics() {
@@ -16,9 +16,10 @@ export default function AdminAnalytics() {
       api.get('/analytics/provider-performance'),
       api.get('/analytics/portfolio-evolution?months=12'),
       api.get('/analytics/care-dossier-evolution?months=6'),
+      api.get('/analytics/care-dossier-anomalies'),
     ])
-      .then(([kpis, lossRatio, reserves, products, providers, evolution, dossierEvolution]) => {
-        setData({ kpis, lossRatio, reserves, products, providers, evolution, dossierEvolution });
+      .then(([kpis, lossRatio, reserves, products, providers, evolution, dossierEvolution, anomalies]) => {
+        setData({ kpis, lossRatio, reserves, products, providers, evolution, dossierEvolution, anomalies });
       })
       .catch((err: any) => setError(err?.message ?? 'Chargement impossible'));
   }, []);
@@ -94,6 +95,86 @@ export default function AdminAnalytics() {
             </table>
           </div>
         )}
+      </div>
+
+      <div className="card-p">
+        <h2 className="font-semibold">Anomalies de traçabilité</h2>
+        {(() => {
+          const anomalies = data.anomalies ?? { withoutDossier: [], patientMismatch: [] };
+          const count = anomalies.withoutDossier.length + anomalies.patientMismatch.length;
+          if (count === 0) {
+            return (
+              <p className="mt-2 text-sm text-emerald-700" aria-label="Aucune anomalie de traçabilité active">
+                ✓ Aucune anomalie active : chaque prise en charge est née dans un dossier de soins, chaque dossier rattaché concerne le bon assuré.
+              </p>
+            );
+          }
+          return (
+            <div className="mt-3 space-y-4">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Prises en charge sans dossier de soins ({anomalies.withoutDossier.length})
+                </h3>
+                {anomalies.withoutDossier.length === 0 ? (
+                  <p className="mt-1 text-sm text-slate-500">Aucune.</p>
+                ) : (
+                  <table className="mt-2 w-full max-w-2xl text-sm">
+                    <thead>
+                      <tr>
+                        <th className="th text-left" scope="col">Référence</th>
+                        <th className="th text-left" scope="col">Type</th>
+                        <th className="th text-right" scope="col">Date de soin</th>
+                        <th className="th text-right" scope="col">Montant</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {anomalies.withoutDossier.map((row: any) => (
+                        <tr key={row.id}>
+                          <td className="td font-mono text-xs">{row.reference}</td>
+                          <td className="td text-xs">{row.kind}</td>
+                          <td className="td text-right text-xs">{row.careDate ? fmtDate(row.careDate) : '—'}</td>
+                          <td className="td text-right">{row.totalRequested != null ? fcfa(row.totalRequested) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Dossiers rattachés à un autre assuré ({anomalies.patientMismatch.length})
+                </h3>
+                {anomalies.patientMismatch.length === 0 ? (
+                  <p className="mt-1 text-sm text-slate-500">Aucune.</p>
+                ) : (
+                  <table className="mt-2 w-full max-w-2xl text-sm">
+                    <thead>
+                      <tr>
+                        <th className="th text-left" scope="col">Sinistre</th>
+                        <th className="th text-left" scope="col">Dossier</th>
+                        <th className="th text-left" scope="col">Type</th>
+                        <th className="th text-right" scope="col">Date de soin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {anomalies.patientMismatch.map((row: any) => (
+                        <tr key={row.dossierId}>
+                          <td className="td font-mono text-xs">{row.reference}</td>
+                          <td className="td font-mono text-xs">{row.dossierReference}</td>
+                          <td className="td text-xs">{row.kind}</td>
+                          <td className="td text-right text-xs">{row.careDate ? fmtDate(row.careDate) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                Correction depuis l'écran « Instruction dossiers » : rattacher un dossier (sans dossier) ou détacher/rattacher le bon dossier (incohérence). Le watchdog quotidien alerte aussi les gestionnaires sur chaque anomalie.
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="card-p">

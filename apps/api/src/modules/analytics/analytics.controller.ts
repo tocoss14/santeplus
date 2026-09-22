@@ -20,6 +20,12 @@ export class AnalyticsController {
     return this.analytics.getGlobalKPIs();
   }
 
+  @Get('care-dossier-anomalies')
+  @RequirePermissions('stats.admin')
+  anomalies() {
+    return this.analytics.getCareDossierAnomalies();
+  }
+
   @Get('care-dossier-evolution')
   @RequirePermissions('stats.admin')
   async getCareDossierEvolution(@Query(new ZodPipe(monthsSchema)) dto: { months: number }) {

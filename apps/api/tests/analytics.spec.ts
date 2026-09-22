@@ -2,6 +2,32 @@ import { describe, expect, it, vi } from 'vitest';
 import { AnalyticsService } from '../src/modules/analytics/analytics.service';
 
 describe('analytics calculations', () => {
+  it('anomalies: liste les deux dérives (sans dossier + incohérence patient)', async () => {
+    const prisma: any = {
+      claim: {
+        findMany: vi.fn(async () => [{ id: 'c1', reference: 'TPE-2026-DRIFT', careDate: new Date('2026-08-15'), totalRequested: 5000, kind: 'THIRDPARTY' }]),
+      },
+      $queryRaw: vi.fn(async () => [{ id: 'c2', reference: 'SIN-2026-001', dossierId: 'd1', dossierReference: 'DOS-2026-009', careDate: new Date('2026-08-20'), kind: 'REIMBURSEMENT' }]),
+    };
+    const res = await new AnalyticsService(prisma).getCareDossierAnomalies();
+
+    expect(res.withoutDossier).toHaveLength(1);
+    expect(res.withoutDossier[0]).toMatchObject({ reference: 'TPE-2026-DRIFT' });
+    expect(res.patientMismatch).toHaveLength(1);
+    expect(res.patientMismatch[0]).toMatchObject({ reference: 'SIN-2026-001', dossierReference: 'DOS-2026-009' });
+  });
+
+  it('anomalies: état sain = deux listes vides', async () => {
+    const prisma: any = {
+      claim: { findMany: vi.fn(async () => []) },
+      $queryRaw: vi.fn(async () => []),
+    };
+    const res = await new AnalyticsService(prisma).getCareDossierAnomalies();
+
+    expect(res.withoutDossier).toEqual([]);
+    expect(res.patientMismatch).toEqual([]);
+  });
+
   it('maps monthly premiums and claims to a loss ratio', async () => {
     const prisma: any = {
       payment: { aggregate: vi.fn(async () => ({ _sum: { amount: 1000 } })) },

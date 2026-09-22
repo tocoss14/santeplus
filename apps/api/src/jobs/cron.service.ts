@@ -9,6 +9,7 @@ import { RetentionJob } from './retention.job';
 import { CommissionFraudJob } from './commission-fraud.job';
 import { PaymentReminderJob } from './payment-reminder.job';
 import { PaymentReconciliationJob } from './payment-reconciliation.job';
+import { CareDossierWatchJob } from './care-dossier-watch.job';
 
 @Injectable()
 export class CronService implements OnApplicationBootstrap {
@@ -21,6 +22,7 @@ export class CronService implements OnApplicationBootstrap {
     private commissionFraudJob?: CommissionFraudJob,
     private paymentReminderJob?: PaymentReminderJob,
     private paymentReconciliationJob?: PaymentReconciliationJob,
+    private careDossierWatchJob?: CareDossierWatchJob,
   ) {}
 
   onApplicationBootstrap() {
@@ -29,6 +31,7 @@ export class CronService implements OnApplicationBootstrap {
     cron.schedule('30 2 * * *', () => void this.checkRenewalAlerts().catch((e) => console.error('[cron] renewalAlert error', e)));
     cron.schedule('0 2 * * *', () => void this.checkFraud().catch((e) => console.error('[cron] fraud error', e)));
     cron.schedule('0 3 * * *', () => void this.checkRetention().catch((e) => console.error('[cron] retention error', e)));
+    if (this.careDossierWatchJob) this.careDossierWatchJob.schedule();
     cron.schedule('30 3 * * *', () => void this.checkCommissionFraud().catch((e) => console.error('[cron] commissionFraud error', e)));
     cron.schedule('0 9 * * *', () => void this.sendPaymentReminders().catch((e) => console.error('[cron] paymentReminder error', e)));
     // Réconciliation PSP : toutes les 10 min, filet de sécurité si un webhook
@@ -78,6 +81,13 @@ export class CronService implements OnApplicationBootstrap {
     }
     const job = new CommissionFraudJob(this.prisma as any, this.dispatch as any);
     return job.run(now);
+  }
+
+  async checkCareDossierTraceability(now = new Date()) {
+    if (this.careDossierWatchJob) {
+      return this.careDossierWatchJob.run(now);
+    }
+    return { drifted: 0, notified: 0 };
   }
 
   async reconcilePayments(now = new Date()) {

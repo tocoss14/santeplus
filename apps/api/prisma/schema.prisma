@@ -59,6 +59,7 @@ model User {
   @@index([role])
   @@index([status])
   @@index([companyId])
+  @@index([role, status, createdAt]) // Added for portfolio evolution
 }
 
 model Company {
@@ -249,6 +250,8 @@ model Contract {
   @@index([principalUserId])
   @@index([companyId])
   @@index([groupContractId])
+  @@index([status, productId]) // Added for product profitability and technical reserves
+  @@index([status, startDate, endDate]) // Added for portfolio evolution
 }
 
 model Beneficiary {
@@ -319,6 +322,7 @@ model Payment {
 
   @@index([status])
   @@index([userId])
+  @@index([status, initiatedAt]) // Added for loss ratio and portfolio evolution
 }
 
 model Claim {
@@ -376,6 +380,10 @@ model Claim {
   @@index([contractId])
   @@index([kind, status])
   @@index([diseaseId])
+  @@index([status, paidAt]) // Added for loss ratio and portfolio evolution
+  @@index([status, careDate]) // Added for care dossier evolution
+  @@index([providerId, status]) // Added for provider performance
+  @@index([status, submittedAt, decidedAt]) // Added for processing days calculation
 }
 
 model ClaimItem {
@@ -478,11 +486,6 @@ model Provider {
   @@index([city])
   @@index([type])
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// FACTURATION TIERS-PAYANT AVANCÉE (P21-1)
-// Factures groupées, rejets, avoirs, réconciliation
-// ═══════════════════════════════════════════════════════════════════
 
 model BatchInvoice {
   id            String   @id @default(cuid())
@@ -688,19 +691,10 @@ model Prescription {
   noteEnc           String?
   claims            Claim[]  @relation("ClaimPrescription")
   careRecord        CareRecord?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  lines             PrescriptionLine[]
-  deliveries        Delivery[]
 
   @@index([patientUserId])
   @@index([status])
 }
-
-// ═══════════════════════════════════════════
-// DISTRIBUTION & COMMISSIONS
-// ═══════════════════════════════════════════
 
 model Distributor {
   id              String    @id @default(cuid())
@@ -949,7 +943,7 @@ model CareRecordEvent {
   @@index([type])
 }
 
-// ── Comptabilité technique OHADA ──
+-- ── Comptabilité technique OHADA ──
 model Account {
   id        String  @id @default(cuid())
   code      String  @unique
@@ -992,7 +986,7 @@ model AccountingEntry {
   @@index([period])
 }
 
-// ── Référentiels Branchen / Maladies / Panier ──
+-- ── Référentiels Branchen / Maladies / Panier ──
 model Branch {
   id          String  @id @default(cuid())
   code        String  @unique
@@ -1015,10 +1009,7 @@ model Disease {
   claims    Claim[]
 }
 
-// ── COMPTE TECHNIQUE SANTÉ (CTS) — pilotage par contrat ──
-// Pilotage technique distinct de la compta OHADA (réglementaire).
-// Cumuls persistés recalculés après chaque événement financier (§40.17).
-
+-- ── COMPTE TECHNIQUE SANTÉ (CTS) — pilotage par contrat ──
 model TechnicalAccount {
   id              String   @id @default(cuid())
   contractId      String   @unique
@@ -1043,8 +1034,8 @@ model TechnicalAccount {
   updatedAt       DateTime @updatedAt
 }
 
-// Journal CTS immuable : jamais d'update/delete, uniquement des
-// contre-écritures (§40.4, §40.15).
+-- Journal CTS immuable : jamais d'update/delete, uniquement des
+-- contre-écritures (§40.4, §40.15).
 model CtsJournal {
   id            String   @id @default(cuid())
   date          DateTime @default(now())
@@ -1065,6 +1056,7 @@ model CtsJournal {
 
   @@index([contractId])
   @@index([type])
+  @@index([contractId, type]) // Added for product profitability
 }
 
 model FundCall {
@@ -1128,9 +1120,9 @@ model ContractClosure {
   @@index([status])
 }
 
-// Fonds de solidarité mutualiste : les excédents de clôture alimentent le
-// fonds, qui couvre les déficits des contrats en difficulté. Journal
-// immuable par mouvements (jamais d'update/delete).
+-- Fonds de solidarité mutualiste : les excédents de clôture alimentent le
+-- fonds, qui couvre les déficits des contrats en difficulté. Journal
+-- immuable par mouvements (jamais d'update/delete).
 model SolidarityMovement {
   id         String   @id @default(cuid())
   // CONTRIBUTION | COVERAGE | ADJUSTMENT
@@ -1149,7 +1141,7 @@ model SolidarityMovement {
   @@index([contractId])
 }
 
-// Dossier d'instruction fraude (léger) — les détections restent dans les jobs.
+-- Dossier d'instruction fraude (léger) — les détections restent dans les jobs.
 model FraudCase {
   id             String    @id @default(cuid())
   contractId     String?

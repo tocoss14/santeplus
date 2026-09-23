@@ -49,6 +49,11 @@ export class CareDossierWatchJob {
 
   /** Schedule daily at 03:40 */
   schedule() {
+    // Garde anti-double-scheduling (I4) : un module Nest peut être réamorcé
+    // (hot-reload, tests, bootstrap multiple) — node-cron accumulerait les
+    // tâches identiques et le job tournerait N fois.
+    if ((this as any)._scheduled) return;
+    (this as any)._scheduled = true;
     cron.schedule('40 3 * * *', () => void this.run().catch((e) => console.error('[care-dossier-watch] cron error', e)));
   }
 

@@ -60,6 +60,8 @@ export function isRetentionEnabled(
     if (typeof raw === 'string') {
       try { parsed = JSON.parse(raw); } catch { parsed = raw; }
     }
+    // M3 — normalisation de casse : l'UI admin peut envoyer 'True', 'FALSE ', etc.
+    if (typeof parsed === 'string') parsed = parsed.trim().toLowerCase();
     if (parsed === false || parsed === 'false') return false;
     if (parsed === true || parsed === 'true') return true;
     // numeric 0/1

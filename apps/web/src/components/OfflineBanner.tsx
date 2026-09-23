@@ -1,12 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { getQueue, syncQueue } from '../lib/offlineQueue';
 
 export default function OfflineBanner() {
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [queueCount, setQueueCount] = useState<number>(0);
   const [syncing, setSyncing] = useState(false);
+  // M5 — ref pour éviter la stale closure : le listener « online » et les
+  // re-renders successifs voient toujours la valeur à jour de syncing.
+  const syncingRef = useRef(false);
   const [lastConflicts, setLastConflicts] = useState<Array<{ id: string; reason: string }>>([]);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
+  // M5 — l'échec réseau après les 3 tentatives n'est plus silencieux.
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -18,29 +23,39 @@ export default function OfflineBanner() {
   }, []);
 
   const doSync = useCallback(async () => {
-    if (syncing) return;
+    if (syncingRef.current) return;
+    syncingRef.current = true;
     setSyncing(true);
+    setSyncError(null);
     let attempts = 0;
     const maxRetries = 3;
-    while (attempts < maxRetries) {
-      try {
-        const res = await syncQueue();
-        if (res.conflicts.length > 0) {
-          setLastConflicts(res.conflicts);
-        } else {
-          setLastConflicts([]);
+    try {
+      while (attempts < maxRetries) {
+        try {
+          const res = await syncQueue();
+          if (res.conflicts.length > 0) {
+            setLastConflicts(res.conflicts);
+          } else {
+            setLastConflicts([]);
+          }
+          if (res.synced > 0) setLastSynced(res.synced);
+          await refresh();
+          break;
+        } catch (e) {
+          attempts++;
+          if (attempts >= maxRetries) {
+            // M5 — surface l'échec réseau au lieu d'un retry silencieux.
+            setSyncError(e instanceof Error ? e.message : 'Synchronisation impossible — vérifiez la connexion');
+            break;
+          }
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempts)));
         }
-        if (res.synced > 0) setLastSynced(res.synced);
-        await refresh();
-        break;
-      } catch (e) {
-        attempts++;
-        if (attempts >= maxRetries) break;
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempts)));
       }
+    } finally {
+      syncingRef.current = false;
+      setSyncing(false);
     }
-    setSyncing(false);
-  }, [syncing, refresh]);
+  }, [refresh]);
 
   useEffect(() => {
     refresh();
@@ -68,7 +83,7 @@ export default function OfflineBanner() {
     return () => window.removeEventListener('storage', onStorage);
   }, [refresh]);
 
-  const showBanner = !isOnline || queueCount > 0 || lastConflicts.length > 0;
+  const showBanner = !isOnline || queueCount > 0 || lastConflicts.length > 0 || syncError !== null;
 
   if (!showBanner) return null;
 
@@ -126,6 +141,13 @@ export default function OfflineBanner() {
       </div>
 
       {/* Conflict details — must alert manager, not silent drop */}
+      {syncError && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-2" role="alert">
+          <p className="text-sm text-red-800">
+            <span className="font-bold">Échec de synchronisation :</span> {syncError} — les délivrances restent en file d'attente, aucune donnée n'est perdue.
+          </p>
+        </div>
+      )}
       {lastConflicts.length > 0 && (
         <div className="bg-red-50 border-b border-red-200 px-4 py-2 space-y-1">
           {lastConflicts.map(c => (

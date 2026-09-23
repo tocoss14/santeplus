@@ -10,3 +10,15 @@ apps/api/uploads/
 .env.staging
 COMPTES_DEMO.md
 coverage/
+
+# Artefacts d'exécution E2E / audit (reproductibles)
+playwright-report/
+test-results/
+phase4-results.json
+e2e/phase4-results.json
+
+# Journaux et artefacts locaux de l'agent (logs serveurs, rapports Lighthouse, scripts d'appoint)
+.freebuff/
+
+# Fichiers temporaires Office
+docs/~$*

@@ -38,7 +38,13 @@ async function bootstrap(): Promise<void> {
     console.error('FATAL: JWT_SECRET doit faire au moins 32 caractères en production');
     process.exit(1);
   }
+  // I2 : en production la clé de chiffrement doit être dédiée et indépendante du JWT_SECRET.
+  // Le fallback dérivé du JWT reste toléré en dev/test uniquement.
   if (!config.fieldEncryptionKey || config.fieldEncryptionKey.length < 64) {
+    if (config.isProd) {
+      console.error('FATAL: FIELD_ENCRYPTION_KEY doit être définie en production (32 octets hex = 64 caractères) — la clé dérivée du JWT_SECRET est interdite en prod.');
+      process.exit(1);
+    }
     console.warn('WARNING: FIELD_ENCRYPTION_KEY manquant/invalide — clé dérivée du JWT_SECRET utilisée (définir FIELD_ENCRYPTION_KEY en prod pour persistance)');
   }
 

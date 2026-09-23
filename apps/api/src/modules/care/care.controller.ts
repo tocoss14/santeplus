@@ -84,6 +84,15 @@ const actCreateSchema = z.object({
 @Controller()
 @UseInterceptors(AuditInterceptor)
 export class CareController {
+  private async getSystemConfig(key: string, fallback: string): Promise<string> {
+    try {
+      const row = await this.prisma.systemConfig.findUnique({ where: { key } });
+      return row?.value ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   constructor(
     private prisma: PrismaService,
     private dispatch: NotificationDispatchService,
@@ -581,7 +590,7 @@ export class CareController {
         const act = await this.prisma.act.findUnique({ where: { id: dl.line.actId }, select: { authThreshold: true } });
         actThreshold = act?.authThreshold ?? null;
       }
-      thresholds.push(resolveThreshold(productThreshold, actThreshold));
+      thresholds.push(resolveThreshold(productThreshold, actThreshold, Number(await this.getSystemConfig('thirdPartyAuthGlobalFallback', '150000'))));
     }
     let needsAuth = false;
     if (estimation.items.length === thresholds.length) {

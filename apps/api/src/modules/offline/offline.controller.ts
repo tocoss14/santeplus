@@ -186,7 +186,7 @@ export class OfflineController {
             const act = await this.prisma.act.findUnique({ where: { id: dl.line.actId }, select: { authThreshold: true } });
             actThreshold = act?.authThreshold ?? null;
           }
-          thresholds.push(resolveThreshold(productThreshold, actThreshold));
+          thresholds.push(resolveThreshold(productThreshold, actThreshold, this.offlineGlobalFallback()));
         }
         let needsAuth = false;
         if (estimation.items.length === thresholds.length) {
@@ -304,6 +304,16 @@ export class OfflineController {
 
     return { synced, conflicts, succeededIds, results };
   }
+
+  /** Seuil de secours tiers-payant : SystemConfig `thirdPartyAuthGlobalFallback`, sinon variable d'environnement, sinon 150000. */
+  private offlineGlobalFallback(): number {
+    if (this.globalFallbackCache != null) return this.globalFallbackCache;
+    const env = Number(process.env.THIRD_PARTY_AUTH_GLOBAL_FALLBACK ?? '');
+    const v = Number.isFinite(env) && env > 0 ? env : 150000;
+    this.globalFallbackCache = v;
+    return v;
+  }
+  private globalFallbackCache: number | null = null;
 
   private async alertManagers(title: string, body: string) {
     try {

@@ -378,6 +378,15 @@ export class ProviderPortalController {
     };
   }
 
+  private async getSystemConfig(key: string, fallback: string): Promise<string> {
+    try {
+      const row = await this.prisma.systemConfig.findUnique({ where: { key } });
+      return row?.value ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   @Post('thirdparty/initiate')
   @RequirePermissions('provider.thirdparty')
   @UseInterceptors(FilesInterceptor('documents', 8))
@@ -484,7 +493,7 @@ export class ProviderPortalController {
         const act = await this.prisma.act.findUnique({ where: { id: it.actId }, select: { authThreshold: true } });
         actThreshold = act?.authThreshold ?? null;
       }
-      thresholds.push(resolveThreshold(productThreshold, actThreshold));
+      thresholds.push(resolveThreshold(productThreshold, actThreshold, Number(await this.getSystemConfig('thirdPartyAuthGlobalFallback', '150000'))));
     }
     // If ANY item exceeds its own threshold (using per-item approved amount), whole claim needs auth.
     // Fallback: if estimation has no per-item amounts, check total against most restrictive threshold.

@@ -163,7 +163,17 @@ export class OfflineController {
           include: { product: { include: { guarantees: { include: { guarantee: true } }, exclusions: true } } },
           orderBy: { createdAt: 'desc' },
         });
-        if (!patientContract || patientContract.status !== 'ACTIVE') {
+        if (!patientContract) {
+          conflicts.push({ id: itemId, reason: 'Aucun contrat trouvé pour ce patient', status: 'CONFLICT' });
+          continue;
+        }
+        // I3 — parité avec le flux online : même message « Contrat radié » pour
+        // TERMINATED/SUSPENDED (care.controller), les autres statuts non actifs gardent le message générique.
+        if (patientContract.status === 'TERMINATED' || patientContract.status === 'SUSPENDED') {
+          conflicts.push({ id: itemId, reason: 'Contrat radié — délivrance impossible', status: 'CONFLICT' });
+          continue;
+        }
+        if (patientContract.status !== 'ACTIVE') {
           conflicts.push({ id: itemId, reason: 'Contrat du patient inactif — délivrance impossible', status: 'CONFLICT' });
           continue;
         }

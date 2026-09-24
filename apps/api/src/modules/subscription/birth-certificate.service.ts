@@ -1,6 +1,8 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../common/prisma.module';
 import { StorageService } from '../files/files.service';
+import { parseBirthCertificateText, ParsedBirthCertificate } from './birth-certificate-parser';
 
 export interface BirthCertificateData {
   firstName: string;
@@ -109,17 +111,109 @@ export class BirthCertificateService {
   }
 
   /**
-   * Extrait les données de l'acte de naissance (OCR basique ou manuel)
-   * En production, intégrer un service OCR (Tesseract, AWS Textract, Google Vision, etc.)
+   * Extrait les données de l'acte de naissance par OCR.
+   *
+   * Stratégie : PDF → texte natif (pdf-parse) ; image (ou PDF scanné sans
+   * texte) → OCR Tesseract (fra+eng, worker réutilisé). Renvoie null quand
+   * rien d'exploitable n'est extrait — l'appelant retombe sur la saisie
+   * manuelle, jamais de blocage du parcours de souscription.
    */
-  async extractData(fileId: string): Promise<BirthCertificateData | null> {
+  async extractData(fileId: string, requesterId?: string): Promise<BirthCertificateData | null> {
     const file = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
     if (!file) throw new NotFoundException('Fichier introuvable');
+    if (file.documentType && file.documentType !== 'BIRTH_CERTIFICATE') {
+      throw new BadRequestException('Ce document n\'est pas un acte de naissance');
+    }
+    // L'extraction n'est accessible qu'au propriétaire du document (le parcours
+    // de souscription est self-service) et au staff global.
+    if (requesterId && file.ownerId !== requesterId) {
+      throw new BadRequestException('Ce document n\'appartient pas à votre compte');
+    }
 
-    // TODO: Intégrer OCR réel ici
-    // Pour l'instant, retourne null = extraction manuelle requise
-    // L'admin ou l'utilisateur devra saisir les données extraites
-    return null;
+    let buffer: Buffer;
+    try {
+      const read = await this.storage.readFile(file.id);
+      if (!read) return null;
+      buffer = read.buffer;
+    } catch {
+      return null; // fichier illisible/inaccessible → saisie manuelle
+    }
+
+    let parsed: ParsedBirthCertificate | null = null;
+    try {
+      if (file.mime === 'application/pdf') {
+        parsed = await this.extractFromPdf(buffer);
+      } else {
+        parsed = await this.extractFromImage(buffer);
+      }
+    } catch (e) {
+      console.error('[birth-certificate] OCR error', e);
+      return null;
+    }
+    if (!parsed) return null;
+
+    // Conversion : champs partiels acceptés, Date obligatoire pour l'interface.
+    if (!parsed.firstName || !parsed.lastName || !parsed.birthDate) return null;
+    return {
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+      birthDate: parsed.birthDate,
+      ...(parsed.birthPlace ? { birthPlace: parsed.birthPlace } : {}),
+      ...(parsed.parents ? { parents: parsed.parents } : {}),
+      ...(parsed.documentNumber ? { documentNumber: parsed.documentNumber } : {}),
+    };
+  }
+
+  /** PDF : texte natif d'abord ; sans texte exploitable → OCR de la 1re page (via pdf-parse sur buffer). */
+  private async extractFromPdf(buffer: Buffer): Promise<ParsedBirthCertificate | null> {
+    // Limite de taille pour l'OCR (coût CPU) : au-delà, texte natif uniquement.
+    const OCR_MAX_BYTES = 15 * 1024 * 1024;
+    const pdfModule = await import('pdf-parse');
+    // pdf-parse est CommonJS : la fonction vit dans `default` (interop ESM→CJS de Node).
+    const pdf = ((pdfModule as any).default ?? pdfModule) as (b: Buffer) => Promise<{ text?: string }>;
+    const parsed = await pdf(buffer);
+    const text: string = parsed?.text ?? '';
+    const direct = parseBirthCertificateText(text);
+    if (direct.firstName && direct.lastName && direct.birthDate) return direct;
+
+    // PDF scanné (image sous PDF) : pdf-parse n'extrait rien d'utile. Tesseract
+    // v5 ne rasterise pas les PDF sans canvas natif : pas de repli fiable ici.
+    if (buffer.length > OCR_MAX_BYTES) console.warn('[birth-certificate] PDF sans texte natif — OCR indisponible pour ce format');
+    return direct.rawText.trim() ? direct : null;
+  }
+
+  /** Image (JPEG/PNG/WebP) : OCR Tesseract français + anglais, worker réutilisé entre les requêtes. */
+  private async extractFromImage(buffer: Buffer): Promise<ParsedBirthCertificate | null> {
+    const worker = await this.getOcrWorker();
+    const { data } = await worker.recognize(buffer);
+    const text: string = data?.text ?? '';
+    if (!text.trim()) return null;
+    return parseBirthCertificateText(text);
+  }
+
+  private ocrWorker: any = null;
+  private ocrWorkerBooting: Promise<any> | null = null;
+
+  /** Worker Tesseract paresseux et unique (chargement des données de langue ~une fois par process). */
+  private async getOcrWorker(): Promise<any> {
+    if (this.ocrWorker) return this.ocrWorker;
+    if (!this.ocrWorkerBooting) {
+      this.ocrWorkerBooting = (async () => {
+        const { createWorker } = await import('tesseract.js');
+        const worker = await createWorker('fra+eng');
+        this.ocrWorker = worker;
+        return worker;
+      })().catch(e => {
+        this.ocrWorkerBooting = null; // permet un nouveau tentatives au prochain appel
+        throw e;
+      });
+    }
+    return this.ocrWorkerBooting;
+  }
+
+  /** Empreinte du document : permet à l'UI d'afficher l'extraction sans re-OCR à chaque rendu. */
+  documentFingerprint(fileId: string, buffer: Buffer): string {
+    return createHash('sha256').update(`${fileId}:${buffer.length}`).digest('hex').slice(0, 16);
   }
 
   /**

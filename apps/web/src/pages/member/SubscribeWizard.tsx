@@ -322,6 +322,17 @@ export default function SubscribeWizard() {
         const uploadRes = await api.post<{ fileId: string }>('/subscription/birth-certificate/upload', fd);
         fileId = uploadRes.fileId;
         setBirthCertFileId(fileId);
+
+        // Pré-remplissage OCR : best effort — si l'extraction échoue ou ne trouve
+        // rien d'exploitable, la saisie manuelle reste la voie normale.
+        try {
+          const ex = await api.post<{ extracted: { firstName: string; lastName: string; birthDate: string } | null }>('/subscription/birth-certificate/extract', { fileId });
+          if (ex.extracted) {
+            // L'API renvoie une date ISO ; on garde la partie jour (YYYY-MM-DD) pour l'input date.
+            const iso = String(ex.extracted.birthDate).slice(0, 10);
+            setBirthCertDoc({ firstName: ex.extracted.firstName, lastName: ex.extracted.lastName, birthDate: iso });
+          }
+        } catch { /* OCR indisponible → saisie manuelle */ }
       }
 
       const result = await api.post<any>('/subscription/birth-certificate/verify', {

@@ -41,6 +41,16 @@ export class BirthCertificateController {
   }
 
   /**
+   * Extraction OCR des données de l'acte téléversé (pré-remplissage du formulaire).
+   * Réponse { extracted: null } si l'OCR n'a rien pu exploiter → l'UI garde la saisie manuelle.
+   */
+  @Post('birth-certificate/extract')
+  async extract(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(z.object({ fileId: z.string().min(1) }))) dto: { fileId: string }) {
+    const extracted = await this.birthCert.extractData(dto.fileId, auth.id);
+    return { extracted };
+  }
+
+  /**
    * Vérification manuelle (admin ou utilisateur saisit les données extraites)
    */
   @Post('birth-certificate/verify')

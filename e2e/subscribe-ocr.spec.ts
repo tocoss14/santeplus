@@ -6,10 +6,10 @@
  * téléversé et illustrent les trois issues de l'extraction :
  *   1. l'acte scanné droit (.freebuff/acte-test-scanne.pdf — image sous PDF,
  *      sans texte natif, chemin rasterisation → tesseract) : pré-remplissage ;
- *   2. l'acte stocké de travers (.freebuff/acte-test-pivote.png — PNG tourné
- *      de 90° horaire) : l'OCR droit n'extrait rien, l'OSD détecte la
- *      rotation, la seconde passe OCR extrait les champs — le pré-remplissage
- *      doit rester observable au niveau UI ;
+ *   2. les actes stockés de travers (.freebuff/acte-test-pivote-D.png —
+ *      PNG tourné de D° horaire, D ∈ {90, 180, 270}) : l'OCR droit n'extrait
+ *      rien, l'OSD détecte la rotation, la seconde passe OCR extrait les
+ *      champs — le pré-remplissage doit rester observable au niveau UI ;
  *   3. l'acte illisible (.freebuff/acte-test-illisible.png — image sans
  *      texte) : l'API répond { extracted: null }, le wizard n'écrase PAS la
  *      saisie manuelle — qui est alors la seule voie —, signale l'échec
@@ -30,15 +30,16 @@ import { uid, apiContext } from './helpers';
 // e2e/ vit à la racine du dépôt — __dirname survit au transpile CJS de Playwright.
 const root = join(__dirname, '..');
 const SCAN_PDF = join(root, '.freebuff', 'acte-test-scanne.pdf');
-const ROT_PNG = join(root, '.freebuff', 'acte-test-pivote.png');
 const UNREADABLE_PNG = join(root, '.freebuff', 'acte-test-illisible.png');
+const ROT_DEGREES = [90, 180, 270] as const;
+const rotPng = (D: number) => join(root, '.freebuff', `acte-test-pivote-${D}.png`);
 
 // Les actes de test sont des artefacts générés (hors dépôt) : on les fabrique
 // au besoin — le script des fixtures pivotées régénère d'abord la base.
 for (const [fixture, script] of [
   [SCAN_PDF, 'make-birth-cert-fixture.mjs'],
-  [ROT_PNG, 'make-birth-cert-rotated-fixture.mjs'],
   [UNREADABLE_PNG, 'make-birth-cert-unreadable-fixture.mjs'],
+  ...ROT_DEGREES.map((D) => [rotPng(D), 'make-birth-cert-rotated-fixture.mjs'] as const),
 ] as const) {
   if (!existsSync(fixture)) {
     const r = spawnSync(process.execPath, [join(root, 'scripts-dev', script)], { cwd: root, stdio: 'inherit' });
@@ -163,19 +164,23 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
     await finishAfterVerification(page);
   });
 
-  test('upload du scan pivoté (90°) → OSD redresse → champs pré-remplis → paiement mock', async ({ page }) => {
-    await reachActeVerification(page, ROT_PNG);
-    await copyAndVerify(page, 'Marie');
+  for (const D of ROT_DEGREES) {
+    test(`upload du scan pivoté (${D}°) → OSD redresse → champs pré-remplis → paiement mock`, async ({ page }) => {
+      await reachActeVerification(page, rotPng(D));
+      await copyAndVerify(page, 'Marie');
 
-    await expect(page.getByLabel('Prénom sur l’acte', { exact: true })).toHaveValue(ACTE.firstName, { timeout: 60_000 });
-    await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
-    await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
-    await expect(page.getByText(/Prénom différent/)).toBeVisible();
+      await expect(page.getByLabel('Prénom sur l’acte', { exact: true })).toHaveValue(ACTE.firstName, { timeout: 60_000 });
+      await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
+      await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
+      await expect(page.getByText(/Prénom différent/)).toBeVisible();
+      // OCR réussi : la note d'échec d'extraction ne doit pas apparaître.
+      await expect(page.getByText(/Extraction automatique impossible/)).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Lancer la vérification' }).click();
-    await expect(page.getByText('Vérification réussie')).toBeVisible({ timeout: 30_000 });
-    await finishAfterVerification(page);
-  });
+      await page.getByRole('button', { name: 'Lancer la vérification' }).click();
+      await expect(page.getByText('Vérification réussie')).toBeVisible({ timeout: 30_000 });
+      await finishAfterVerification(page);
+    });
+  }
 
   test('acte illisible → aucun pré-remplissage, la saisie manuelle est conservée → paiement mock', async ({ page }) => {
     await reachActeVerification(page, UNREADABLE_PNG);

@@ -7,7 +7,9 @@ export default defineConfig({
   workers: 2,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.WEB_URL ?? 'http://127.0.0.1:3000',
+    // localhost et non 127.0.0.1 : l'anti-CSRF de l'API n'autorise que
+    // WEB_ORIGIN (http://localhost:3000 en dev) sur les mutations authentifiées.
+    baseURL: process.env.WEB_URL ?? 'http://localhost:3000',
     trace: 'on-first-retry',
   },
   // API E2E n'a pas besoin de webServer — lance `npm run dev` manuellement avant `npx playwright test`

@@ -112,13 +112,62 @@ export class BirthCertificateService {
     };
   }
 
+  // ——— Cache OCR par empreinte du contenu ———
+  // L'OCR coûte plusieurs secondes CPU (passe droite, puis OSD + seconde
+  // passe si le scan est pivoté) ; un même fichier peut être re-soumis
+  // (retry UI, double onglet, vérification répétée). On mémorise le résultat
+  // final par sha256 du buffer : borné en taille (FIFO) et en durée (TTL),
+  // statique au process pour survivre au recyclage des instances.
+  private static readonly OCR_CACHE_MAX = 16;
+  private static readonly OCR_TTL_MS = 15 * 60_000;
+  private static ocrCache: Map<string, { at: number; result: BirthCertificateData | null }> | null = null;
+
+  private ocrCacheGet(key: string): BirthCertificateData | null | undefined {
+    const cache = (BirthCertificateService.ocrCache ??= new Map());
+    const hit = cache.get(key);
+    if (!hit) return undefined; // miss
+    if (Date.now() - hit.at > BirthCertificateService.OCR_TTL_MS) {
+      cache.delete(key);
+      return undefined;
+    }
+    cache.delete(key); // rafraîchir la récence (FIFO ≈ LRU)
+    cache.set(key, hit);
+    return hit.result;
+  }
+
+  private ocrCacheSet(key: string, result: BirthCertificateData | null): void {
+    const cache = (BirthCertificateService.ocrCache ??= new Map());
+    cache.delete(key);
+    cache.set(key, { at: Date.now(), result });
+    while (cache.size > BirthCertificateService.OCR_CACHE_MAX) {
+      const oldest = cache.keys().next().value;
+      if (oldest === undefined) break;
+      cache.delete(oldest);
+    }
+  }
+
+  /** Conversion Parsed → contrat API : champs essentiels obligatoires, sinon null (acte sans données complètes). */
+  private toExtractionResult(parsed: ParsedBirthCertificate | null): BirthCertificateData | null {
+    if (!parsed?.firstName || !parsed.lastName || !parsed.birthDate) return null;
+    return {
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+      birthDate: parsed.birthDate,
+      ...(parsed.birthPlace ? { birthPlace: parsed.birthPlace } : {}),
+      ...(parsed.parents ? { parents: parsed.parents } : {}),
+      ...(parsed.documentNumber ? { documentNumber: parsed.documentNumber } : {}),
+    };
+  }
+
   /**
    * Extrait les données de l'acte de naissance par OCR.
    *
    * Stratégie : PDF → texte natif (pdf-parse) ; image (ou PDF scanné sans
    * texte) → OCR Tesseract (fra+eng, worker réutilisé). Renvoie null quand
    * rien d'exploitable n'est extrait — l'appelant retombe sur la saisie
-   * manuelle, jamais de blocage du parcours de souscription.
+   * manuelle, jamais de blocage du parcours de souscription. Résultat mis en
+   * cache par empreinte du contenu (les re-soumissions du même fichier ne
+   * repayent pas l'OCR) ; les erreurs transitoires ne sont pas cachées.
    */
   async extractData(fileId: string, requesterId?: string): Promise<BirthCertificateData | null> {
     const file = await this.prisma.fileObject.findUnique({ where: { id: fileId } });
@@ -141,6 +190,12 @@ export class BirthCertificateService {
       return null; // fichier illisible/inaccessible → saisie manuelle
     }
 
+    // Cache par contenu (pas par fileId) : le même document re-téléversé —
+    // donc relu par le stockage — repart du résultat déjà calculé.
+    const bufferKey = createHash('sha256').update(buffer).digest('hex');
+    const cached = this.ocrCacheGet(bufferKey);
+    if (cached !== undefined) return cached;
+
     let parsed: ParsedBirthCertificate | null = null;
     try {
       if (file.mime === 'application/pdf') {
@@ -150,20 +205,15 @@ export class BirthCertificateService {
       }
     } catch (e) {
       console.error('[birth-certificate] OCR error', e);
-      return null;
+      return null; // pas de cache : l'erreur peut être transitoire (boot worker, OSD indisponible…)
     }
-    if (!parsed) return null;
 
     // Conversion : champs partiels acceptés, Date obligatoire pour l'interface.
-    if (!parsed.firstName || !parsed.lastName || !parsed.birthDate) return null;
-    return {
-      firstName: parsed.firstName,
-      lastName: parsed.lastName,
-      birthDate: parsed.birthDate,
-      ...(parsed.birthPlace ? { birthPlace: parsed.birthPlace } : {}),
-      ...(parsed.parents ? { parents: parsed.parents } : {}),
-      ...(parsed.documentNumber ? { documentNumber: parsed.documentNumber } : {}),
-    };
+    // null (« rien d'exploitable sur ce contenu ») est un verdict définitif :
+    // il est caché comme les succès.
+    const result = this.toExtractionResult(parsed);
+    this.ocrCacheSet(bufferKey, result);
+    return result;
   }
 
   /** PDF : texte natif (pdf-parse) ; sinon rasterisation des pages (pdfjs + canvas) → OCR tesseract. */

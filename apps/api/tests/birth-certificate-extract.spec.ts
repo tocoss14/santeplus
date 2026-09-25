@@ -10,7 +10,9 @@
  * Stratégie : service réel + Prisma/Storage mockés (pattern de
  * birth-certificate.spec.ts), OCR réel sur les fixtures générées
  * (.freebuff/). Un seul service pour toute la classe → le worker tesseract
- * (coûteux au boot) n'est chargé qu'une fois.
+ * (coûteux au boot) n'est chargé qu'une fois. Le cache OCR (par sha256 du
+ * contenu) est vérifié via le comptage des lectures storage et l'identité
+ * de référence des résultats — sans espionner l'OCR lui-même.
  */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { existsSync, readFileSync } from 'fs';
@@ -99,5 +101,41 @@ describe('contrat extractData — l\'OCR n\'est jamais bloquant', () => {
     expect(res!.birthDate).toEqual(new Date('1990-01-12T00:00:00.000Z'));
     expect(res!.birthPlace).toContain('Cotonou');
     expect(res!.documentNumber).toBe('1234/C/1990');
+  }, 120_000);
+
+  // ——— Cache par empreinte du contenu (les re-soumissions ne repayent pas l'OCR) ———
+  // Observable sans espionner l'OCR : chaque appel relit le fichier au storage
+  // (1 readFile), et un hit renvoie la MÊME référence d'objet que le miss.
+  const readCalls = () => (storage.readFile as ReturnType<typeof vi.fn>).mock.calls.length;
+
+  it('ne repaie pas l\'OCR quand le même document est re-soumis', async () => {
+    const first = await service.extractData('file-lisible', 'user-1');
+    const before = readCalls();
+    const second = await service.extractData('file-lisible', 'user-1');
+    expect(readCalls()).toBe(before + 1); // le fichier est relu…
+    expect(second).toBe(first); // …mais le résultat vient du cache (même référence)
+  }, 120_000);
+
+  it('le cache suit le contenu, pas le fileId (même fichier re-téléversé)', async () => {
+    files['file-lisible-copie'] = { id: 'file-lisible-copie', mime: 'image/png', documentType: 'BIRTH_CERTIFICATE', ownerId: 'user-1' };
+    buffers['file-lisible-copie'] = buffers['file-lisible']; // octets identiques
+    const before = readCalls();
+    const res = await service.extractData('file-lisible-copie', 'user-1');
+    expect(readCalls()).toBe(before + 1);
+    expect(res).toBe(await service.extractData('file-lisible', 'user-1'));
+  }, 120_000);
+
+  it('cache aussi le verdict null (acte illisible re-soumis sans re-OCR)', async () => {
+    const before = readCalls();
+    await expect(service.extractData('file-noise', 'user-1')).resolves.toBeNull();
+    await expect(service.extractData('file-noise', 'user-1')).resolves.toBeNull();
+    expect(readCalls()).toBe(before + 2); // relu chaque fois, OCR une seule fois
+  }, 120_000);
+
+  it('ne cache pas les erreurs de lecture stockage (réessai possible)', async () => {
+    const before = readCalls();
+    await expect(service.extractData('file-eio', 'user-1')).resolves.toBeNull();
+    await expect(service.extractData('file-eio', 'user-1')).resolves.toBeNull();
+    expect(readCalls()).toBe(before + 2); // relu chaque fois ; rien d'englouti dans un verdict définitif
   }, 120_000);
 });

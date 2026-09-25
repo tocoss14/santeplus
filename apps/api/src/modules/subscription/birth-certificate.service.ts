@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../common/prisma.module';
 import { StorageService } from '../files/files.service';
 import { parseBirthCertificateText, ParsedBirthCertificate } from './birth-certificate-parser';
+import { rasterizePdf } from './pdf-rasterizer';
 
 export interface BirthCertificateData {
   firstName: string;
@@ -164,9 +165,9 @@ export class BirthCertificateService {
     };
   }
 
-  /** PDF : texte natif d'abord ; sans texte exploitable → OCR de la 1re page (via pdf-parse sur buffer). */
+  /** PDF : texte natif (pdf-parse) ; sinon rasterisation des pages (pdfjs + canvas) → OCR tesseract. */
   private async extractFromPdf(buffer: Buffer): Promise<ParsedBirthCertificate | null> {
-    // Limite de taille pour l'OCR (coût CPU) : au-delà, texte natif uniquement.
+    // Limite de taille pour la rasterisation/OCR (coût CPU) : au-delà, texte natif uniquement.
     const OCR_MAX_BYTES = 15 * 1024 * 1024;
     const pdfModule = await import('pdf-parse');
     // pdf-parse est CommonJS : la fonction vit dans `default` (interop ESM→CJS de Node).
@@ -176,9 +177,20 @@ export class BirthCertificateService {
     const direct = parseBirthCertificateText(text);
     if (direct.firstName && direct.lastName && direct.birthDate) return direct;
 
-    // PDF scanné (image sous PDF) : pdf-parse n'extrait rien d'utile. Tesseract
-    // v5 ne rasterise pas les PDF sans canvas natif : pas de repli fiable ici.
-    if (buffer.length > OCR_MAX_BYTES) console.warn('[birth-certificate] PDF sans texte natif — OCR indisponible pour ce format');
+    // PDF scanné (image sous PDF) : pdf-parse n'extrait rien d'utile → on
+    // rasterise les premières pages et on laisse l'OCR lire l'image.
+    if (buffer.length <= OCR_MAX_BYTES) {
+      try {
+        for (const image of await rasterizePdf(buffer)) {
+          const ocr = await this.extractFromImage(image);
+          if (ocr?.firstName && ocr.lastName && ocr.birthDate) return ocr;
+        }
+      } catch (e) {
+        console.error('[birth-certificate] OCR error', e);
+      }
+    } else {
+      console.warn('[birth-certificate] PDF trop volumineux pour la rasterisation OCR — texte natif uniquement');
+    }
     return direct.rawText.trim() ? direct : null;
   }
 

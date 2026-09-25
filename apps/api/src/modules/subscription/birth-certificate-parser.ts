@@ -54,13 +54,15 @@ function matchLabel(normalized: string): { field: keyof typeof LABELS; label: st
   return null;
 }
 
-/** Extrait la valeur après l'étiquette (l'OCR découpe parfois « : » en « . » ou l'omet). */
+/** Extrait la valeur après l'étiquette (l'OCR glisse du bruit entre l'étiquette et la valeur :
+ *  « Prénom +: Marie-Josée », « : » lu « . », guillemets… on purge tout caractère non
+ *  alphanumérique de tête — aucune valeur attendue ne commence par de la ponctuation). */
 function valueAfter(line: string, label: string): string {
   const normalizedLine = stripAccents(line).toLowerCase();
   const idx = normalizedLine.indexOf(stripAccents(label).toLowerCase());
   if (idx < 0) return '';
   let rest = line.slice(idx + label.length);
-  rest = rest.replace(/^[\s:.;•\-–—]+/, '');
+  rest = rest.replace(/^[^\p{L}\p{N}]+/u, '');
   return rest.trim();
 }
 

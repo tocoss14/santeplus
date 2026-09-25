@@ -4,6 +4,7 @@ import { PrismaService } from '../../common/prisma.module';
 import { StorageService } from '../files/files.service';
 import { parseBirthCertificateText, ParsedBirthCertificate } from './birth-certificate-parser';
 import { rasterizePdf } from './pdf-rasterizer';
+import { uprightImage, toPng } from './image-orientation';
 
 export interface BirthCertificateData {
   firstName: string;
@@ -194,13 +195,29 @@ export class BirthCertificateService {
     return direct.rawText.trim() ? direct : null;
   }
 
-  /** Image (JPEG/PNG/WebP) : OCR Tesseract français + anglais, worker réutilisé entre les requêtes. */
+  /**
+   * Image (JPEG/PNG/WebP) : OCR tesseract fra+eng, worker réutilisé. Si l'OCR
+   * droit ne donne rien d'exploitable, le scan est peut-être pivoté : OSD
+   * (worker dédié) puis rotation et seconde passe.
+   */
   private async extractFromImage(buffer: Buffer): Promise<ParsedBirthCertificate | null> {
     const worker = await this.getOcrWorker();
     const { data } = await worker.recognize(buffer);
     const text: string = data?.text ?? '';
-    if (!text.trim()) return null;
-    return parseBirthCertificateText(text);
+    const parsed = text.trim() ? parseBirthCertificateText(text) : null;
+    if (parsed?.firstName && parsed.lastName && parsed.birthDate) return parsed;
+
+    try {
+      const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
+      const img = await canvas.loadImage(buffer);
+      const up = await uprightImage(img);
+      if (up.rotationApplied === 0) return parsed; // droit (ou OSD muet) : pas de seconde passe
+      const { data: retry } = await worker.recognize(await toPng(up.canvas));
+      const retryText: string = retry?.text ?? '';
+      return retryText.trim() ? parseBirthCertificateText(retryText) : parsed;
+    } catch {
+      return parsed; // OSD indisponible : best-effort, on garde la 1re passe
+    }
   }
 
   private ocrWorker: any = null;

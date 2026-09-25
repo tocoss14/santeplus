@@ -1,0 +1,102 @@
+/**
+ * Détection et correction d'orientation des scans pivotés, avant OCR.
+ *
+ * Un acte scanné peut être stocké de travers (téléphone en paysage, scan
+ * portrait/paysage) : l'OCR lit alors du texte couché et n'extrait rien.
+ * Tesseract expose l'OSD (orientation & script detection) via worker.detect()
+ * — qui exige le noyau legacy — et renvoie orientation_degrees ∈ {0, 90, 180,
+ * 270} : la rotation HORAIRE à appliquer pour redresser le document.
+ * (Calibré sur des actes de test : image pivotée de 90° horaire → detect
+ * renvoie 270 ; une rotation horaire de 270° restitue un OCR à conf 94.)
+ *
+ * La détection n'est pas gratuite (~1–2 s) et l'OSD se trompe parfois : elle
+ * ne s'applique qu'aux images dont l'OCR droit a déjà échoué, avec un seuil
+ * de confiance, et reste une heuristique best-effort (le filet final étant
+ * la saisie manuelle).
+ */
+
+import type { Canvas as SkiaCanvas, Image as SkiaImage } from '@napi-rs/canvas';
+
+/** Source raster acceptée : canvas dessiné ou image décodée (loadImage). */
+export type RasterSource = SkiaCanvas | SkiaImage;
+
+/** Confiance minimale de l'OSD pour oser une rotation (échelle tesseract ~0–20). */
+const OSD_MIN_CONFIDENCE = 3;
+
+/** Degrés horaires admis (OSD tesseract). */
+const VALID_DEGREES = [0, 90, 180, 270] as const;
+type Degree = (typeof VALID_DEGREES)[number];
+
+let osdWorkerPromise: Promise<any> | null = null;
+
+/** Worker OSD paresseux et unique (noyau legacy complet, requis par detect). */
+async function getOsdWorker(): Promise<any> {
+  if (!osdWorkerPromise) {
+    const { createWorker } = await import('tesseract.js');
+    osdWorkerPromise = createWorker('osd', 0, { legacyCore: true }).catch((e) => {
+      osdWorkerPromise = null; // retenter au prochain appel en cas d'échec de boot
+      throw e;
+    });
+  }
+  return osdWorkerPromise;
+}
+
+/** Sérialise la source en PNG (les `Image` sont rasterisées d'abord). */
+export async function toPng(source: RasterSource): Promise<Buffer> {
+  if (typeof (source as SkiaCanvas).encode === 'function') {
+    return (source as SkiaCanvas).encode('png');
+  }
+  const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
+  const flat = canvas.createCanvas(source.width, source.height);
+  flat.getContext('2d').drawImage(source, 0, 0);
+  return flat.encode('png');
+}
+
+/** Rotation horaire de deg degrés, fond blanc (scan = papier). */
+export function rotateClockwise(img: RasterSource, deg: Degree): SkiaCanvas {
+  if (deg === 0) return img as SkiaCanvas;
+  const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
+  const swapped = deg === 90 || deg === 270;
+  const out = canvas.createCanvas(swapped ? img.height : img.width, swapped ? img.width : img.height);
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.translate(out.width / 2, out.height / 2);
+  ctx.rotate((deg * Math.PI) / 180);
+  ctx.translate(-img.width / 2, -img.height / 2);
+  ctx.drawImage(img, 0, 0);
+  return out;
+}
+
+export interface UprightResult {
+  canvas: RasterSource;
+  /** Rotation appliquée en degrés horaires (0 si aucune). */
+  rotationApplied: Degree;
+  /** True si l'OSD a lui-même jugé l'image droite (pas d'essai OCR nécessaire). */
+  alreadyUpright: boolean;
+}
+
+/**
+ * Tente de redresser une image via l'OSD. Retourne l'image d'origine si
+ * l'OSD est indisponible ou peu confiant (best-effort, jamais bloquant).
+ */
+export async function uprightImage(image: RasterSource): Promise<UprightResult> {
+  const fallback = { canvas: image, rotationApplied: 0 as Degree, alreadyUpright: false };
+  try {
+    const worker = await getOsdWorker();
+    // L'OSD juge l'orientation du TEXTE, pas du papier : portrait comme paysage
+    // peuvent être droits selon la mise en page du document.
+    const png = await toPng(image);
+    const res = await worker.detect(png);
+    const degrees = res?.data?.orientation_degrees;
+    const confidence = res?.data?.orientation_confidence;
+    if (typeof degrees !== 'number' || !VALID_DEGREES.includes(degrees as Degree)) return fallback;
+    const rotation = degrees as Degree;
+    if (rotation === 0 || (typeof confidence === 'number' && confidence < OSD_MIN_CONFIDENCE)) {
+      return { canvas: image, rotationApplied: 0, alreadyUpright: true };
+    }
+    return { canvas: rotateClockwise(image, rotation), rotationApplied: rotation, alreadyUpright: false };
+  } catch {
+    return fallback;
+  }
+}

@@ -18,9 +18,11 @@
  * façon l'image du scan (downscale 4×, texte crénelé).
  *
  * Périmètre assumé (documenté) : les PDF « scan » — typiquement l'acte
- * photographié/scanné, 1 image pleine page. Les rotations (scan pivoté) et le
- * texte vectoriel d'une page hybride ne sont pas restitués ; le texte natif
- * reste traité en amont par pdf-parse.
+ * photographié/scanné, 1 image pleine page. Le texte vectoriel d'une page
+ * hybride n'est pas restitué (il reste traité en amont par pdf-parse). Les
+ * scans pivotés SONT couverts : les images rastérisées passent par
+ * extractFromImage, qui redresse l'orientation via l'OSD (image-orientation.ts)
+ * avant la seconde passe OCR.
  */
 
 import type { ImageData as SkiaImageData } from '@napi-rs/canvas';

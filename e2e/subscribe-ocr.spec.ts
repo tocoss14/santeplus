@@ -1,14 +1,15 @@
 /**
  * E2E navigateur : souscription membre avec pré-remplissage OCR de l'acte.
  *
- * Scénario : un membre fraîchement inscrit souscrit avec l'acte de naissance
- * scanné de test (.freebuff/acte-test-scanne.pdf — image sous PDF, sans texte
- * natif, chemin rasterisation → tesseract). Le wizard doit :
- *   1. téléverser le document à l'étape « Acte de naissance » ;
- *   2. extraire les données par OCR (rasterisation pdfjs+canvas → tesseract) ;
- *   3. pré-remplir Prénom/Nom/Date dans le formulaire de recopie ;
- *   4. valider la vérification (identité de l'étape 1 = données de l'acte)
- *      puis laisser poursuivre jusqu'au paiement mock.
+ * Deux scénarios sur le même parcours (upload à l'étape « Acte de naissance »,
+ * extraction OCR, pré-remplissage Prénom/Nom/Date, vérification, devis,
+ * paiement mock) — ils diffèrent par l'attachement téléversé :
+ *   1. l'acte scanné droit (.freebuff/acte-test-scanne.pdf — image sous PDF,
+ *      sans texte natif, chemin rasterisation → tesseract) ;
+ *   2. l'acte stocké de travers (.freebuff/acte-test-pivote.png — PNG tourné
+ *      de 90° horaire) : l'OCR droit n'extrait rien, l'OSD détecte la
+ *      rotation, la seconde passe OCR extrait les champs — le pré-remplissage
+ *      doit rester observable au niveau UI.
  *
  * Prérequis : API sur :4100 (API_URL), Vite sur :3000 avec VITE_API_PORT=4100.
  * Le compte de test est créé via l'API avec l'identité de l'acte (Marie-Josée
@@ -24,11 +25,18 @@ import { uid, apiContext } from './helpers';
 // e2e/ vit à la racine du dépôt — __dirname survit au transpile CJS de Playwright.
 const root = join(__dirname, '..');
 const SCAN_PDF = join(root, '.freebuff', 'acte-test-scanne.pdf');
+const ROT_PNG = join(root, '.freebuff', 'acte-test-pivote.png');
 
-// L'acte scanné est un artefact généré (hors dépôt) : on le fabrique au besoin.
-if (!existsSync(SCAN_PDF)) {
-  const r = spawnSync(process.execPath, [join(root, 'scripts-dev', 'make-birth-cert-fixture.mjs')], { cwd: root, stdio: 'inherit' });
-  if (r.status !== 0) throw new Error('Impossible de générer .freebuff/acte-test-scanne.pdf');
+// Les actes de test sont des artefacts générés (hors dépôt) : on les fabrique
+// au besoin — le script des fixtures pivotées régénère d'abord la base.
+for (const [fixture, script] of [
+  [SCAN_PDF, 'make-birth-cert-fixture.mjs'],
+  [ROT_PNG, 'make-birth-cert-rotated-fixture.mjs'],
+] as const) {
+  if (!existsSync(fixture)) {
+    const r = spawnSync(process.execPath, [join(root, 'scripts-dev', script)], { cwd: root, stdio: 'inherit' });
+    if (r.status !== 0) throw new Error(`Impossible de générer ${fixture}`);
+  }
 }
 
 // Identité portée par l'acte scanné de test (voir scripts-dev/make-birth-cert-fixture.mjs)
@@ -39,9 +47,18 @@ const ACTE = { firstName: 'Marie-Josée', lastName: 'ADJOVI', birthDate: '1990-0
 test.use({ channel: 'chromium' });
 
 test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scanné', () => {
-  // Boot du worker tesseract (~15 s au premier appel du process API) + OCR du scan.
+  // Boot du worker tesseract (~15 s au premier appel du process API) + OSD + OCR.
   test.setTimeout(180_000);
-  test('upload du scan → champs pré-remplis → vérification → devis → paiement mock', async ({ page }) => {
+
+  /**
+   * Parcours complet de souscription avec l'attachement donné. Étape acte :
+   * on recopie d'abord MAL le prénom (l'utilisateur se trompe) puis on lance
+   * la vérification — le wizard uploade, extrait par OCR et écrase les champs
+   * avec les données lues sur l'acte ; la vérification, qui compare les
+   * valeurs saisies AVANT pré-remplissage, échoue d'abord (mismatch assumé),
+   * puis passe avec les valeurs corrigées.
+   */
+  async function subscribeWithActe(page: import('@playwright/test').Page, actePath: string) {
     // 1. Compte membre avec l'identité exacte de l'acte (la vérification compare acte ↔ profil)
     const email = `e2e_ocr_${uid()}@test.bj`;
     const ctx = await apiContext();
@@ -83,23 +100,19 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
     await page.locator('button', { hasText: /\/mois/ }).first().click();
     await page.getByRole('button', { name: /Choisir / }).click();
 
-    // 5. Étape 2 : upload de l'acte scanné (PDF image, sans couche texte)
+    // 5. Étape 2 : upload de l'acte (le décodage image/PDF est en aval)
     await expect(page.getByText('Acte de naissance obligatoire')).toBeVisible();
-    await page.setInputFiles('input[type=file]', SCAN_PDF);
+    await page.setInputFiles('input[type=file]', actePath);
     await expect(page.getByText('Vérification requise')).toBeVisible();
 
-    // 6. Pré-remplissage OCR observable : on recopie d'abord MAL le prénom
-    //    (l'utilisateur se trompe), puis on lance la vérification. Le wizard
-    //    uploade, extrait par OCR (rasterisation → tesseract) et écrase les
-    //    champs avec les données lues sur l'acte — la vérification, qui compare
-    //    les valeurs saisies AVANT pré-remplissage, échoue.
+    // 6. Pré-remplissage OCR observable (voir docstring de la fonction)
     await page.getByLabel('Prénom sur l’acte').fill('Marie');
     await page.getByLabel('Nom sur l’acte', { exact: true }).fill(ACTE.lastName);
     await page.getByLabel('Date de naissance sur l’acte').fill(ACTE.birthDate);
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Lancer la vérification' }).click();
 
-    // Les champs sont corrigés par l'OCR extrait du scan (Marie → Marie-Josée).
+    // Les champs sont corrigés par l'OCR extrait de l'acte (Marie → Marie-Josée).
     await expect(page.getByLabel('Prénom sur l’acte', { exact: true })).toHaveValue(ACTE.firstName, { timeout: 60_000 });
     await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
     await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
@@ -124,5 +137,13 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
     await expect(page.getByText(/Contrat .+ créé/)).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: /Payer/ }).click();
     await expect(page.getByText('Paiement confirmé — contrat actif !')).toBeVisible({ timeout: 30_000 });
+  }
+
+  test('upload du scan droit → champs pré-remplis → vérification → devis → paiement mock', async ({ page }) => {
+    await subscribeWithActe(page, SCAN_PDF);
+  });
+
+  test('upload du scan pivoté (90°) → OSD redresse → champs pré-remplis → paiement mock', async ({ page }) => {
+    await subscribeWithActe(page, ROT_PNG);
   });
 });

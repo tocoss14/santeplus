@@ -85,6 +85,10 @@ export default function SubscribeWizard() {
   const [birthCertVerified, setBirthCertVerified] = useState(false);
   const [birthCertVerifying, setBirthCertVerifying] = useState(false);
   const [birthCertError, setBirthCertError] = useState<string | null>(null);
+  // Extraction OCR sans résultat ({ extracted: null } ou OCR indisponible) : la
+  // saisie manuelle est la voie normale — on le dit à l'utilisateur plutôt que
+  // de laisser un silence qui ressemble à un bug.
+  const [birthCertOcrFailed, setBirthCertOcrFailed] = useState(false);
   const birthCertRef = useRef<HTMLInputElement>(null);
 
   // Charger la photo existante de l'utilisateur
@@ -281,6 +285,7 @@ export default function SubscribeWizard() {
     setBirthCertResult(null);
     setBirthCertVerified(false);
     setBirthCertError(null);
+    setBirthCertOcrFailed(false);
   }
 
   function updateBirthCertDoc(patch: Partial<typeof birthCertDoc>) {
@@ -331,8 +336,12 @@ export default function SubscribeWizard() {
             // L'API renvoie une date ISO ; on garde la partie jour (YYYY-MM-DD) pour l'input date.
             const iso = String(ex.extracted.birthDate).slice(0, 10);
             setBirthCertDoc({ firstName: ex.extracted.firstName, lastName: ex.extracted.lastName, birthDate: iso });
+          } else {
+            setBirthCertOcrFailed(true); // rien d'exploitable sur ce document
           }
-        } catch { /* OCR indisponible → saisie manuelle */ }
+        } catch {
+          setBirthCertOcrFailed(true); // OCR indisponible → saisie manuelle
+        }
       }
 
       const result = await api.post<any>('/subscription/birth-certificate/verify', {
@@ -656,6 +665,7 @@ export default function SubscribeWizard() {
                   setBirthCertAttested(false);
                   setBirthCertResult(null);
                   setBirthCertError(null);
+                  setBirthCertOcrFailed(false);
                 }}
                 className="text-xs text-red-500 hover:underline"
               >
@@ -716,6 +726,11 @@ export default function SubscribeWizard() {
               >
                 {birthCertVerifying ? 'Vérification en cours…' : 'Lancer la vérification'}
               </button>
+              {birthCertOcrFailed && (
+                <p className="text-xs text-amber-700">
+                  Extraction automatique impossible sur ce document : vérifiez attentivement votre recopie manuelle.
+                </p>
+              )}
               {birthCertError && (
                 <p className="text-sm text-red-600">{birthCertError}</p>
               )}

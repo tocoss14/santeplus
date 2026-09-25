@@ -12,8 +12,9 @@
  *      doit rester observable au niveau UI ;
  *   3. l'acte illisible (.freebuff/acte-test-illisible.png — image sans
  *      texte) : l'API répond { extracted: null }, le wizard n'écrase PAS la
- *      saisie manuelle — qui est alors la seule voie, et passe la vérification
- *      dès que l'utilisateur recopie correctement son acte.
+ *      saisie manuelle — qui est alors la seule voie —, signale l'échec
+ *      d'extraction par une note, et passe la vérification dès que
+ *      l'utilisateur recopie correctement son acte.
  *
  * Prérequis : API sur :4100 (API_URL), Vite sur :3000 avec VITE_API_PORT=4100.
  * Le compte de test est créé via l'API avec l'identité de l'acte (Marie-Josée
@@ -153,6 +154,8 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
     await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
     await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
     await expect(page.getByText(/Prénom différent/)).toBeVisible(); // 1ʳᵉ tentative : mismatch assumé
+    // OCR réussi : la note d'échec d'extraction ne doit pas apparaître.
+    await expect(page.getByText(/Extraction automatique impossible/)).toHaveCount(0);
 
     // Seconde vérification avec les valeurs pré-remplies : passe.
     await page.getByRole('button', { name: 'Lancer la vérification' }).click();
@@ -188,6 +191,9 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
     await expect(page.getByLabel('Prénom sur l’acte', { exact: true })).toHaveValue('Alphonse');
     await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
     await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
+    // L'échec d'extraction est signalé : la recopie manuelle est la voie normale,
+    // elle doit être faite avec d'autant plus de soin.
+    await expect(page.getByText(/Extraction automatique impossible/)).toBeVisible();
 
     // L'utilisateur corrige lui-même sa recopie : la vérification passe.
     await page.getByLabel('Prénom sur l’acte', { exact: true }).fill(ACTE.firstName);

@@ -203,17 +203,27 @@ export class BirthCertificateService implements OnModuleInit {
     let buffer: Buffer;
     try {
       const read = await this.storage.readFile(file.id);
-      if (!read) return null;
+      if (!read) {
+        console.warn('[birth-certificate] extraction impossible : fichier absent du stockage');
+        return null;
+      }
       buffer = read.buffer;
     } catch {
+      console.warn('[birth-certificate] extraction impossible : stockage indisponible');
       return null; // fichier illisible/inaccessible → saisie manuelle
     }
 
     // Cache par contenu (pas par fileId) : le même document re-téléversé —
-    // donc relu par le stockage — repart du résultat déjà calculé.
+    // donc relu par le stockage — repart du résultat déjà calculé. Les logs
+    // ne portent que l'empreinte tronquée et les temps : jamais de contenu.
     const bufferKey = createHash('sha256').update(buffer).digest('hex');
+    const sha = bufferKey.slice(0, 8);
+    const t0 = performance.now();
     const cached = this.ocrCacheGet(bufferKey);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      console.log(`[birth-certificate] OCR cache HIT sha=${sha} verdict=${cached ? 'champs' : 'saisie-manuelle'} latence=${Math.round(performance.now() - t0)}ms`);
+      return cached;
+    }
 
     let parsed: ParsedBirthCertificate | null = null;
     try {
@@ -232,11 +242,13 @@ export class BirthCertificateService implements OnModuleInit {
     // il est caché comme les succès.
     const result = this.toExtractionResult(parsed);
     this.ocrCacheSet(bufferKey, result);
+    console.log(`[birth-certificate] OCR cache MISS sha=${sha} mime=${file.mime} verdict=${result ? 'champs' : 'saisie-manuelle'} latence=${Math.round(performance.now() - t0)}ms`);
     return result;
   }
 
   /** PDF : texte natif (pdf-parse) ; sinon rasterisation des pages (pdfjs + canvas) → OCR tesseract. */
   private async extractFromPdf(buffer: Buffer): Promise<ParsedBirthCertificate | null> {
+    const t0 = performance.now();
     // Limite de taille pour la rasterisation/OCR (coût CPU) : au-delà, texte natif uniquement.
     const OCR_MAX_BYTES = 15 * 1024 * 1024;
     const pdfModule = await import('pdf-parse');
@@ -245,7 +257,10 @@ export class BirthCertificateService implements OnModuleInit {
     const parsed = await pdf(buffer);
     const text: string = parsed?.text ?? '';
     const direct = parseBirthCertificateText(text);
-    if (direct.firstName && direct.lastName && direct.birthDate) return direct;
+    if (direct.firstName && direct.lastName && direct.birthDate) {
+      console.log(`[birth-certificate] OCR pdf natif=${Math.round(performance.now() - t0)}ms verdict=champs`);
+      return direct;
+    }
 
     // PDF scanné (image sous PDF) : pdf-parse n'extrait rien d'utile → on
     // rasterise les premières pages et on laisse l'OCR lire l'image.
@@ -253,7 +268,10 @@ export class BirthCertificateService implements OnModuleInit {
       try {
         for (const image of await rasterizePdf(buffer)) {
           const ocr = await this.extractFromImage(image);
-          if (ocr?.firstName && ocr.lastName && ocr.birthDate) return ocr;
+          if (ocr?.firstName && ocr.lastName && ocr.birthDate) {
+            console.log(`[birth-certificate] OCR pdf raster+OCR latence=${Math.round(performance.now() - t0)}ms verdict=champs`);
+            return ocr;
+          }
         }
       } catch (e) {
         console.error('[birth-certificate] OCR error', e);
@@ -261,6 +279,7 @@ export class BirthCertificateService implements OnModuleInit {
     } else {
       console.warn('[birth-certificate] PDF trop volumineux pour la rasterisation OCR — texte natif uniquement');
     }
+    console.log(`[birth-certificate] OCR pdf latence=${Math.round(performance.now() - t0)}ms verdict=saisie-manuelle`);
     return direct.rawText.trim() ? direct : null;
   }
 
@@ -273,6 +292,8 @@ export class BirthCertificateService implements OnModuleInit {
    */
   private async extractFromImage(buffer: Buffer): Promise<ParsedBirthCertificate | null> {
     const worker = await this.getOcrWorker();
+    const t0 = performance.now();
+    const phases: Record<string, string> = {};
     // Décode une seule fois : l'image sert à la bande légère, à l'OSD et au
     // filet pleine passe.
     const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
@@ -280,7 +301,8 @@ export class BirthCertificateService implements OnModuleInit {
     try {
       img = await canvas.loadImage(buffer);
     } catch {
-      return this.recognizeParse(worker, buffer); // décodage Skia impossible → passe pleine en filet
+      const fallback = await this.recognizeParse(worker, buffer);
+      return this.logCascade({ width: 0, height: 0 }, { decode: 'echec' }, fallback, t0);
     }
 
     // Un acte est portrait : une image PAYSAGE est donc presque toujours un
@@ -290,37 +312,67 @@ export class BirthCertificateService implements OnModuleInit {
     // évite de payer la pleine résolution sur du texte couché), puis l'OSD
     // prend le relais, la pleine passe ne servant que de filet.
     if (img.width > img.height) {
+      let p = performance.now();
       const probe = parseBirthCertificateText(await this.recognizeText(worker, await cropCenterBand(img)));
-      if (probe?.firstName && probe.lastName && probe.birthDate) return probe;
+      phases.bande = `${Math.round(performance.now() - p)}ms`;
+      if (probe?.firstName && probe.lastName && probe.birthDate) return this.logCascade(img, phases, probe, t0);
 
+      p = performance.now();
       try {
         const up = await uprightImage(img);
+        phases.osd = `${up.rotationApplied}°:${Math.round(performance.now() - p)}ms`;
         if (up.rotationApplied !== 0) {
+          p = performance.now();
           const upright = parseBirthCertificateText(await this.recognizeText(worker, await toPng(up.canvas)));
-          if (upright?.firstName && upright.lastName && upright.birthDate) return upright;
+          phases.redressee = `${Math.round(performance.now() - p)}ms`;
+          if (upright?.firstName && upright.lastName && upright.birthDate) return this.logCascade(img, phases, upright, t0);
         }
       } catch {
-        // OSD indisponible : best-effort, le filet ci-dessous reste tenté.
+        phases.osd = 'echec'; // OSD indisponible : best-effort, le filet reste tenté
       }
-      return this.recognizeParse(worker, buffer); // filet : contenu hors bande
+      p = performance.now();
+      const filet = await this.recognizeParse(worker, buffer);
+      phases.filet = `${Math.round(performance.now() - p)}ms`;
+      return this.logCascade(img, phases, filet, t0); // filet : contenu hors bande
     }
 
     // PORTRAIT : la passe pleine d'abord est le meilleur pari (acte droit
-    // ≈ 0,7 s ; une bande coûterait autant — il lui faut ≥ 75 % de hauteur
+    // ≈ 1,0 s ; une bande coûterait autant — il lui faut ≥ 75 % de hauteur
     // pour porter tous les champs — et ferait perdre les champs hors bande).
+    let p = performance.now();
     const { data } = await worker.recognize(buffer);
     const text: string = data?.text ?? '';
     const parsed = text.trim() ? parseBirthCertificateText(text) : null;
-    if (parsed?.firstName && parsed.lastName && parsed.birthDate) return parsed;
+    phases.pleine = `${Math.round(performance.now() - p)}ms`;
+    if (parsed?.firstName && parsed.lastName && parsed.birthDate) return this.logCascade(img, phases, parsed, t0);
 
+    p = performance.now();
     try {
       const up = await uprightImage(img);
-      if (up.rotationApplied === 0) return parsed; // droit (ou OSD muet) : pas de seconde passe
+      phases.osd = `${up.rotationApplied}°:${Math.round(performance.now() - p)}ms`;
+      if (up.rotationApplied === 0) return this.logCascade(img, phases, parsed, t0); // droit (ou OSD muet)
+      p = performance.now();
       const upright = parseBirthCertificateText(await this.recognizeText(worker, await toPng(up.canvas)));
-      return upright?.firstName && upright.lastName && upright.birthDate ? upright : parsed;
+      phases.redressee = `${Math.round(performance.now() - p)}ms`;
+      const result = upright?.firstName && upright.lastName && upright.birthDate ? upright : parsed;
+      return this.logCascade(img, phases, result, t0);
     } catch {
-      return parsed; // OSD indisponible : best-effort, on garde la 1re passe
+      phases.osd = 'echec';
+      return this.logCascade(img, phases, parsed, t0); // OSD indisponible : on garde la 1re passe
     }
+  }
+
+  /** Journalise la cascade OCR (temps par étape, verdict — jamais de contenu). */
+  private logCascade(
+    img: { width: number; height: number },
+    phases: Record<string, string>,
+    result: ParsedBirthCertificate | null,
+    t0: number,
+  ): ParsedBirthCertificate | null {
+    const detail = Object.entries(phases).map(([k, v]) => `${k}=${v}`).join(' ');
+    const verdict = result?.firstName && result.lastName && result.birthDate ? 'champs' : 'saisie-manuelle';
+    console.log(`[birth-certificate] OCR cascade ${img.width}x${img.height} ${detail} verdict=${verdict} latence=${Math.round(performance.now() - t0)}ms`);
+    return result;
   }
 
   /** OCR d'un PNG → texte brut (jamais bloquant : '' en cas d'échec). */

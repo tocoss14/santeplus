@@ -187,26 +187,35 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
   }
 
   test.describe.serial('Inscription: feedback du mot de passe', () => {
-    test('consigne rouge → verte quand la règle (8 car., lettre, chiffre) est respectée', async ({ page }) => {
+    test('les critères (longueur, lettre, chiffre) passent au vert un par un', async ({ page }) => {
       await page.goto('/register');
 
       const pw = page.getByLabel(PASSWORD_LABEL, { exact: true });
-      // Le même <p> porte les deux libellés (« 8 caractères minimum, lettres et
-      // chiffres » en rouge, « ✓ Mot de passe valide (8 caractères min., …) » en
-      // vert) : on le suit par son préfixe commun pour assert le CHANGEMENT.
-      const consigne = page.locator('p', { hasText: '8 caractères min' });
+      const item = (label: string) => page.locator('li', { hasText: label });
+      const GREY = 'rgb(148, 163, 184)'; // slate-400 : critère pas encore atteint
+      const GREEN = 'rgb(5, 150, 105)'; // emerald-600 : critère respecté
 
-      // 1. Vide : pas de consigne du tout (le required natif suffit)
-      await expect(consigne).toHaveCount(0);
+      // 1. Champ vide : la checklist guide en gris, aucun critère coché
+      await expect(item('8 caractères minimum')).toHaveCSS('color', GREY);
+      await expect(item('Au moins une lettre')).toHaveCSS('color', GREY);
+      await expect(item('Au moins un chiffre')).toHaveCSS('color', GREY);
 
-      // 2. Non conforme → consigne rouge (ré-affichée, donc count(0) ci-dessus est bien un état)
-      await pw.fill('abcdefghij');
-      await expect(consigne).toBeVisible();
-      await expect(consigne).toHaveCSS('color', 'rgb(220, 38, 38)');
+      // 2. Lettre seule → seul « Au moins une lettre » passe au vert
+      await pw.fill('abc');
+      await expect(item('Au moins une lettre')).toHaveCSS('color', GREEN);
+      await expect(item('Au moins un chiffre')).toHaveCSS('color', GREY);
+      await expect(item('8 caractères minimum')).toHaveCSS('color', GREY);
 
-      // 3. Règle respectée → même nœud passe au vert (passage visuel, pas remplacement)
-      await pw.fill('Test1234!');
-      await expect(consigne).toHaveCSS('color', 'rgb(5, 150, 105)'); // emerald-600
+      // 3. Un chiffre → « Au moins un chiffre » vert à son tour
+      await pw.fill('abc1');
+      await expect(item('Au moins un chiffre')).toHaveCSS('color', GREEN);
+      await expect(item('8 caractères minimum')).toHaveCSS('color', GREY);
+
+      // 4. Longueur atteinte → les trois critères sont verts
+      await pw.fill('abc12345');
+      await expect(item('8 caractères minimum')).toHaveCSS('color', GREEN);
+      await expect(item('Au moins une lettre')).toHaveCSS('color', GREEN);
+      await expect(item('Au moins un chiffre')).toHaveCSS('color', GREEN);
 
       // Garde-fou : la page n'a pas navigué (pas de soumission involontaire)
       await expect(page).toHaveURL(/\/register/);

@@ -1,5 +1,6 @@
 import { Children, cloneElement, isValidElement, useId, useState } from 'react';
 import { statusLabel, statusStyle } from '../format';
+import { passwordCriteria, type PasswordCriterion } from '../lib/password';
 
 /**
  * Image résiliente : si le fichier est absent du stockage (ex. disque
@@ -105,7 +106,7 @@ export function ConfirmModal({
   );
 }
 
-export function Field({ label, children, error, hint, hintTone = 'info' }: { label: string; children: React.ReactNode; error?: string; hint?: string; hintTone?: 'info' | 'success' | 'error' }) {
+export function Field({ label, children, error, hint, below }: { label: string; children: React.ReactNode; error?: string; hint?: string; below?: React.ReactNode }) {
   const generatedId = useId();
   let controlId: string | undefined;
   let control = children;
@@ -128,10 +129,28 @@ export function Field({ label, children, error, hint, hintTone = 'info' }: { lab
       <label className="label" htmlFor={controlId}>{label}</label>
       {control}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      {!error && hint && (
-        <p className={`mt-1 text-xs ${hintTone === 'success' ? 'text-emerald-600' : hintTone === 'error' ? 'text-red-600' : 'text-slate-400'}`}>{hint}</p>
-      )}
+      {!error && hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {below}
     </div>
+  );
+}
+
+/**
+ * Checklist des critères du mot de passe, à afficher sous le champ (Field.below).
+ * Chaque critère passe individuellement au vert avec ✓ dès qu'il est respecté —
+ * gris tant que non atteint (pas de rouge : c'est un guide, pas une punition).
+ */
+export function PasswordChecklist({ password, className }: { password: string; className?: string }) {
+  const criteria: PasswordCriterion[] = passwordCriteria(password);
+  return (
+    <ul className={`mt-2 space-y-1 ${className ?? ''}`}>
+      {criteria.map(c => (
+        <li key={c.key} className={`flex items-center gap-1.5 text-xs ${c.met ? 'text-emerald-600' : 'text-slate-400'}`}>
+          <span aria-hidden>{c.met ? '✓' : '○'}</span>
+          <span>{c.label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

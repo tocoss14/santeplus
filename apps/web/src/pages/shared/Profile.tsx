@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { useAuth } from '../../auth';
-import { passwordFeedback } from '../../lib/password';
-import { ErrorBanner, Field, PhotoImg, Spinner } from '../../components/ui';
+import { isPasswordValid } from '../../lib/password';
+import { ErrorBanner, Field, PasswordChecklist, PhotoImg, Spinner } from '../../components/ui';
 
 export default function Profile() {
   const { me, refresh } = useAuth();
@@ -11,9 +11,6 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
   const [pwMsg, setPwMsg] = useState<string | null>(null);
-  // Consigne mot de passe : rouge tant que non conforme, vert ✓ dès que la règle
-  // est respectée (même règle que l'API : 8 caractères min., lettres et chiffres).
-  const pwFeedback = passwordFeedback(pw.newPassword);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -133,8 +130,7 @@ export default function Profile() {
         <Field label="Mot de passe actuel"><input type="password" className="input" value={pw.currentPassword} onChange={e => setPw((p: any) => ({ ...p, currentPassword: e.target.value }))} /></Field>
         <Field
           label="Nouveau mot de passe"
-          hint={pwFeedback?.hint}
-          hintTone={pwFeedback?.tone ?? 'info'}
+          below={<PasswordChecklist password={pw.newPassword} />}
         >
           <input type="password" className="input" value={pw.newPassword} onChange={e => setPw((p: any) => ({ ...p, newPassword: e.target.value }))} />
         </Field>
@@ -142,6 +138,10 @@ export default function Profile() {
           className="btn-outline"
           onClick={async () => {
             setPwMsg(null);
+            if (!isPasswordValid(pw.newPassword)) {
+              setPwMsg('Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre.');
+              return;
+            }
             try {
               await api.post('/auth/password', pw);
               setPw({ currentPassword: '', newPassword: '' });

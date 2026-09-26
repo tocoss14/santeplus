@@ -2,8 +2,8 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { api, fileUrl } from '../api';
-import { passwordFeedback } from '../lib/password';
-import { ErrorBanner, Field } from '../components/ui';
+import { isPasswordValid } from '../lib/password';
+import { ErrorBanner, Field, PasswordChecklist } from '../components/ui';
 
 export default function Register() {
   const { register, login } = useAuth();
@@ -19,10 +19,6 @@ export default function Register() {
   const [consent, setConsent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Consigne mot de passe : rouge tant que non conforme, vert ✓ dès que la règle
-  // est respectée (même règle que l'API : 8 caractères min., lettres et chiffres).
-  const pwFeedback = passwordFeedback(form.password);
-
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f: any) => ({ ...f, [k]: e.target.value }));
 
@@ -36,6 +32,9 @@ export default function Register() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!consent) return setError('Veuillez accepter la politique de confidentialité');
+    if (!isPasswordValid(form.password)) {
+      return setError('Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre.');
+    }
     setBusy(true);
     setError(null);
     try {
@@ -91,8 +90,7 @@ export default function Register() {
         </div>
         <Field
           label="Mot de passe"
-          hint={pwFeedback?.hint}
-          hintTone={pwFeedback?.tone ?? 'info'}
+          below={<PasswordChecklist password={form.password} />}
         >
           <input
             className="input"

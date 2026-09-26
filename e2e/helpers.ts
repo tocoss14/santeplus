@@ -9,10 +9,6 @@ export function uid() {
   return Math.random().toString(36).slice(2, 8);
 }
 
-// Règle mot de passe (apps/api/src/modules/auth/dto.ts) — texte de consigne affiché
-// par les formulaires web (helper passwordFeedback, apps/web/src/lib/password.ts).
-export const PASSWORD_REQUIREMENT = '8 caractères minimum, lettres et chiffres';
-
 export async function apiContext(): Promise<APIRequestContext> {
   return await request.newContext({
     baseURL: API_URL,

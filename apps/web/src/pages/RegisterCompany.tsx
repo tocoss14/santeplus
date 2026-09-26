@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { passwordFeedback } from '../lib/password';
-import { ErrorBanner, Field } from '../components/ui';
+import { isPasswordValid } from '../lib/password';
+import { ErrorBanner, Field, PasswordChecklist } from '../components/ui';
 
 export default function RegisterCompany() {
   const { login } = useAuth();
@@ -22,16 +22,15 @@ export default function RegisterCompany() {
   const [busy, setBusy] = useState(false);
   const [consent, setConsent] = useState(false);
 
-  // Consigne mot de passe : rouge tant que non conforme, vert ✓ dès que la règle
-  // est respectée (même règle que l'API : 8 caractères min., lettres et chiffres).
-  const pwFeedback = passwordFeedback(form.password);
-
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f: any) => ({ ...f, [k]: e.target.value }));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!consent) return setError('Veuillez accepter la politique de confidentialité');
+    if (!isPasswordValid(form.password)) {
+      return setError('Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre.');
+    }
     setBusy(true);
     setError(null);
     try {
@@ -102,8 +101,7 @@ export default function RegisterCompany() {
         <Field label="Email administrateur *"><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="rh@entreprise.bj" /></Field>
         <Field
           label="Mot de passe *"
-          hint={pwFeedback?.hint}
-          hintTone={pwFeedback?.tone ?? 'info'}
+          below={<PasswordChecklist password={form.password} />}
         >
           <input
             className="input"

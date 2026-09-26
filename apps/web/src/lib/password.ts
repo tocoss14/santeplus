@@ -2,15 +2,32 @@
  * Règle de mot de passe partagée web ↔ API (apps/api/src/modules/auth/dto.ts) :
  * min 8 caractères, au moins une lettre et un chiffre.
  *
- * `passwordFeedback` renvoie la consigne à afficher avec son ton :
- *   - tone 'error'   : saisie non vide mais non conforme (rouge) ;
- *   - tone 'success' : règle respectée (vert + ✓, l'utilisateur est rassuré) ;
- *   - null           : saisie vide (aucune consigne — l'attribut `required` s'en charge).
+ * `passwordCriteria` découpe la règle en critères individuels évalués sur la
+ * saisie courante — la checklist affiche chaque critère avec son état :
+ *   - { met: false } tant que le critère n'est pas respecté (neutre/gris) ;
+ *   - { met: true }  dès qu'il l'est (vert ✓ — pas de rouge, l'absence de
+ *     coche suffit à signaler ce qui manque).
+ * La saisie vide affiche la liste neutre : elle guide avant même de taper,
+ * sans signaler d'erreur.
  */
-export function passwordFeedback(pw: string): { hint: string; tone: 'error' | 'success' } | null {
-  if (!pw) return null;
-  const valid = pw.length >= 8 && /[a-zA-Z]/.test(pw) && /\d/.test(pw);
-  return valid
-    ? { hint: '✓ Mot de passe valide (8 caractères min., lettres et chiffres)', tone: 'success' }
-    : { hint: '8 caractères minimum, lettres et chiffres', tone: 'error' };
+export interface PasswordCriterion {
+  key: string;
+  label: string;
+  met: boolean;
+}
+
+export function passwordCriteria(pw: string): PasswordCriterion[] {
+  return [
+    { key: 'length', label: '8 caractères minimum', met: pw.length >= 8 },
+    { key: 'letter', label: 'Au moins une lettre', met: /[a-zA-Z]/.test(pw) },
+    { key: 'digit', label: 'Au moins un chiffre', met: /\d/.test(pw) },
+  ];
+}
+
+/**
+ * Indique si l'ensemble de la règle est respecté (pour le pattern HTML et
+ * les boutons conditionnels) — même règle que l'API.
+ */
+export function isPasswordValid(pw: string): boolean {
+  return passwordCriteria(pw).every(c => c.met);
 }

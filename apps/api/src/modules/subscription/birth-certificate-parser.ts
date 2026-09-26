@@ -40,6 +40,13 @@ function normalizeLine(line: string): string {
   return stripAccents(line).toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+/** Regex d'un label : les espaces internes deviennent optionnels — l'OCR colle
+ *  parfois les mots (« Néle : 12 janvier… ») ou les double. */
+function labelRegex(label: string): RegExp {
+  const escaped = stripAccents(label).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(escaped.replace(/ /g, '\\s*'));
+}
+
 /** Trouve la première étiquette présente dans la ligne — les PLUS LONGUES d'abord :
  *  « nom de famille » doit gagner sur « nom », « prénom » sur « nom » (contenu dedans). */
 function matchLabel(normalized: string): { field: keyof typeof LABELS; label: string } | null {
@@ -49,7 +56,7 @@ function matchLabel(normalized: string): { field: keyof typeof LABELS; label: st
   }
   pairs.sort((a, b) => b.label.length - a.label.length);
   for (const p of pairs) {
-    if (normalized.includes(stripAccents(p.label).toLowerCase())) return p;
+    if (labelRegex(p.label).test(normalized)) return p;
   }
   return null;
 }
@@ -59,9 +66,9 @@ function matchLabel(normalized: string): { field: keyof typeof LABELS; label: st
  *  alphanumérique de tête — aucune valeur attendue ne commence par de la ponctuation). */
 function valueAfter(line: string, label: string): string {
   const normalizedLine = stripAccents(line).toLowerCase();
-  const idx = normalizedLine.indexOf(stripAccents(label).toLowerCase());
-  if (idx < 0) return '';
-  let rest = line.slice(idx + label.length);
+  const m = labelRegex(label).exec(normalizedLine);
+  if (!m) return '';
+  let rest = line.slice(m.index + m[0].length);
   rest = rest.replace(/^[^\p{L}\p{N}]+/u, '');
   return rest.trim();
 }

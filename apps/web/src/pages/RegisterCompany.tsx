@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { passwordFeedback } from '../lib/password';
 import { ErrorBanner, Field } from '../components/ui';
 
 export default function RegisterCompany() {
@@ -20,6 +21,10 @@ export default function RegisterCompany() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [consent, setConsent] = useState(false);
+
+  // Consigne mot de passe : rouge tant que non conforme, vert ✓ dès que la règle
+  // est respectée (même règle que l'API : 8 caractères min., lettres et chiffres).
+  const pwFeedback = passwordFeedback(form.password);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f: any) => ({ ...f, [k]: e.target.value }));
@@ -95,8 +100,21 @@ export default function RegisterCompany() {
         </div>
 
         <Field label="Email administrateur *"><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="rh@entreprise.bj" /></Field>
-        <Field label="Mot de passe *" error="8 caractères minimum, lettres et chiffres">
-          <input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} placeholder="••••••••" />
+        <Field
+          label="Mot de passe *"
+          hint={pwFeedback?.hint}
+          hintTone={pwFeedback?.tone ?? 'info'}
+        >
+          <input
+            className="input"
+            type="password"
+            required
+            minLength={8}
+            pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"
+            value={form.password}
+            onChange={set('password')}
+            placeholder="••••••••"
+          />
         </Field>
 
         <label className="flex gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed">

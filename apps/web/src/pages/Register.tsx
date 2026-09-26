@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { api, fileUrl } from '../api';
+import { passwordFeedback } from '../lib/password';
 import { ErrorBanner, Field } from '../components/ui';
 
 export default function Register() {
@@ -17,6 +18,10 @@ export default function Register() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [consent, setConsent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Consigne mot de passe : rouge tant que non conforme, vert ✓ dès que la règle
+  // est respectée (même règle que l'API : 8 caractères min., lettres et chiffres).
+  const pwFeedback = passwordFeedback(form.password);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f: any) => ({ ...f, [k]: e.target.value }));
@@ -84,8 +89,20 @@ export default function Register() {
             </select>
           </Field>
         </div>
-        <Field label="Mot de passe" error="8 caractères minimum, lettres et chiffres">
-          <input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} />
+        <Field
+          label="Mot de passe"
+          hint={pwFeedback?.hint}
+          hintTone={pwFeedback?.tone ?? 'info'}
+        >
+          <input
+            className="input"
+            type="password"
+            required
+            minLength={8}
+            pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"
+            value={form.password}
+            onChange={set('password')}
+          />
         </Field>
 
         {!referralCode && (

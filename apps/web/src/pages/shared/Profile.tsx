@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { useAuth } from '../../auth';
+import { passwordFeedback } from '../../lib/password';
 import { ErrorBanner, Field, PhotoImg, Spinner } from '../../components/ui';
 
 export default function Profile() {
@@ -10,6 +11,9 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
   const [pwMsg, setPwMsg] = useState<string | null>(null);
+  // Consigne mot de passe : rouge tant que non conforme, vert ✓ dès que la règle
+  // est respectée (même règle que l'API : 8 caractères min., lettres et chiffres).
+  const pwFeedback = passwordFeedback(pw.newPassword);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -127,7 +131,11 @@ export default function Profile() {
         <h2 className="font-semibold">Changer mon mot de passe</h2>
         {pwMsg && <p className="mt-2 text-sm text-emerald-600">{pwMsg}</p>}
         <Field label="Mot de passe actuel"><input type="password" className="input" value={pw.currentPassword} onChange={e => setPw((p: any) => ({ ...p, currentPassword: e.target.value }))} /></Field>
-        <Field label="Nouveau mot de passe" error="8 caractères min., lettres et chiffres">
+        <Field
+          label="Nouveau mot de passe"
+          hint={pwFeedback?.hint}
+          hintTone={pwFeedback?.tone ?? 'info'}
+        >
           <input type="password" className="input" value={pw.newPassword} onChange={e => setPw((p: any) => ({ ...p, newPassword: e.target.value }))} />
         </Field>
         <button

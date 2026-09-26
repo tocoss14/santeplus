@@ -105,7 +105,7 @@ export function ConfirmModal({
   );
 }
 
-export function Field({ label, children, error, hint }: { label: string; children: React.ReactNode; error?: string; hint?: string }) {
+export function Field({ label, children, error, hint, hintTone = 'info' }: { label: string; children: React.ReactNode; error?: string; hint?: string; hintTone?: 'info' | 'success' | 'error' }) {
   const generatedId = useId();
   let controlId: string | undefined;
   let control = children;
@@ -128,7 +128,9 @@ export function Field({ label, children, error, hint }: { label: string; childre
       <label className="label" htmlFor={controlId}>{label}</label>
       {control}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      {!error && hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {!error && hint && (
+        <p className={`mt-1 text-xs ${hintTone === 'success' ? 'text-emerald-600' : hintTone === 'error' ? 'text-red-600' : 'text-slate-400'}`}>{hint}</p>
+      )}
     </div>
   );
 }

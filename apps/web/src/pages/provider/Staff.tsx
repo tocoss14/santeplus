@@ -118,7 +118,7 @@ function AddStaffModal({ open, onClose, onDone }: any) {
         <Field label="Prénom"><input className="input" value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} /></Field>
       </div>
       <Field label="Email professionnel"><input type="email" className="input" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></Field>
-      <Field label="Fonction (optionnel)" error="Ex. : Médecin, Caissier, Facturation, Réception">
+      <Field label="Fonction (optionnel)" hint="Ex. : Médecin, Caissier, Facturation, Réception">
         <input className="input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
       </Field>
       <Field label="Mot de passe initial"><input className="input" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="8 caractères min." /></Field>

@@ -1,10 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../common/prisma.module';
 import { StorageService } from '../files/files.service';
 import { parseBirthCertificateText, ParsedBirthCertificate } from './birth-certificate-parser';
 import { rasterizePdf } from './pdf-rasterizer';
-import { uprightImage, toPng, cropCenterBand } from './image-orientation';
+import { uprightImage, toPng, cropCenterBand, warmUpOsd } from './image-orientation';
 
 export interface BirthCertificateData {
   firstName: string;
@@ -41,11 +41,30 @@ export type VerifyUploadedDocumentInput = BirthCertificateData & {
 };
 
 @Injectable()
-export class BirthCertificateService {
+export class BirthCertificateService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
   ) {}
+
+  /**
+   * Préchauffage des workers OCR (fra+eng) et OSD au démarrage du module : le
+   * premier utilisateur ne paie pas les ~1,5 s de boot (noyau legacy, données
+   * de langue) ni la lenteur des premiers appels. Fire-and-forget — ne doit
+   * ni retarder le démarrage, ni l'échouer.
+   */
+  onModuleInit(): void {
+    void this.getOcrWorker()
+      .then(async (worker) => {
+        const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
+        const probe = canvas.createCanvas(64, 64);
+        probe.getContext('2d').fillRect(0, 0, 64, 64);
+        await worker.recognize(await probe.encode('png')).catch(() => undefined);
+        console.log('[birth-certificate] workers OCR préchauffés');
+      })
+      .catch(() => undefined) // OCR indisponible : l'appel réel retentera
+      .then(() => warmUpOsd());
+  }
 
   /**
    * Upload et stocke l'acte de naissance

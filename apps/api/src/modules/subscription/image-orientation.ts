@@ -98,6 +98,26 @@ export async function cropCenterBand(source: RasterSource, fraction = 0.4): Prom
 }
 
 /**
+ * Préchauffage : boot du worker OSD + un detect sur une image minimale, pour
+ * que le premier vrai document ne paie pas l'initialisation du pipeline
+ * (noyau legacy ~1 s puis premières détections plus lentes). Silencieux : le
+ * préchauffage ne doit jamais casser un démarrage.
+ */
+export async function warmUpOsd(): Promise<void> {
+  try {
+    const worker = await getOsdWorker();
+    const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
+    const probe = canvas.createCanvas(200, 200);
+    const ctx = probe.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, probe.width, probe.height);
+    await worker.detect(await toPng(probe)).catch(() => undefined);
+  } catch {
+    /* OSD indisponible : l'appel réel retentera (best-effort inchangé) */
+  }
+}
+
+/**
  * Tente de redresser une image via l'OSD. Retourne l'image d'origine si
  * l'OSD est indisponible ou peu confiant (best-effort, jamais bloquant).
  */

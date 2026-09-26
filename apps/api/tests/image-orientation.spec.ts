@@ -7,9 +7,17 @@
  * unitaire ; le chemin complet OSD → rotation → 2ᵉ passe OCR est couvert par
  * la preuve live scripts-dev/test-birth-cert-ocr.mjs (fixtures pivotées).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { rotateClockwise, toPng, uprightImage, cropCenterBand } from '../src/modules/subscription/image-orientation';
+import { rotateClockwise, toPng, uprightImage, cropCenterBand, warmUpOsd } from '../src/modules/subscription/image-orientation';
+
+// L'OSD réel (noyau legacy natif) n'est jamais booté dans les tests : le mock
+// le rend indisponible — tous les chemins testés ici sont les fallbacks
+// silencieux, et le process de test n'héberge aucun worker natif (le mélange
+// tesseract-legacy + pdf.js au teardown provoquait des segfaults intermittents).
+vi.mock('tesseract.js', () => ({
+  createWorker: vi.fn(() => Promise.reject(new Error('OSD indisponible (mock)'))),
+}));
 
 /** Canvas w×h blanc avec un pixel rouge en (x, y). */
 function canvasWithRedPixel(w: number, h: number, x: number, y: number) {
@@ -106,13 +114,20 @@ describe('cropCenterBand', () => {
   });
 });
 
-describe('uprightImage (fallbacks sans OSD)', () => {
-  it('retourne l\'image d\'origine quand l\'OSD est indisponible ou muet (best-effort)', async () => {
-    // Selon l'environnement l'OSD peut démarrer ou non : dans les deux cas le
-    // résultat est exploitable — soit image droite (rotation 0), soit fallback.
+describe('warmUpOsd (préchauffage silencieux)', () => {
+  it('se termine sans lever quand le worker OSD ne démarre pas', async () => {
+    await expect(warmUpOsd()).resolves.toBeUndefined();
+    // Second appel : retente (le boot est réarmé après échec) et reste silencieux.
+    await expect(warmUpOsd()).resolves.toBeUndefined();
+  });
+
+  it('retombe sur l\'image d\'origine quand l\'OSD est indisponible', async () => {
     const img = await loadImage(await toPng(canvasWithRedPixel(20, 10, 0, 0)));
     const res = await uprightImage(img);
-    expect([0, 90, 180, 270]).toContain(res.rotationApplied);
-    expect(res.canvas.width).toBeGreaterThan(0);
+    expect(res.rotationApplied).toBe(0);
+    expect(res.alreadyUpright).toBe(false);
+    expect(res.canvas).toBe(img);
   });
 });
+
+

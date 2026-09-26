@@ -50,6 +50,10 @@ for (const [fixture, script] of [
 // Identité portée par l'acte scanné de test (voir scripts-dev/make-birth-cert-fixture.mjs)
 const ACTE = { firstName: 'Marie-Josée', lastName: 'ADJOVI', birthDate: '1990-01-12' };
 
+// Le champ d'inscription porte exactement ce label (sans « actuel » ni « * ») :
+// getByLabel(..., { exact: true }) vise le bon champ sans toucher aux autres.
+const PASSWORD_LABEL = 'Mot de passe';
+
 // Le headless shell dédié n'est pas installé sur ce poste : on lance le
 // Chromium complet (headless « new ») déjà présent.
 test.use({ channel: 'chromium' });
@@ -181,6 +185,33 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
       await finishAfterVerification(page);
     });
   }
+
+  test.describe.serial('Inscription: feedback du mot de passe', () => {
+    test('consigne rouge → verte quand la règle (8 car., lettre, chiffre) est respectée', async ({ page }) => {
+      await page.goto('/register');
+
+      const pw = page.getByLabel(PASSWORD_LABEL, { exact: true });
+      // Le même <p> porte les deux libellés (« 8 caractères minimum, lettres et
+      // chiffres » en rouge, « ✓ Mot de passe valide (8 caractères min., …) » en
+      // vert) : on le suit par son préfixe commun pour assert le CHANGEMENT.
+      const consigne = page.locator('p', { hasText: '8 caractères min' });
+
+      // 1. Vide : pas de consigne du tout (le required natif suffit)
+      await expect(consigne).toHaveCount(0);
+
+      // 2. Non conforme → consigne rouge (ré-affichée, donc count(0) ci-dessus est bien un état)
+      await pw.fill('abcdefghij');
+      await expect(consigne).toBeVisible();
+      await expect(consigne).toHaveCSS('color', 'rgb(220, 38, 38)');
+
+      // 3. Règle respectée → même nœud passe au vert (passage visuel, pas remplacement)
+      await pw.fill('Test1234!');
+      await expect(consigne).toHaveCSS('color', 'rgb(5, 150, 105)'); // emerald-600
+
+      // Garde-fou : la page n'a pas navigué (pas de soumission involontaire)
+      await expect(page).toHaveURL(/\/register/);
+    });
+  });
 
   test('acte illisible → aucun pré-remplissage, la saisie manuelle est conservée → paiement mock', async ({ page }) => {
     await reachActeVerification(page, UNREADABLE_PNG);

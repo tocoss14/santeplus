@@ -188,6 +188,9 @@ jobs:
         run: npm run start -w apps/api &
         env:
           DATABASE_URL: postgresql://santeplus:testpassword@localhost:5432/santeplus_test
+          # Multiplicateur de rate-limit (×1000) — l'E2E fait 9 inscriptions
+          # depuis la même IP ; le plafond standard est 5/heure.
+          E2E: '1'
 
       - name: Wait for API
         run: |

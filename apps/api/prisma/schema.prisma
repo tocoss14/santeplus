@@ -683,6 +683,7 @@ model Prescription {
   prescriberUser    User     @relation("PrescriptionPrescriber", fields: [prescriberUserId], references: [id])
   prescriberName    String
   specialty         String?
+  createdAt         DateTime @default(now())
   validFrom         DateTime @default(now())
   validUntil        DateTime
   renewalsAllowed   Int      @default(0)

@@ -105,6 +105,11 @@ jobs:
 
       - run: npm ci
 
+      # Les specs OCR génèrent leurs fixtures via Playwright (capture Chromium)
+      # et tesseract.js télécharge ses données de langue à l'exécution.
+      - name: Install Playwright Chromium (génération de fixtures)
+        run: npx playwright install --with-deps chromium
+
       - name: Run Prisma migrations
         run: npx prisma migrate deploy
         working-directory: apps/api
@@ -144,7 +149,7 @@ jobs:
       JWT_SECRET: ci-test-secret-minimum-64-chars-long-for-testing-purposes
       FIELD_ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
       PORT: 4000
-      WEB_URL: http://127.0.0.1:3000
+      WEB_URL: http://localhost:3000
       API_URL: http://127.0.0.1:4000
       WEB_ORIGIN: http://localhost:3000
       APP_URL: http://localhost:3000
@@ -195,6 +200,28 @@ jobs:
             sleep 2
           done
           echo "API failed to start"
+          exit 1
+
+      # Le front E2E est le serveur Vite DEV : l'anti-CSRF de l'API n'autorise
+      # que WEB_ORIGIN (localhost:3000) et le proxy /api doit pointer vers l'API
+      # de test (VITE_API_PORT) — même recette qu'en local.
+      - name: Start Web dev server
+        run: npx vite --port 3000 --strictPort &
+        working-directory: apps/web
+        env:
+          VITE_API_PORT: 4000
+
+      - name: Wait for Web
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:3000/ > /dev/null 2>&1; then
+              echo "Web is ready"
+              exit 0
+            fi
+            echo "Waiting for Web... ($i/30)"
+            sleep 2
+          done
+          echo "Web failed to start"
           exit 1
 
       - name: Install Playwright browsers

@@ -691,6 +691,8 @@ model Prescription {
   noteEnc           String?
   claims            Claim[]  @relation("ClaimPrescription")
   careRecord        CareRecord?
+  lines             PrescriptionLine[]
+  deliveries        Delivery[]
 
   @@index([patientUserId])
   @@index([status])
@@ -943,7 +945,7 @@ model CareRecordEvent {
   @@index([type])
 }
 
--- ── Comptabilité technique OHADA ──
+// ── Comptabilité technique OHADA ──
 model Account {
   id        String  @id @default(cuid())
   code      String  @unique
@@ -986,7 +988,7 @@ model AccountingEntry {
   @@index([period])
 }
 
--- ── Référentiels Branchen / Maladies / Panier ──
+// ── Référentiels Branchen / Maladies / Panier ──
 model Branch {
   id          String  @id @default(cuid())
   code        String  @unique
@@ -1009,7 +1011,7 @@ model Disease {
   claims    Claim[]
 }
 
--- ── COMPTE TECHNIQUE SANTÉ (CTS) — pilotage par contrat ──
+// ── COMPTE TECHNIQUE SANTÉ (CTS) — pilotage par contrat ──
 model TechnicalAccount {
   id              String   @id @default(cuid())
   contractId      String   @unique
@@ -1034,8 +1036,8 @@ model TechnicalAccount {
   updatedAt       DateTime @updatedAt
 }
 
--- Journal CTS immuable : jamais d'update/delete, uniquement des
--- contre-écritures (§40.4, §40.15).
+// Journal CTS immuable : jamais d'update/delete, uniquement des
+// contre-écritures (§40.4, §40.15).
 model CtsJournal {
   id            String   @id @default(cuid())
   date          DateTime @default(now())
@@ -1120,9 +1122,9 @@ model ContractClosure {
   @@index([status])
 }
 
--- Fonds de solidarité mutualiste : les excédents de clôture alimentent le
--- fonds, qui couvre les déficits des contrats en difficulté. Journal
--- immuable par mouvements (jamais d'update/delete).
+// Fonds de solidarité mutualiste : les excédents de clôture alimentent le
+// fonds, qui couvre les déficits des contrats en difficulté. Journal
+// immuable par mouvements (jamais d'update/delete).
 model SolidarityMovement {
   id         String   @id @default(cuid())
   // CONTRIBUTION | COVERAGE | ADJUSTMENT
@@ -1141,7 +1143,7 @@ model SolidarityMovement {
   @@index([contractId])
 }
 
--- Dossier d'instruction fraude (léger) — les détections restent dans les jobs.
+// Dossier d'instruction fraude (léger) — les détections restent dans les jobs.
 model FraudCase {
   id             String    @id @default(cuid())
   contractId     String?

@@ -4,7 +4,7 @@
  * Stratégie hermétique : les PDF sont générés en mémoire avec pdfkit —
  *   - un « scan » = une image bitmap pleine page (canvas Skia → PNG), sans texte ;
  *   - un PDF texte vectoriel (ne doit produire aucune image).
- * On vérifie que rasterizePdf extrait l'image décodée en JPEG à résolution
+ * On vérifie que rasterizePdf extrait l'image décodée en PNG à résolution
  * native et retourne [] sur du vectoriel. La fidélité OCR de bout en bout est
  * couverte par la preuve live scripts-dev/test-birth-cert-ocr.mjs (trop
  * coûteuse pour la suite unitaire).
@@ -63,15 +63,16 @@ describe('pdf-rasterizer (chemin PDF scanné)', () => {
     (globalThis as any).ImageData ??= canvas.ImageData;
   });
 
-  it('extrait l’image d’une page scannée en JPEG à résolution native', async () => {
+  it('extrait l’image d’une page scannée en PNG à résolution native', async () => {
     const { rasterizePdf } = await import('../src/modules/subscription/pdf-rasterizer');
     const images = await rasterizePdf(await scannedPdf());
     // La page contient une seule image bitmap (le PNG embarqué par pdfkit)…
     expect(images.length).toBe(1);
-    // Un JPEG d'aplats compresse très court : on borne bas.
     expect(images[0].length).toBeGreaterThan(1_000);
-    expect(images[0][0]).toBe(0xff); // magie JPEG
-    expect(images[0][1]).toBe(0xd8);
+    expect(images[0][0]).toBe(0x89); // magie PNG
+    expect(images[0][1]).toBe(0x50); // 'P'
+    expect(images[0][2]).toBe(0x4e); // 'N'
+    expect(images[0][3]).toBe(0x47); // 'G'
     // … ré-encodée à sa résolution native (600x400, pas la taille A4 595x842).
     const size = await loadImage(images[0]);
     expect(size.width).toBe(600);

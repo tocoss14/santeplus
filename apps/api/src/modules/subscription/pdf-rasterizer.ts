@@ -1,5 +1,5 @@
 /**
- * Rasterisation des PDF en images pour l'OCR.
+ * Rasterisation des PDF en images sans perte (PNG) pour l'OCR.
  *
  * Pourquoi : tesseract.js ne décode pas les PDF, et pdf-parse n'expose que la
  * couche texte — un PDF scanné (image sous PDF, sans texte natif) est donc
@@ -7,10 +7,13 @@
  *
  * Comment : pdfjs-dist (build legacy Node) décode les images de chaque page via
  * getOperatorList() — le décodage des flux est purement JS/WASM côté worker —
- * puis CE module ré-encode chaque image décodée en JPEG À SA RÉSOLUTION
+ * puis CE module ré-encode chaque image décodée en PNG À SA RÉSOLUTION
  * NATIVE (flip Y seul), via les opérations canvas natives stables
  * (putImageData + encode). Aucune mise à l'échelle, aucune géométrie de page :
- * un scan 300 DPI ressort en 300 DPI, ce que l'OCR lit de façon fiable.
+ * un scan 300 DPI ressort en 300 DPI, ce que l'OCR lit de façon fiable. Le
+ * PNG (sans perte) est préféré au JPEG : un ré-encodage avec pertes brouille
+ * les glyphes fins — J lu I sur la fixture 180°, persistant à qualité 1
+ * (sous-échantillonnage chromatique structurel).
  *
  * Pourquoi ne pas utiliser page.render() : son pipeline image interne (canvas
  * temporaires de pdf.js) provoque un segfault natif avec @napi-rs/canvas sur
@@ -38,8 +41,6 @@ const MAX_IMAGES_PER_PAGE = 4;
 const MIN_USEFUL_DIM_PX = 200;
 /** Plafond de dimension d'une image produite (au-delà : réduction par halvings). */
 const MAX_OUTPUT_DIM_PX = 4000;
-
-const JPEG_QUALITY = 0.85;
 
 /** Installe les globales DOM attendues par pdf.js. Idempotent. */
 function installPdfJsGlobals(): void {
@@ -133,14 +134,16 @@ function capDimensions(
   return cur;
 }
 
-/** Ré-encode une image décodée en JPEG à résolution native (flip Y seul). */
+/** Ré-encode une image décodée en PNG à résolution native (flip Y seul) —
+ *  sans perte : l'image repart vers l'OCR (parfois après rotation OSD) et les
+ *  pertes de ré-encodage JPEG se payaient en erreurs de lecture. */
 async function encodeDecodedImage(img: DecodedImage, canvas: typeof import('@napi-rs/canvas')): Promise<Buffer | null> {
   if (img.width < MIN_USEFUL_DIM_PX && img.height < MIN_USEFUL_DIM_PX) return null;
   const rgba = toRgba(img, canvas);
   if (!rgba) return null;
   const skia = canvas.createCanvas(img.width, img.height);
   skia.getContext('2d').putImageData(rgba, 0, 0);
-  return capDimensions(canvas, skia).encode('jpeg', JPEG_QUALITY);
+  return capDimensions(canvas, skia).encode('png');
 }
 
 /** Récupère l'image XObject décodée depuis page.objs (déjà présente ou à venir). */
@@ -207,8 +210,8 @@ async function extractPageImages(
       }
     }
     if (!img) continue;
-    const jpeg = await encodeDecodedImage(img, canvas);
-    if (jpeg) out.push(jpeg);
+    const image = await encodeDecodedImage(img, canvas);
+    if (image) out.push(image);
   }
   return out;
 }

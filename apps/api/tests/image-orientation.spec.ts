@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { rotateClockwise, toPng, uprightImage } from '../src/modules/subscription/image-orientation';
+import { rotateClockwise, toPng, uprightImage, cropCenterBand } from '../src/modules/subscription/image-orientation';
 
 /** Canvas w×h blanc avec un pixel rouge en (x, y). */
 function canvasWithRedPixel(w: number, h: number, x: number, y: number) {
@@ -83,6 +83,26 @@ describe('toPng', () => {
     const img2 = await loadImage(repng);
     expect(img2.width).toBe(6);
     expect(img2.height).toBe(3);
+  });
+});
+
+describe('cropCenterBand', () => {
+  it('extrait une bande de 40 % de hauteur, centrée verticalement', async () => {
+    const png = await cropCenterBand(canvasWithRedPixel(10, 100, 5, 45), 0.4);
+    const band = await loadImage(png);
+    expect(band.width).toBe(10);
+    expect(band.height).toBe(40); // 100 × 0.4
+    // Une Image décodée n'a pas de contexte : on la redessine pour lire les pixels.
+    const raster = createCanvas(band.width, band.height);
+    raster.getContext('2d').drawImage(band, 0, 0);
+    const ctx = raster.getContext('2d');
+    expect(isRed(ctx, 5, 15)).toBe(true); // pixel source (5,45) → bande y = 45−30 = 15
+    expect(isRed(ctx, 5, 0)).toBe(false); // hors bande : blanc de fond
+  });
+
+  it('borne la hauteur minimale à 1 px', async () => {
+    const band = await loadImage(await cropCenterBand(canvasWithRedPixel(4, 2, 0, 0), 0.4));
+    expect(band.height).toBe(1);
   });
 });
 

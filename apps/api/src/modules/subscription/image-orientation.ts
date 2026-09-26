@@ -10,9 +10,9 @@
  * renvoie 270 ; une rotation horaire de 270° restitue un OCR à conf 94.)
  *
  * La détection n'est pas gratuite (~1–2 s) et l'OSD se trompe parfois : elle
- * ne s'applique qu'aux images dont l'OCR droit a déjà échoué, avec un seuil
- * de confiance, et reste une heuristique best-effort (le filet final étant
- * la saisie manuelle).
+ * n'est relais qu'après l'échec d'une bande centrale (voir cropCenterBand),
+ * avec un seuil de confiance, et reste une heuristique best-effort (la
+ * pleine passe en filet puis la saisie manuelle terminent la cascade).
  */
 
 import type { Canvas as SkiaCanvas, Image as SkiaImage } from '@napi-rs/canvas';
@@ -74,6 +74,27 @@ export interface UprightResult {
   rotationApplied: Degree;
   /** True si l'OSD a lui-même jugé l'image droite (pas d'essai OCR nécessaire). */
   alreadyUpright: boolean;
+}
+
+/**
+ * Bande centrale horizontale d'une image, sérialisée en PNG : matière à une
+ * passe OCR légère, utilisée quand l'image est PAYSAGE — un acte étant
+ * portrait, un scan paysage est presque toujours pivoté de 90/270° et sa
+ * pleine passe ne lirait que du texte couché (~2,2 s perdus). Sur un vrai
+ * document paysage, la bande centrale suffit souvent à prouver la lisibilité
+ * (fraction paramétrable ; il lui faut ≥ 75 % de hauteur sur un acte portrait
+ * pour porter tous les champs — mesuré, c'est pourquoi ce chemin est réservé
+ * au paysage). Sinon, l'appelant relance l'OSD puis une passe pleine en filet.
+ */
+export async function cropCenterBand(source: RasterSource, fraction = 0.4): Promise<Buffer> {
+  const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
+  const h = Math.max(1, Math.round(source.height * fraction));
+  const band = canvas.createCanvas(source.width, h);
+  const ctx = band.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, band.width, band.height);
+  ctx.drawImage(source, 0, Math.round((source.height - h) / 2), source.width, h, 0, 0, source.width, h);
+  return band.encode('png');
 }
 
 /**

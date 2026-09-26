@@ -4,7 +4,7 @@ import { PrismaService } from '../../common/prisma.module';
 import { StorageService } from '../files/files.service';
 import { parseBirthCertificateText, ParsedBirthCertificate } from './birth-certificate-parser';
 import { rasterizePdf } from './pdf-rasterizer';
-import { uprightImage, toPng } from './image-orientation';
+import { uprightImage, toPng, cropCenterBand } from './image-orientation';
 
 export interface BirthCertificateData {
   firstName: string;
@@ -246,28 +246,78 @@ export class BirthCertificateService {
   }
 
   /**
-   * Image (JPEG/PNG/WebP) : OCR tesseract fra+eng, worker réutilisé. Si l'OCR
-   * droit ne donne rien d'exploitable, le scan est peut-être pivoté : OSD
-   * (worker dédié) puis rotation et seconde passe.
+   * Image (JPEG/PNG/WebP) : OCR tesseract fra+eng, worker réutilisé.
+   * Paysage (scan probablement pivoté de 90/270°) : bande centrale légère,
+   * puis OSD + passe sur l'image redressée, pleine passe en filet. Portrait :
+   * pleine passe d'abord (acte droit ≈ 0,7 s), OSD en relais si elle est
+   * muette.
    */
   private async extractFromImage(buffer: Buffer): Promise<ParsedBirthCertificate | null> {
     const worker = await this.getOcrWorker();
+    // Décode une seule fois : l'image sert à la bande légère, à l'OSD et au
+    // filet pleine passe.
+    const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
+    let img: import('@napi-rs/canvas').Image;
+    try {
+      img = await canvas.loadImage(buffer);
+    } catch {
+      return this.recognizeParse(worker, buffer); // décodage Skia impossible → passe pleine en filet
+    }
+
+    // Un acte est portrait : une image PAYSAGE est donc presque toujours un
+    // scan pivoté de 90/270°. On sonde d'abord une bande centrale (l'OCR
+    // coûte à peine moins qu'une pleine passe — mesuré ~1,0 s contre ~2,2 s,
+    // le temps dépendant surtout du contenu, pas de la hauteur — mais elle
+    // évite de payer la pleine résolution sur du texte couché), puis l'OSD
+    // prend le relais, la pleine passe ne servant que de filet.
+    if (img.width > img.height) {
+      const probe = parseBirthCertificateText(await this.recognizeText(worker, await cropCenterBand(img)));
+      if (probe?.firstName && probe.lastName && probe.birthDate) return probe;
+
+      try {
+        const up = await uprightImage(img);
+        if (up.rotationApplied !== 0) {
+          const upright = parseBirthCertificateText(await this.recognizeText(worker, await toPng(up.canvas)));
+          if (upright?.firstName && upright.lastName && upright.birthDate) return upright;
+        }
+      } catch {
+        // OSD indisponible : best-effort, le filet ci-dessous reste tenté.
+      }
+      return this.recognizeParse(worker, buffer); // filet : contenu hors bande
+    }
+
+    // PORTRAIT : la passe pleine d'abord est le meilleur pari (acte droit
+    // ≈ 0,7 s ; une bande coûterait autant — il lui faut ≥ 75 % de hauteur
+    // pour porter tous les champs — et ferait perdre les champs hors bande).
     const { data } = await worker.recognize(buffer);
     const text: string = data?.text ?? '';
     const parsed = text.trim() ? parseBirthCertificateText(text) : null;
     if (parsed?.firstName && parsed.lastName && parsed.birthDate) return parsed;
 
     try {
-      const canvas = require('@napi-rs/canvas') as typeof import('@napi-rs/canvas');
-      const img = await canvas.loadImage(buffer);
       const up = await uprightImage(img);
       if (up.rotationApplied === 0) return parsed; // droit (ou OSD muet) : pas de seconde passe
-      const { data: retry } = await worker.recognize(await toPng(up.canvas));
-      const retryText: string = retry?.text ?? '';
-      return retryText.trim() ? parseBirthCertificateText(retryText) : parsed;
+      const upright = parseBirthCertificateText(await this.recognizeText(worker, await toPng(up.canvas)));
+      return upright?.firstName && upright.lastName && upright.birthDate ? upright : parsed;
     } catch {
       return parsed; // OSD indisponible : best-effort, on garde la 1re passe
     }
+  }
+
+  /** OCR d'un PNG → texte brut (jamais bloquant : '' en cas d'échec). */
+  private async recognizeText(worker: any, png: Buffer): Promise<string> {
+    try {
+      const { data } = await worker.recognize(png);
+      return data?.text ?? '';
+    } catch {
+      return '';
+    }
+  }
+
+  /** Passe pleine → parse, avec texte brut même sans champ reconnu (retour partiel historique). */
+  private async recognizeParse(worker: any, png: Buffer): Promise<ParsedBirthCertificate | null> {
+    const text = await this.recognizeText(worker, png);
+    return text.trim() ? parseBirthCertificateText(text) : null;
   }
 
   private ocrWorker: any = null;

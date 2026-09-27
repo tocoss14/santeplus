@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Body, Controller, Get, Module, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { Public } from '../../common/guards/jwt-auth.guard';
@@ -11,6 +13,27 @@ export class HealthController {
   @Get('health')
   health() {
     return { status: 'ok', service: 'santeplus-api', time: new Date().toISOString() };
+  }
+
+  /**
+   * Sonde de version : le health-check du workflow de déploiement compare
+   * cette réponse au SHA publié pour détecter immédiatement un déploiement
+   * périmé (image non reconstruite ou instance non recyclée). Les valeurs
+   * viennent de dist/build-info.json, tamponné par le Dockerfile au build
+   * (ARG APP_VERSION fourni par la CI, builtAt horodaté à chaque construction) ;
+   * les variables d'environnement APP_VERSION/BUILT_AT restent prioritaires
+   * comme échappatoire pour un runtime qui ne peut pas reconstruire l'image.
+   */
+  @Public()
+  @Get('version')
+  version() {
+    const info = readBuildInfo();
+    return {
+      service: 'santeplus-api',
+      version: process.env.APP_VERSION || info.version || null,
+      builtAt: process.env.BUILT_AT || info.builtAt || null,
+      time: new Date().toISOString(),
+    };
   }
 }
 
@@ -134,6 +157,23 @@ export class AdminMiscController {
     }
     return this.config();
   }
+}
+
+/**
+ * Lit dist/build-info.json sans jamais lever : sonde dégradée (valeurs vides)
+ * si le fichier est absent ou illisible — par exemple en dev hors Docker.
+ */
+function readBuildInfo(): { version: string; builtAt: string } {
+  try {
+    const p = path.resolve(process.cwd(), 'dist', 'build-info.json');
+    if (fs.existsSync(p)) {
+      const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
+      return { version: String(parsed?.version ?? ''), builtAt: String(parsed?.builtAt ?? '') };
+    }
+  } catch {
+    // build-info.json absent ou corrompu : jamais fatal
+  }
+  return { version: '', builtAt: '' };
 }
 
 function safeParse(v: string): any {

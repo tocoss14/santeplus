@@ -103,6 +103,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Tampon de version lu par GET /api/version (sonde anti-déploiement périmé).
+          # Le Dockerfile web ne le consomme pas : avertissement bénin.
+          build-args: |
+            APP_VERSION=${{ github.sha }}
 
       - name: Print image tag
         run: |
@@ -127,6 +131,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Snapshot de la version en place (avant déploiement)
+        if: vars.DEPLOY_TARGET == 'runsite'
+        run: |
+          V=$(curl -s --max-time 10 "${{ vars.STAGING_URL }}/api/version" || true)
+          echo "Version avant déploiement : ${V:-<injoignable>}" 
+          echo "PREV_VERSION=$(echo "$V" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')" >> "$GITHUB_ENV"
+          echo "PREV_BUILT_AT=$(echo "$V" | sed -n 's/.*"builtAt":"\([^"]*\)".*/\1/p')" >> "$GITHUB_ENV"
 
       - name: Deploy to Runsite
         if: vars.DEPLOY_TARGET == 'runsite'
@@ -158,6 +170,33 @@ jobs:
             sleep 10
           done
           echo "❌ Health check failed"
+          exit 1
+
+      - name: Vérifier que staging tourne sur le commit déployé
+        # Le health 200 ci-dessus ne garantit pas que l'image a été reconstruite :
+        # si Runsite réutilise l'image existante ou rate le rebuild, l'ancien code
+        # reste en service (déjà arrivé — le fix des photos était invisible sur
+        # staging pendant une semaine). GET /api/version expose le SHA tamponné
+        # dans l'image : tant que la sonde ne répond pas le SHA attendu, le
+        # déploiement est déclaré périmé.
+        if: vars.DEPLOY_TARGET == 'runsite'
+        run: |
+          SHA="${GITHUB_SHA}"
+          LAST=""
+          for i in $(seq 1 12); do
+            sleep 10
+            V=$(curl -s --max-time 10 "${{ vars.STAGING_URL }}/api/version" || true)
+            LAST="${V:-<injoignable>}"
+            echo "Tentative $i/12 : $LAST"
+            if echo "$LAST" | grep -q "\"version\":\"${SHA}\""; then
+              echo "✅ Staging certifié sur le commit ${SHA}"
+              exit 0
+            fi
+          done
+          echo "::error::Après 2 minutes, staging ne tourne pas sur le commit ${SHA}."
+          echo "::error::Version précédente (avant déploiement) : ${PREV_VERSION:-<inconnue>} (bâtie ${PREV_BUILT_AT:-?})"
+          echo "::error::Dernière réponse de /api/version : ${LAST}"
+          echo "::error::→ image non reconstruite ou instance non recyclée (déploiement périmé). Vérifier le build côté Runsite puis relancer."
           exit 1
 
       - name: Run migrations on staging

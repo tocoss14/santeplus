@@ -501,6 +501,62 @@ export class BirthCertificateService implements OnModuleInit {
   }
 
   /**
+   * Comparatif « acte de naissance ↔ compte » pour la page profil.
+   *
+   * Rejoue l'extraction OCR du dernier acte téléversé (servie par le cache
+   * après la première passe) et la confronte champ par champ aux données du
+   * compte — l'UI propose alors d'aligner le profil sur l'acte, exactement
+   * comme le faisait la vérification de souscription qui compare l'extraction
+   * au profil (verifyData). Renvoie { acte: null } quand aucun acte valide
+   * n'est connu : l'UI reste neutre, jamais bloquante.
+   */
+  async getProfileDiff(userId: string): Promise<{
+    acte: { fileId: string; documentNumber: string | null; birthPlace: string | null } | null;
+    verified: boolean;
+    fields: Array<{ field: string; label: string; acte: string; compte: string | null }>;
+    aligned: boolean;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true, birthDate: true },
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    const fileId = (await this.getState(userId))?.fileId;
+    if (!fileId) return { acte: null, verified: false, fields: [], aligned: false };
+    const file = await this.prisma.fileObject.findUnique({
+      where: { id: fileId },
+      select: { id: true, documentType: true, ownerId: true },
+    });
+    const acte = file && file.ownerId === userId && file.documentType === 'BIRTH_CERTIFICATE'
+      ? await this.extractData(fileId, userId)
+      : null;
+    if (!acte) return { acte: null, verified: false, fields: [], aligned: false };
+
+    const norm = (s: string | null | undefined) =>
+      (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+    const iso = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
+
+    const fields: Array<{ field: string; label: string; acte: string; compte: string | null }> = [
+      { field: 'firstName', label: 'Prénom(s)', acte: acte.firstName, compte: user.firstName ?? null },
+      { field: 'lastName', label: 'Nom', acte: acte.lastName, compte: user.lastName ?? null },
+      { field: 'birthDate', label: 'Date de naissance', acte: iso(acte.birthDate), compte: user.birthDate ? iso(user.birthDate) : null },
+    ];
+    // Le lieu de naissance n'a pas d'équivalent sur le compte (city = commune
+    // de résidence) : il reste informatif, jamais alignable.
+    const same = (a: string, b: string | null) => Boolean(b) && norm(a) === norm(b);
+    const aligned = fields.every(f => (f.field === 'birthDate' ? f.acte === f.compte : same(f.acte, f.compte)));
+
+    const status = await this.getVerificationStatus(userId);
+    return {
+      acte: { fileId, documentNumber: acte.documentNumber ?? null, birthPlace: acte.birthPlace ?? null },
+      verified: status.verified,
+      fields,
+      aligned,
+    };
+  }
+
+  /**
    * Récupère le statut de vérification
    */
   async getVerificationStatus(userId: string): Promise<{

@@ -4,6 +4,17 @@ import { useAuth } from '../../auth';
 import { isPasswordValid } from '../../lib/password';
 import { ErrorBanner, Field, PasswordChecklist, PhotoImg, Spinner } from '../../components/ui';
 
+/** Comparaison tolérante (casse/accents) — même normalisation que l'API. */
+const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+
+interface ActeField { field: string; label: string; acte: string; compte: string | null }
+interface ActeDiff {
+  acte: { fileId: string; documentNumber: string | null; birthPlace: string | null } | null;
+  verified: boolean;
+  fields: ActeField[];
+  aligned: boolean;
+}
+
 export default function Profile() {
   const { me, refresh } = useAuth();
   const [form, setForm] = useState<any>(null);
@@ -14,12 +25,28 @@ export default function Profile() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Comparatif acte de naissance ↔ compte (OCR) : l'assuré peut aligner son
+  // compte sur son acte — c'est exactement ce que compare la vérification.
+  const [acteDiff, setActeDiff] = useState<ActeDiff | null>(null);
+  const [acteLoading, setActeLoading] = useState(true);
+  const [acteMsg, setActeMsg] = useState<string | null>(null);
+  const [acteUploading, setActeUploading] = useState(false);
+  const acteFileRef = useRef<HTMLInputElement>(null);
 
   // Charger la photo existante
   useEffect(() => {
     api.get<{ fileId: string | null }>('/users/me/photo').then(r => {
       if (r.fileId) setPhotoPreview(fileUrl(r.fileId));
     }).catch(() => {});
+  }, []);
+
+  // Comparatif acte ↔ compte : { acte: null } tant qu'aucun acte valide n'est connu.
+  useEffect(() => {
+    setActeLoading(true);
+    api.get<ActeDiff>('/subscription/birth-certificate/profile-diff')
+      .then(setActeDiff)
+      .catch(() => setActeDiff(null))
+      .finally(() => setActeLoading(false));
   }, []);
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -37,11 +64,52 @@ export default function Profile() {
     setPhotoFile(null);
   }
 
+  /** Aligne Prénom/Nom/Date de naissance du compte sur l'acte (les seuls champs comparables). */
+  async function alignWithActe() {
+    if (!acteDiff?.fields.length) return;
+    setError(null); setMsg(null); setActeMsg(null);
+    const find = (field: string) => acteDiff.fields.find(f => f.field === field)?.acte;
+    const patch: any = { firstName: find('firstName'), lastName: find('lastName') };
+    const birthDate = find('birthDate');
+    if (birthDate) patch.birthDate = birthDate; // ISO yyyy-mm-dd
+    try {
+      await api.patch('/users/me', patch);
+      await refresh();
+      setMsg('Profil aligné sur votre acte de naissance.');
+      setActeDiff(await api.get<ActeDiff>('/subscription/birth-certificate/profile-diff'));
+    } catch (e: any) {
+      setError(e?.message ?? 'Erreur');
+    }
+  }
+
+  /** Téléverse l'acte depuis le profil : upload → extraction OCR → comparatif. */
+  async function uploadActe(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permet de retéléverser le même fichier
+    if (!file) return;
+    setActeMsg(null); setError(null); setActeUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { fileId } = await api.post<{ fileId: string }>('/subscription/birth-certificate/upload', fd);
+      // Extraction best effort : { extracted: null } = rien d'exploitable, jamais bloquant.
+      const ex = await api.post<{ extracted: unknown | null }>('/subscription/birth-certificate/extract', { fileId });
+      const diff = await api.get<ActeDiff>('/subscription/birth-certificate/profile-diff');
+      setActeDiff(diff);
+      setActeMsg(diff.acte ? null : ex.extracted ? null : 'Acte enregistré, mais l’extraction n’a rien trouvé d’exploitable — réessayez avec un document plus lisible.');
+    } catch (err: any) {
+      setActeMsg(err?.message ?? 'Erreur lors du téléversement');
+    } finally {
+      setActeUploading(false);
+    }
+  }
+
   useEffect(() => {
     if (me) {
       setForm({
         firstName: me.firstName,
         lastName: me.lastName,
+        birthDate: me.birthDate?.slice(0, 10) ?? '',
         phone: me.phone ?? '',
         address: me.address ?? '',
         city: me.city ?? '',
@@ -102,6 +170,7 @@ export default function Profile() {
           <Field label="Nom"><input className="input" value={form.lastName} onChange={e => setForm((f: any) => ({ ...f, lastName: e.target.value }))} /></Field>
           <Field label="Prénom(s)"><input className="input" value={form.firstName} onChange={e => setForm((f: any) => ({ ...f, firstName: e.target.value }))} /></Field>
         </div>
+        <Field label="Date de naissance"><input type="date" className="input" value={form.birthDate} onChange={e => setForm((f: any) => ({ ...f, birthDate: e.target.value }))} /></Field>
         <Field label="Téléphone"><input className="input" value={form.phone} onChange={e => setForm((f: any) => ({ ...f, phone: e.target.value }))} /></Field>
         <Field label="Adresse"><input className="input" value={form.address} onChange={e => setForm((f: any) => ({ ...f, address: e.target.value }))} /></Field>
         <Field label="Ville"><input className="input" value={form.city} onChange={e => setForm((f: any) => ({ ...f, city: e.target.value }))} /></Field>
@@ -111,7 +180,9 @@ export default function Profile() {
           onClick={async () => {
             setMsg(null); setError(null);
             try {
-              await api.patch('/users/me', form);
+              const payload: any = { ...form };
+              if (!payload.birthDate) delete payload.birthDate; // champ vide = non modifié
+              await api.patch('/users/me', payload);
               if (photoFile) await uploadPhoto();
               await refresh();
               setMsg('Profil mis à jour.');
@@ -122,6 +193,70 @@ export default function Profile() {
         >
           Enregistrer
         </button>
+      </div>
+
+      <div className="card-p">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Acte de naissance</h2>
+          {acteDiff?.acte && (
+            <span className={`text-xs px-2 py-0.5 rounded-full border ${acteDiff.verified ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+              {acteDiff.verified ? 'Vérifié' : 'Non vérifié'}
+            </span>
+          )}
+        </div>
+        {acteLoading ? (
+          <Spinner />
+        ) : !acteDiff?.acte ? (
+          <div>
+            <p className="text-sm text-slate-500">
+              Téléversez votre acte de naissance : nous lisons automatiquement vos
+              informations (OCR) et vous proposons de les aligner sur votre compte,
+              pour qu'elles correspondent à celles de votre acte.
+            </p>
+            <input ref={acteFileRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={uploadActe} />
+            <button type="button" className="btn-outline mt-3" disabled={acteUploading} onClick={() => acteFileRef.current?.click()}>
+              {acteUploading ? 'Lecture du document…' : '📄 Téléverser mon acte de naissance'}
+            </button>
+            {acteMsg && <p className="mt-2 text-sm text-amber-700">{acteMsg}</p>}
+          </div>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {(acteDiff.acte.documentNumber || acteDiff.acte.birthPlace) && (
+              <p className="text-xs text-slate-400">
+                {acteDiff.acte.documentNumber && <>N° acte {acteDiff.acte.documentNumber}</>}
+                {acteDiff.acte.documentNumber && acteDiff.acte.birthPlace && ' — '}
+                {acteDiff.acte.birthPlace && <>né(e) à {acteDiff.acte.birthPlace}</>}
+              </p>
+            )}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-400">
+                  <th className="py-1 font-medium">Champ</th>
+                  <th className="font-medium">Acte de naissance</th>
+                  <th className="font-medium">Mon compte</th>
+                </tr>
+              </thead>
+              <tbody>
+                {acteDiff.fields.map(f => {
+                  const ok = f.field === 'birthDate' ? f.acte === f.compte : f.compte != null && norm(f.acte) === norm(f.compte);
+                  return (
+                    <tr key={f.field} className="border-t border-slate-100">
+                      <td className="py-1.5 text-slate-500">{f.label}</td>
+                      <td className="font-medium text-slate-800">{f.acte}</td>
+                      <td className={ok ? 'text-slate-600' : 'font-medium text-amber-700'}>{f.compte ?? '—'}{!ok && ' ⚠️'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {acteDiff.aligned ? (
+              <p className="text-sm text-emerald-700">✓ Votre compte correspond à votre acte de naissance.</p>
+            ) : (
+              <button type="button" className="btn-primary" onClick={alignWithActe}>✅ Aligner mon compte sur mon acte</button>
+            )}
+            {acteMsg && <p className="text-sm text-amber-700">{acteMsg}</p>}
+          </div>
+        )}
       </div>
 
       <div className="card-p">

@@ -69,6 +69,15 @@ export class BirthCertificateController {
   async status(@CurrentUser() auth: AuthUser) {
     return this.birthCert.getVerificationStatus(auth.id);
   }
+
+  /**
+   * Comparatif « acte de naissance ↔ compte » pour la page profil :
+   * l'UI propose d'aligner le profil sur les données extraites par OCR.
+   */
+  @Get('birth-certificate/profile-diff')
+  async profileDiff(@CurrentUser() auth: AuthUser) {
+    return this.birthCert.getProfileDiff(auth.id);
+  }
 }
 
 @Module({

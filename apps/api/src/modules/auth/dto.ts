@@ -36,4 +36,8 @@ export const updateProfileSchema = z.object({
   emergencyContact: z.string().max(120).optional(),
   nationalId: z.string().min(6).max(30).optional(),
   language: z.enum(['fr']).optional(),
+  // Date de naissance modifiable pour aligner le compte sur l'acte de
+  // naissance (profil → « Acte de naissance ») : la vérification OCR compare
+  // l'extraction au profil, qui doit pouvoir être corrigé en conséquence.
+  birthDate: z.coerce.date().optional(),
 });

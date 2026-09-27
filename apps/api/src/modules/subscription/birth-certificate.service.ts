@@ -28,6 +28,8 @@ export interface VerificationComparison {
 
 export interface VerificationResult extends VerificationComparison {
   initialProfile?: VerificationComparison;
+  /** Origine des données de l'acte : 'ocr' (extraction re-jouée côté serveur) ou 'manual' (repli saisie manuelle). */
+  source?: 'ocr' | 'manual';
 }
 
 export interface InitialProfileData {
@@ -36,7 +38,15 @@ export interface InitialProfileData {
   birthDate: Date;
 }
 
-export type VerifyUploadedDocumentInput = BirthCertificateData & {
+/** Repli manuel : utilisé uniquement quand l'OCR n'a rien extrait du document. */
+export interface ManualBirthCertificateData {
+  firstName: string;
+  lastName: string;
+  birthDate: Date;
+}
+
+export type VerifyUploadedDocumentInput = {
+  manual?: ManualBirthCertificateData;
   initialProfile?: InitialProfileData;
 };
 
@@ -577,7 +587,16 @@ export class BirthCertificateService implements OnModuleInit {
   }
 
   /**
-   * Vérifie les données recopiées depuis le document téléversé.
+   * Vérifie le document téléversé : les données de l'acte sont relues par OCR
+   * côté serveur (jamais crues depuis le corps de la requête — l'utilisateur
+   * ne peut donc pas « saisir » autre chose que ce que l'acte porte), puis
+   * confrontées au profil : la vérification n'est valide que si l'acte est
+   * conforme au compte.
+   *
+   * Repli : quand l'OCR n'a rien extrait de ce document (scan illisible), la
+   * recopie manuelle fournie dans `manual` est utilisée à la place — l'OCR ne
+   * doit jamais bloquer le parcours — et le résultat porte source='manual'
+   * pour distinguer les vérifications confirmées par lecture machine.
    * Le document doit appartenir à l'utilisateur et correspondre au dernier upload.
    */
   async verifyUploadedDocument(
@@ -606,24 +625,46 @@ export class BirthCertificateService implements OnModuleInit {
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     if (!user.birthDate) throw new BadRequestException('Date de naissance manquante sur le profil utilisateur');
 
-    const { initialProfile, ...extractedData } = data;
+    // Source de vérité : l'OCR re-joué sur le document exact (servi par le
+    // cache quand l'extraction d'affichage l'a déjà fait). Le corps de la
+    // requête n'est jamais cru tant que la lecture machine a produit des champs.
+    let extracted = await this.extractData(fileId, userId).catch(() => null);
+    let source: 'ocr' | 'manual';
+    if (extracted) {
+      source = 'ocr';
+    } else {
+      const manual = data.manual;
+      if (!manual?.firstName?.trim() || !manual?.lastName?.trim() || !manual?.birthDate) {
+        throw new BadRequestException(
+          'Extraction automatique impossible sur ce document : recopiez le prénom, le nom et la date de naissance visibles sur l\'acte pour permettre la vérification.',
+        );
+      }
+      source = 'manual';
+      extracted = {
+        firstName: manual.firstName.trim(),
+        lastName: manual.lastName.trim(),
+        birthDate: new Date(manual.birthDate),
+      };
+    }
+
     const provided = {
       firstName: user.firstName,
       lastName: user.lastName,
       birthDate: user.birthDate as Date,
     };
 
-    const profileResult = this.verifyData(extractedData, provided);
-    const initialProfileResult = initialProfile
-      ? this.verifyData(extractedData, {
-          firstName: initialProfile.firstName,
-          lastName: initialProfile.lastName,
-          birthDate: new Date(initialProfile.birthDate),
+    const profileResult = this.verifyData(extracted, provided);
+    const initialProfileResult = data.initialProfile
+      ? this.verifyData(extracted, {
+          firstName: data.initialProfile.firstName,
+          lastName: data.initialProfile.lastName,
+          birthDate: new Date(data.initialProfile.birthDate),
         })
       : undefined;
     const result: VerificationResult = {
       ...profileResult,
       ...(initialProfileResult ? { initialProfile: initialProfileResult } : {}),
+      source,
     };
     await this.saveVerification(userId, fileId, provided, result);
 

@@ -67,8 +67,12 @@ async function createVerifiedMember() {
     multipart: { file: { name: 'acte.pdf', mimeType: 'application/pdf', buffer: buf } },
   });
   const upBody = await up.json();
+  // OCR sans résultat sur ce PDF minimal → repli manuel (seule voie acceptée).
   const verRes = await ctx.post('/api/subscription/birth-certificate/verify', {
-    data: { fileId: upBody.fileId, firstName: me.firstName, lastName: me.lastName, birthDate: me.birthDate },
+    data: {
+      fileId: upBody.fileId,
+      manual: { firstName: me.firstName, lastName: me.lastName, birthDate: me.birthDate },
+    },
   });
   if (!verRes.ok()) throw new Error('verify BC failed: ' + verRes.status());
   return { ctx, email };

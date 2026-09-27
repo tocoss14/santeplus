@@ -13,14 +13,18 @@ const initialProfileSchema = z.object({
   birthDate: z.coerce.date(),
 });
 
-const extractedDataSchema = z.object({
-  fileId: z.string().min(5),
+// Les données de l'acte NE SONT PAS reçues du client : la vérification les lit
+// elle-même sur le document par OCR. Le client ne fournit qu'une recopie
+// manuelle, utilisée uniquement quand l'OCR n'a rien extrait du document.
+const manualDataSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   birthDate: z.coerce.date(),
-  birthPlace: z.string().optional(),
-  parents: z.string().optional(),
-  documentNumber: z.string().optional(),
+});
+
+const verifySchema = z.object({
+  fileId: z.string().min(5),
+  manual: manualDataSchema.optional(),
   initialProfile: initialProfileSchema.optional(),
 });
 
@@ -51,15 +55,17 @@ export class BirthCertificateController {
   }
 
   /**
-   * Vérification manuelle (admin ou utilisateur saisit les données extraites)
+   * Vérification de l'acte téléversé : le serveur relit lui-même les données
+   * par OCR (source non modifiable) et les confronte au profil. La recopie
+   * `manual` ne sert qu'en repli, quand l'OCR n'a rien extrait.
    */
   @Post('birth-certificate/verify')
   async verify(
     @CurrentUser() auth: AuthUser,
-    @Body(new ZodPipe(extractedDataSchema)) dto: any,
+    @Body(new ZodPipe(verifySchema)) dto: any,
   ) {
-    const { fileId, ...extractedData } = dto;
-    return this.birthCert.verifyUploadedDocument(auth.id, fileId, extractedData);
+    const { fileId, ...rest } = dto;
+    return this.birthCert.verifyUploadedDocument(auth.id, fileId, rest);
   }
 
   /**

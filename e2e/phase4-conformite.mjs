@@ -61,8 +61,12 @@ async function createVerifiedMember() {
   });
   if (!up.ok()) throw new Error('upload acte: ' + up.status());
   const fileId = (await up.json()).fileId;
+  // OCR sans résultat sur ce PDF minimal → repli manuel (seule voie acceptée).
   const ver = await ctx.post('/api/subscription/birth-certificate/verify', {
-    data: { fileId, firstName: me.firstName, lastName: me.lastName, birthDate: me.birthDate },
+    data: {
+      fileId,
+      manual: { firstName: me.firstName, lastName: me.lastName, birthDate: me.birthDate },
+    },
   });
   if (!ver.ok() || !(await ver.json()).match) throw new Error('verify acte KO');
   return { ctx, email };

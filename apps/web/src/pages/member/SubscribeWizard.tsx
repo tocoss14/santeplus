@@ -89,6 +89,13 @@ export default function SubscribeWizard() {
   // saisie manuelle est la voie normale — on le dit à l'utilisateur plutôt que
   // de laisser un silence qui ressemble à un bug.
   const [birthCertOcrFailed, setBirthCertOcrFailed] = useState(false);
+  // Verrouillage OCR : quand l'extraction aboutit, les champs de l'acte sont
+  // LUS par le serveur et affichés en lecture seule — ils ne sont pas
+  // modifiables. La saisie manuelle ne reste possible qu'en repli, quand
+  // l'OCR n'a rien pu extraire (scan illisible) — jamais bloquant.
+  const [birthCertOcrLocked, setBirthCertOcrLocked] = useState(false);
+  const [birthCertOcrChecking, setBirthCertOcrChecking] = useState(false);
+  const [birthCertOcrRetrying, setBirthCertOcrRetrying] = useState(false);
   const birthCertRef = useRef<HTMLInputElement>(null);
 
   // Charger la photo existante de l'utilisateur
@@ -286,6 +293,53 @@ export default function SubscribeWizard() {
     setBirthCertVerified(false);
     setBirthCertError(null);
     setBirthCertOcrFailed(false);
+    setBirthCertOcrLocked(false);
+    setBirthCertDoc({ firstName: '', lastName: '', birthDate: '' });
+    void extractOnUpload(file);
+  }
+
+  // Extraction OCR au moment de l'ajout du document : l'acte est lu par le
+  // serveur et les champs affichés sont verrouillés sur cette lecture. Le
+  // parcours n'est jamais bloqué : en cas d'échec, la saisie manuelle reste
+  // la voie normale (note affichée).
+  async function extractOnUpload(file: File) {
+    setBirthCertOcrChecking(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const uploadRes = await api.post<{ fileId: string }>('/subscription/birth-certificate/upload', fd);
+      setBirthCertFileId(uploadRes.fileId);
+      await refreshOcrFields(uploadRes.fileId);
+    } catch {
+      // Upload ou extraction impossible : repli manuel, l'utilisateur n'est pas bloqué.
+      setBirthCertOcrFailed(true);
+    } finally {
+      setBirthCertOcrChecking(false);
+    }
+  }
+
+  // Rejoue l'extraction OCR du document déjà téléversé : en cas de succès les
+  // champs sont écrasés par la lecture machine et verrouillés. Renvoie true
+  // si la lecture a abouti (champs verrouillés), false en repli manuel.
+  async function refreshOcrFields(fileId: string): Promise<boolean> {
+    try {
+      const ex = await api.post<{ extracted: { firstName: string; lastName: string; birthDate: string } | null }>('/subscription/birth-certificate/extract', { fileId });
+      if (ex.extracted) {
+        // L'API renvoie une date ISO ; on garde la partie jour (YYYY-MM-DD) pour l'input date.
+        const iso = String(ex.extracted.birthDate).slice(0, 10);
+        setBirthCertDoc({ firstName: ex.extracted.firstName, lastName: ex.extracted.lastName, birthDate: iso });
+        setBirthCertOcrLocked(true);
+        setBirthCertOcrFailed(false);
+        return true;
+      }
+      setBirthCertOcrFailed(true); // rien d'exploitable sur ce document
+      setBirthCertOcrLocked(false);
+      return false;
+    } catch {
+      setBirthCertOcrFailed(true); // OCR indisponible → saisie manuelle
+      setBirthCertOcrLocked(false);
+      return false;
+    }
   }
 
   function updateBirthCertDoc(patch: Partial<typeof birthCertDoc>) {
@@ -299,12 +353,14 @@ export default function SubscribeWizard() {
       setBirthCertError('Ajoutez votre acte de naissance avant la vérification.');
       return;
     }
-    if (!birthCertDoc.firstName.trim() || !birthCertDoc.lastName.trim() || !birthCertDoc.birthDate) {
+    if (!birthCertOcrLocked && (!birthCertDoc.firstName.trim() || !birthCertDoc.lastName.trim() || !birthCertDoc.birthDate)) {
       setBirthCertError('Recopiez le prénom, le nom et la date de naissance visibles sur l’acte.');
       return;
     }
     if (!birthCertAttested) {
-      setBirthCertError('Vous devez attester avoir recopié exactement le document.');
+      setBirthCertError(birthCertOcrLocked
+        ? 'Vous devez attester que ce document est votre acte de naissance.'
+        : 'Vous devez attester avoir recopié exactement le document.');
       return;
     }
     const checkedInitialProfile = {
@@ -322,33 +378,30 @@ export default function SubscribeWizard() {
     try {
       let fileId = birthCertFileId;
       if (!fileId) {
+        // Upload de secours (l'ajout du fichier lance déjà upload + extraction).
         const fd = new FormData();
         fd.append('file', birthCertFile);
         const uploadRes = await api.post<{ fileId: string }>('/subscription/birth-certificate/upload', fd);
         fileId = uploadRes.fileId;
         setBirthCertFileId(fileId);
-
-        // Pré-remplissage OCR : best effort — si l'extraction échoue ou ne trouve
-        // rien d'exploitable, la saisie manuelle reste la voie normale.
-        try {
-          const ex = await api.post<{ extracted: { firstName: string; lastName: string; birthDate: string } | null }>('/subscription/birth-certificate/extract', { fileId });
-          if (ex.extracted) {
-            // L'API renvoie une date ISO ; on garde la partie jour (YYYY-MM-DD) pour l'input date.
-            const iso = String(ex.extracted.birthDate).slice(0, 10);
-            setBirthCertDoc({ firstName: ex.extracted.firstName, lastName: ex.extracted.lastName, birthDate: iso });
-          } else {
-            setBirthCertOcrFailed(true); // rien d'exploitable sur ce document
-          }
-        } catch {
-          setBirthCertOcrFailed(true); // OCR indisponible → saisie manuelle
-        }
       }
 
+      // La lecture machine reste la source de vérité : si elle n'a pas encore
+      // abouti, on lui laisse une dernière chance avant le repli manuel.
+      const locked = birthCertOcrLocked || (await refreshOcrFields(fileId));
+
+      // Champs verrouillés : le serveur relit lui-même l'acte par OCR (le corps
+      // ne porte rien). Repli manuel : la recopie n'est acceptée que parce que
+      // l'OCR n'a rien extrait — le serveur la refuse sinon.
       const result = await api.post<any>('/subscription/birth-certificate/verify', {
         fileId,
-        firstName: birthCertDoc.firstName.trim(),
-        lastName: birthCertDoc.lastName.trim(),
-        birthDate: birthCertDoc.birthDate,
+        ...(locked ? {} : {
+          manual: {
+            firstName: birthCertDoc.firstName.trim(),
+            lastName: birthCertDoc.lastName.trim(),
+            birthDate: birthCertDoc.birthDate,
+          },
+        }),
         initialProfile: checkedInitialProfile,
       });
       setBirthCertResult(result);
@@ -366,8 +419,11 @@ export default function SubscribeWizard() {
         problems.push(
           Array.isArray(result?.warnings) && result.warnings.length
             ? result.warnings.join(' ')
-            : 'Les informations recopiées ne correspondent pas à votre profil.',
+            : 'Les informations de l’acte ne correspondent pas à votre profil.',
         );
+        problems.push(locked
+          ? 'Ces données sont lues automatiquement sur votre acte : corrigez votre compte (page « Profil ») ou l’identité saisie au début pour qu’elles coïncident.'
+          : 'Vérifiez votre recopie manuelle.');
       }
       if (initialComparison && !initialMatches) {
         const initialWarnings = Array.isArray(initialComparison.warnings) && initialComparison.warnings.length
@@ -666,6 +722,7 @@ export default function SubscribeWizard() {
                   setBirthCertResult(null);
                   setBirthCertError(null);
                   setBirthCertOcrFailed(false);
+                  setBirthCertOcrLocked(false);
                 }}
                 className="text-xs text-red-500 hover:underline"
               >
@@ -681,15 +738,27 @@ export default function SubscribeWizard() {
                 <span className="text-2xl">⚠️</span>
                 <div>
                   <p className="font-semibold text-amber-800">Vérification requise</p>
-                  <p className="text-xs text-amber-700">Recopiez fidèlement les données visibles sur le document téléversé.</p>
+                  <p className="text-xs text-amber-700">
+                    {birthCertOcrLocked
+                      ? 'Les informations ont été lues automatiquement sur votre document : elles ne sont pas modifiables. La vérification les compare à votre compte.'
+                      : 'Recopiez fidèlement les données visibles sur le document téléversé.'}
+                  </p>
                 </div>
               </div>
+              {birthCertOcrChecking && (
+                <p className="flex items-center gap-2 text-xs text-slate-600">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600" />
+                  Lecture automatique du document en cours…
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Prénom sur l’acte">
                   <input
                     className="input"
                     value={birthCertDoc.firstName}
                     onChange={e => updateBirthCertDoc({ firstName: e.target.value })}
+                    readOnly={birthCertOcrLocked}
+                    aria-readonly={birthCertOcrLocked}
                     autoComplete="off"
                   />
                 </Field>
@@ -698,6 +767,8 @@ export default function SubscribeWizard() {
                     className="input"
                     value={birthCertDoc.lastName}
                     onChange={e => updateBirthCertDoc({ lastName: e.target.value })}
+                    readOnly={birthCertOcrLocked}
+                    aria-readonly={birthCertOcrLocked}
                     autoComplete="off"
                   />
                 </Field>
@@ -708,8 +779,34 @@ export default function SubscribeWizard() {
                   className="input"
                   value={birthCertDoc.birthDate}
                   onChange={e => updateBirthCertDoc({ birthDate: e.target.value })}
+                  readOnly={birthCertOcrLocked}
+                  aria-readonly={birthCertOcrLocked}
                 />
               </Field>
+              {birthCertOcrLocked ? (
+                <p className="text-xs text-slate-500">
+                  🔒 Champs lus automatiquement sur l’acte — non modifiables. En cas d’erreur de lecture, changez de fichier (scan plus net) via « Retirer le fichier » ou demandez une correction sur votre compte.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Saisie manuelle (extraction automatique indisponible sur ce document).
+                </p>
+              )}
+              {!birthCertOcrChecking && !birthCertOcrLocked && birthCertFileId && (
+                <button
+                  type="button"
+                  className="text-xs text-brand-700 hover:underline"
+                  disabled={birthCertOcrRetrying}
+                  onClick={async () => {
+                    setBirthCertOcrRetrying(true);
+                    setBirthCertError(null);
+                    await refreshOcrFields(birthCertFileId);
+                    setBirthCertOcrRetrying(false);
+                  }}
+                >
+                  {birthCertOcrRetrying ? 'Nouvelle lecture en cours…' : 'Relancer la lecture automatique (OCR)'}
+                </button>
+              )}
               <label className="flex items-start gap-2 text-xs text-amber-800">
                 <input
                   type="checkbox"
@@ -717,7 +814,11 @@ export default function SubscribeWizard() {
                   checked={birthCertAttested}
                   onChange={e => setBirthCertAttested(e.target.checked)}
                 />
-                <span>J’atteste avoir recopié exactement le document téléversé. Une fausse déclaration peut entraîner le rejet de la souscription.</span>
+                <span>
+                  {birthCertOcrLocked
+                    ? 'J’atteste que ce document est bien mon acte de naissance. Une fausse déclaration peut entraîner le rejet de la souscription.'
+                    : 'J’atteste avoir recopié exactement le document téléversé. Une fausse déclaration peut entraîner le rejet de la souscription.'}
+                </span>
               </label>
               <button
                 className="btn-primary w-full"

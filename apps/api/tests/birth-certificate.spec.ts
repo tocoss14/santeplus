@@ -74,6 +74,67 @@ describe('birth certificate verification chain', () => {
     expect(status).toEqual({ verified: false, fileId: uploaded.fileId, result: undefined, verifiedAt: undefined });
   });
 
+  it('verify rejette le body : il ne peut pas « saisir » les données lues par OCR sur l\'acte', async () => {
+    // L'utilisateur envoie firstName/lastName/birthDate en tête de verify : ils
+    // ne doivent PAS servir — seul l'OCR du document fait foi.
+    const state = {
+      configs: {
+        birth_cert_verify_user_1: JSON.stringify({ fileId: 'file-1', result: null, verifiedAt: null }),
+      },
+      files: {
+        'file-1': { id: 'file-1', ownerId: 'user_1', documentType: 'BIRTH_CERTIFICATE' },
+      },
+      user: profile,
+    };
+    const service = makeService(state);
+    const spy = vi.spyOn(service as any, 'extractData').mockResolvedValue({
+      firstName: 'Aicha',
+      lastName: 'Mensah',
+      birthDate: new Date('1990-05-17T00:00:00.000Z'),
+    });
+
+    const result = await service.verifyUploadedDocument('user_1', 'file-1', {
+      // Tentative de fraude : un acte fictif différent de la lecture réelle.
+      firstName: 'Fraude',
+      lastName: 'Totale',
+      birthDate: new Date('2001-02-03T00:00:00.000Z'),
+    } as any);
+
+    expect(spy).toHaveBeenCalledWith('file-1', 'user_1');
+    expect(result.source).toBe('ocr');
+    expect(result.match).toBe(true); // comparé au profil (Aïcha Mensah), pas au body
+    expect(result.details.firstName.extracted).toBe('Aicha');
+    expect(result.details.firstName.provided).toBe('Aïcha');
+    expect(result.details.firstName.match).toBe(true);
+  });
+
+  it('verify repli manuel quand l\'OCR n\'extrait rien ; sans recopie complète → 400 explicite', async () => {
+    const state = {
+      configs: {
+        birth_cert_verify_user_1: JSON.stringify({ fileId: 'file-1', result: null, verifiedAt: null }),
+      },
+      files: {
+        'file-1': { id: 'file-1', ownerId: 'user_1', documentType: 'BIRTH_CERTIFICATE' },
+      },
+      user: profile,
+    };
+    const service = makeService(state);
+    vi.spyOn(service as any, 'extractData').mockResolvedValue(null);
+
+    // Sans recopie complète : la vérification ne peut pas partir de rien.
+    await expect(service.verifyUploadedDocument('user_1', 'file-1', {})).rejects.toThrow(
+      'Extraction automatique impossible',
+    );
+
+    // Recopie manuelle complète (document illisible) : la vérification aboutit
+    // à un mismatch honnête contre le profil, marqué source='manual'.
+    const result = await service.verifyUploadedDocument('user_1', 'file-1', {
+      manual: { firstName: 'Aicha', lastName: 'Mensah', birthDate: new Date('1990-05-17T00:00:00.000Z') },
+    });
+    expect(result.source).toBe('manual');
+    expect(result.match).toBe(true);
+  });
+
   it('verify rejects a replaced or foreign document', async () => {
     const state = {
       configs: {
@@ -103,21 +164,28 @@ describe('birth certificate verification chain', () => {
       user: profile,
     };
     const service = makeService(state);
-    const matched = await service.verifyUploadedDocument('user_1', 'file-1', {
-      firstName: '  aicha ',
-      lastName: 'MENSAH',
-      birthDate: new Date('1990-05-17T12:00:00.000Z'),
+    // La lecture OCR est produite par le serveur sur le document exact.
+    vi.spyOn(service as any, 'extractData').mockResolvedValue({
+      firstName: 'Aicha',
+      lastName: 'Mensah',
+      birthDate: new Date('1990-05-17T00:00:00.000Z'),
     });
+
+    // Le corps ne porte plus les données de l'acte — il ne peut rien fausser.
+    const matched = await service.verifyUploadedDocument('user_1', 'file-1', {});
+    expect(matched.source).toBe('ocr');
     expect(matched.match).toBe(true);
     expect(await service.getVerificationStatus('user_1')).toMatchObject({ verified: true, fileId: 'file-1' });
 
     await service.uploadBirthCertificate('user_1', { mimetype: 'application/pdf', size: 1024 } as Express.Multer.File);
     const latestFileId = JSON.parse(state.configs.birth_cert_verify_user_1).fileId;
-    const mismatched = await service.verifyUploadedDocument('user_1', latestFileId, {
+    vi.spyOn(service as any, 'extractData').mockResolvedValue({
       firstName: 'Aicha',
       lastName: 'Mensah',
-      birthDate: new Date('1991-05-17T00:00:00.000Z'),
+      birthDate: new Date('1991-05-17T00:00:00.000Z'), // OCR lit une autre date → mismatch contre profil
     });
+    const mismatched = await service.verifyUploadedDocument('user_1', latestFileId, {});
+    expect(mismatched.source).toBe('ocr');
     expect(mismatched.match).toBe(false);
     expect(mismatched.details.birthDate).toMatchObject({ match: false });
     expect(await service.getVerificationStatus('user_1')).toMatchObject({ verified: false });
@@ -134,10 +202,13 @@ describe('birth certificate verification chain', () => {
       user: profile,
     };
     const service = makeService(state);
-    const matched = await service.verifyUploadedDocument('user_1', 'file-1', {
+    vi.spyOn(service as any, 'extractData').mockResolvedValue({
       firstName: 'Aicha',
       lastName: 'Mensah',
       birthDate: new Date('1990-05-17T00:00:00.000Z'),
+    });
+
+    const matched = await service.verifyUploadedDocument('user_1', 'file-1', {
       initialProfile: {
         firstName: '  aicha ',
         lastName: 'MENSAH',
@@ -149,9 +220,6 @@ describe('birth certificate verification chain', () => {
     expect(matched.initialProfile?.match).toBe(true);
 
     const mismatched = await service.verifyUploadedDocument('user_1', 'file-1', {
-      firstName: 'Aicha',
-      lastName: 'Mensah',
-      birthDate: new Date('1990-05-17T00:00:00.000Z'),
       initialProfile: {
         firstName: 'Aicha',
         lastName: 'Johnson',

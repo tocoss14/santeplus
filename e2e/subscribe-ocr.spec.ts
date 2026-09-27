@@ -1,25 +1,31 @@
 /**
- * E2E navigateur : souscription membre avec pré-remplissage OCR de l'acte.
+ * E2E navigateur : souscription membre — acte de naissance lu par OCR et VERROUILLÉ.
+ *
+ * Contrat (verrouillage OCR) : dès qu'un acte est ajouté, le serveur l'extrait
+ * par OCR et l'affiche en lecture seule — les champs « sur l'acte » ne sont PAS
+ * modifiables. La vérification relit l'acte côté serveur (le client n'envoie
+ * rien sur l'identité de l'acte) : elle n'est valide que si la lecture machine
+ * correspond au profil. L'OCR ne doit jamais bloquer : sur un document
+ * illisible ({ extracted: null }), la recopie manuelle redevient la voie
+ * normale — champs éditables, note affichée — et le serveur ne l'accepte que
+ * parce que sa propre lecture n'a rien produit.
  *
  * Trois scénarios sur le même parcours (upload à l'étape « Acte de naissance »,
- * vérification, devis, paiement mock) — ils diffèrent par l'attachement
- * téléversé et illustrent les trois issues de l'extraction :
+ * vérification, devis, paiement mock) :
  *   1. l'acte scanné droit (.freebuff/acte-test-scanne.pdf — image sous PDF,
- *      sans texte natif, chemin rasterisation → tesseract) : pré-remplissage ;
+ *      sans texte natif, chemin rasterisation → tesseract) : champs pré-remplis
+ *      ET verrouillés sans aucune saisie de l'utilisateur ;
  *   2. les actes stockés de travers (.freebuff/acte-test-pivote-D.png —
- *      PNG tourné de D° horaire, D ∈ {90, 180, 270}) : l'OCR droit n'extrait
- *      rien, l'OSD détecte la rotation, la seconde passe OCR extrait les
- *      champs — le pré-remplissage doit rester observable au niveau UI ;
+ *      PNG tourné de D° horaire, D ∈ {90, 180, 270}) : l'OSD détecte la
+ *      rotation, la seconde passe OCR extrait les champs → même verrouillage ;
  *   3. l'acte illisible (.freebuff/acte-test-illisible.png — image sans
- *      texte) : l'API répond { extracted: null }, le wizard n'écrase PAS la
- *      saisie manuelle — qui est alors la seule voie —, signale l'échec
- *      d'extraction par une note, et passe la vérification dès que
- *      l'utilisateur recopie correctement son acte.
+ *      texte) : champs vides et éditables, recopie manuelle soignée →
+ *      vérification passe (source='manual' côté serveur).
  *
  * Prérequis : API sur :4100 (API_URL), Vite sur :3000 avec VITE_API_PORT=4100.
  * Le compte de test est créé via l'API avec l'identité de l'acte (Marie-Josée
- * ADJOVI, née le 12/01/1990 à Cotonou) : la vérification compare la saisie au
- * profil — ils doivent coïncider.
+ * ADJOVI, née le 12/01/1990 à Cotonou) : la vérification compare la lecture
+ * OCR au profil — ils doivent coïncider.
  */
 import { test, expect } from '@playwright/test';
 import { existsSync } from 'fs';
@@ -58,7 +64,7 @@ const PASSWORD_LABEL = 'Mot de passe';
 // Chromium complet (headless « new ») déjà présent.
 test.use({ channel: 'chromium' });
 
-test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scanné', () => {
+test.describe('Souscription: acte de naissance lu par OCR et verrouillé', () => {
   // Boot du worker tesseract (~15 s au premier appel du process API) + OSD + OCR.
   test.setTimeout(180_000);
 
@@ -68,7 +74,7 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
    * requise » affiché — le point de départ commun des trois scénarios.
    */
   async function reachActeVerification(page: import('@playwright/test').Page, actePath: string) {
-    // 1. Compte membre avec l'identité exacte de l'acte (la vérification compare acte ↔ profil)
+    // 1. Compte membre avec l'identité exacte de l'acte (la vérification compare lecture OCR ↔ profil)
     const email = `e2e_ocr_${uid()}@test.bj`;
     const ctx = await apiContext();
     const reg = await ctx.post('/api/auth/register', {
@@ -109,17 +115,35 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
     await page.locator('button', { hasText: /\/mois/ }).first().click();
     await page.getByRole('button', { name: /Choisir / }).click();
 
-    // 5. Étape 2 : upload de l'acte (le décodage image/PDF est en aval)
+    // 5. Étape 2 : upload de l'acte (l'extraction OCR est déclenchée par l'ajout du fichier)
     await expect(page.getByText('Acte de naissance obligatoire')).toBeVisible();
     await page.setInputFiles('input[type=file]', actePath);
     await expect(page.getByText('Vérification requise')).toBeVisible();
   }
 
-  /** Recopie (juste ou fausse) de l'acte + attestation + lancement de la vérification. */
-  async function copyAndVerify(page: import('@playwright/test').Page, firstName: string) {
-    await page.getByLabel('Prénom sur l’acte').fill(firstName);
-    await page.getByLabel('Nom sur l’acte', { exact: true }).fill(ACTE.lastName);
-    await page.getByLabel('Date de naissance sur l’acte').fill(ACTE.birthDate);
+  /**
+   * Affirme que les trois champs « sur l'acte » portent la lecture OCR
+   * verrouillée : valeurs pré-remplies, attribut readonly (non modifiables),
+   * note 🔒 visible, et AUCUNE note d'échec d'extraction.
+   */
+  async function expectOcrLocked(page: import('@playwright/test').Page) {
+    const firstName = page.getByLabel('Prénom sur l’acte', { exact: true });
+    await expect(firstName).toHaveValue(ACTE.firstName, { timeout: 60_000 });
+    await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
+    await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
+
+    // Verrouillage : un champ readonly n'est pas éditable — l'utilisateur ne
+    // peut rien y modifier.
+    await expect(firstName).not.toBeEditable();
+    await expect(page.getByLabel('Nom sur l’acte', { exact: true })).not.toBeEditable();
+    await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).not.toBeEditable();
+    await expect(page.getByText(/non modifiables/)).toBeVisible();
+    // L'extraction a réussi : la note d'échec ne doit pas apparaître.
+    await expect(page.getByText(/Extraction automatique impossible/)).toHaveCount(0);
+  }
+
+  /** Attestation + lancement de la vérification. */
+  async function attestAndVerify(page: import('@playwright/test').Page) {
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Lancer la vérification' }).click();
   }
@@ -144,47 +168,57 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
     await expect(page.getByText('Paiement confirmé — contrat actif !')).toBeVisible({ timeout: 30_000 });
   }
 
-  test('upload du scan droit → champs pré-remplis → vérification → devis → paiement mock', async ({ page }) => {
+  test('scan droit → lecture OCR, champs verrouillés sans saisie → vérification → paiement mock', async ({ page }) => {
     await reachActeVerification(page, SCAN_PDF);
 
-    // Pré-remplissage OCR observable : on recopie d'abord MAL le prénom
-    // (l'utilisateur se trompe), puis on lance la vérification. Le wizard
-    // uploade, extrait par OCR (rasterisation → tesseract) et écrase les
-    // champs avec les données lues sur l'acte — la vérification, qui compare
-    // les valeurs saisies AVANT pré-remplissage, échoue.
-    await copyAndVerify(page, 'Marie');
+    // L'acte a été lu automatiquement : les champs sont remplis ET verrouillés
+    // sans que l'utilisateur ait rien saisi — ils ne sont pas modifiables.
+    await expectOcrLocked(page);
 
-    // Les champs sont corrigés par l'OCR extrait du scan (Marie → Marie-Josée).
-    await expect(page.getByLabel('Prénom sur l’acte', { exact: true })).toHaveValue(ACTE.firstName, { timeout: 60_000 });
-    await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
-    await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
-    await expect(page.getByText(/Prénom différent/)).toBeVisible(); // 1ʳᵉ tentative : mismatch assumé
-    // OCR réussi : la note d'échec d'extraction ne doit pas apparaître.
-    await expect(page.getByText(/Extraction automatique impossible/)).toHaveCount(0);
-
-    // Seconde vérification avec les valeurs pré-remplies : passe.
-    await page.getByRole('button', { name: 'Lancer la vérification' }).click();
+    // Aucune recopie, aucune correction possible : la vérification compare la
+    // lecture serveur au profil et passe (acte conforme au compte).
+    await attestAndVerify(page);
     await expect(page.getByText('Vérification réussie')).toBeVisible({ timeout: 30_000 });
     await finishAfterVerification(page);
   });
 
   for (const D of ROT_DEGREES) {
-    test(`upload du scan pivoté (${D}°) → OSD redresse → champs pré-remplis → paiement mock`, async ({ page }) => {
+    test(`scan pivoté (${D}°) → OSD redresse → OCR verrouillé → vérification → paiement mock`, async ({ page }) => {
       await reachActeVerification(page, rotPng(D));
-      await copyAndVerify(page, 'Marie');
 
-      await expect(page.getByLabel('Prénom sur l’acte', { exact: true })).toHaveValue(ACTE.firstName, { timeout: 60_000 });
-      await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
-      await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
-      await expect(page.getByText(/Prénom différent/)).toBeVisible();
-      // OCR réussi : la note d'échec d'extraction ne doit pas apparaître.
-      await expect(page.getByText(/Extraction automatique impossible/)).toHaveCount(0);
+      // La cascade (bande/OSD/redressement) extrait malgré la rotation : les
+      // champs affichent la lecture verrouillée, jamais modifiables.
+      await expectOcrLocked(page);
 
-      await page.getByRole('button', { name: 'Lancer la vérification' }).click();
+      await attestAndVerify(page);
       await expect(page.getByText('Vérification réussie')).toBeVisible({ timeout: 30_000 });
       await finishAfterVerification(page);
     });
   }
+
+  test('acte illisible → repli manuel éditable, la recopie soignée passe → paiement mock', async ({ page }) => {
+    await reachActeVerification(page, UNREADABLE_PNG);
+
+    // Rien d'exploitable sur ce document : l'OCR n'a rien extrait, les champs
+    // restent VIDES et ÉDITABLES — la saisie manuelle est la voie normale,
+    // signalée par la note d'échec d'extraction.
+    await expect(page.getByText(/Extraction automatique impossible/)).toBeVisible({ timeout: 60_000 });
+    const firstName = page.getByLabel('Prénom sur l’acte', { exact: true });
+    await expect(firstName).toHaveValue('');
+    await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue('');
+    await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue('');
+    await expect(firstName).toBeEditable();
+
+    // Recopie manuelle exacte (l'acte papier est sous les yeux) : la
+    // vérification passe, le serveur n'accepte la recopie que parce que sa
+    // propre lecture n'a rien produit.
+    await firstName.fill(ACTE.firstName);
+    await page.getByLabel('Nom sur l’acte', { exact: true }).fill(ACTE.lastName);
+    await page.getByLabel('Date de naissance sur l’acte', { exact: true }).fill(ACTE.birthDate);
+    await attestAndVerify(page);
+    await expect(page.getByText('Vérification réussie')).toBeVisible({ timeout: 30_000 });
+    await finishAfterVerification(page);
+  });
 
   test.describe.serial('Inscription: feedback du mot de passe', () => {
     test('les critères (longueur, lettre, chiffre) passent au vert un par un', async ({ page }) => {
@@ -220,30 +254,5 @@ test.describe('Souscription: pré-remplissage OCR de l’acte de naissance scann
       // Garde-fou : la page n'a pas navigué (pas de soumission involontaire)
       await expect(page).toHaveURL(/\/register/);
     });
-  });
-
-  test('acte illisible → aucun pré-remplissage, la saisie manuelle est conservée → paiement mock', async ({ page }) => {
-    await reachActeVerification(page, UNREADABLE_PNG);
-
-    // Recopie fausse : « Alphonse » ne correspond ni à l'acte ni au profil.
-    // L'acte ne contient aucun texte exploitable : l'API répond { extracted:
-    // null } et le wizard ne touche PAS aux champs — la saisie manuelle est
-    // la voie normale, la vérification échoue sur la recopie fausse.
-    await copyAndVerify(page, 'Alphonse');
-
-    await expect(page.getByText(/Prénom différent/)).toBeVisible({ timeout: 30_000 });
-    // Aucun écrasement OCR : la saisie de l'utilisateur est intacte.
-    await expect(page.getByLabel('Prénom sur l’acte', { exact: true })).toHaveValue('Alphonse');
-    await expect(page.getByLabel('Nom sur l’acte', { exact: true })).toHaveValue(ACTE.lastName);
-    await expect(page.getByLabel('Date de naissance sur l’acte', { exact: true })).toHaveValue(ACTE.birthDate);
-    // L'échec d'extraction est signalé : la recopie manuelle est la voie normale,
-    // elle doit être faite avec d'autant plus de soin.
-    await expect(page.getByText(/Extraction automatique impossible/)).toBeVisible();
-
-    // L'utilisateur corrige lui-même sa recopie : la vérification passe.
-    await page.getByLabel('Prénom sur l’acte', { exact: true }).fill(ACTE.firstName);
-    await page.getByRole('button', { name: 'Lancer la vérification' }).click();
-    await expect(page.getByText('Vérification réussie')).toBeVisible({ timeout: 30_000 });
-    await finishAfterVerification(page);
   });
 });

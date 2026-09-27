@@ -25,8 +25,14 @@ test.describe('Parcours particulier: register → acte de naissance → quote �
     const upload = await uploadRes.json();
     expect(upload.fileId).toBeTruthy();
 
+    // L'OCR de ce PDF minimal n'extrait rien : la vérification passe par le
+    // repli manuel (les données de l'acte ne sont jamais acceptées du client
+    // quand la lecture machine a abouti).
     const verifyRes = await ctx.post('/api/subscription/birth-certificate/verify', {
-      data: { fileId: upload.fileId, firstName: me.firstName, lastName: me.lastName, birthDate: me.birthDate },
+      data: {
+        fileId: upload.fileId,
+        manual: { firstName: me.firstName, lastName: me.lastName, birthDate: me.birthDate },
+      },
     });
     expect(verifyRes.ok()).toBeTruthy();
     const verification = await verifyRes.json();

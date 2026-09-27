@@ -5,6 +5,16 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  # Détection hebdomadaire des dérives d'environnement (deps, API externes,
+  # images de base) même sans push — la CI reste la sonde de vérité.
+  schedule:
+    - cron: '0 3 * * 1' # lundi 03:00 UTC
+
+# Minimal par défaut : aucun job de ce workflow n'écrit dans le dépôt
+# (artifacts, caches et tests n'exigent pas plus). Les jobs qui ont besoin
+# d'un privilège le déclarent localement (aucun ici).
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}

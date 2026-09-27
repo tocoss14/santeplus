@@ -22,6 +22,11 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+# Lecture seule au niveau du workflow : docker-publish se sur-élève localement
+# (packages: write), le job staging garde actions: write pour dispatcher seed.yml.
+permissions:
+  contents: read
+
 env:
   NODE_VERSION: "22"
   REGISTRY: ghcr.io
@@ -39,15 +44,18 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
-      - run: echo "CI passed — proceeding with deployment"
-
-  # ──────────────────────────────────────────────
-  # Build & push Docker images (api + web) to GHCR
-  # ──────────────────────────────────────────────
+      - run: echo "CI passed — proceeding with deployment"# ──────────────────────────────────────────────
+# Build & push Docker images (api + web) to GHCR
+# ──────────────────────────────────────────────
   docker-publish:
     name: Build & Push ${{ matrix.name }}
     runs-on: ubuntu-latest
     needs: check-ci
+    # Les CI planifiées (sonde hebdo) ne déclenchent ni publication d'images
+    # ni déploiement — le push GHCR reste réservé aux intégrations d'un vrai commit.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.event != 'schedule'
     permissions:
       contents: read
       packages: write
@@ -120,15 +128,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Deploy to Clever Cloud
-        if: vars.DEPLOY_TARGET == 'clevercloud'
-        env:
-          CC_API_TOKEN: ${{ secrets.CC_API_TOKEN }}
-          CC_API_SECRET: ${{ secrets.CC_API_SECRET }}
-        run: |
-          npm install -g clever-tools
-          clever deploy --alias ${{ vars.CC_APP_ALIAS }} --force
-
       - name: Deploy to Runsite
         if: vars.DEPLOY_TARGET == 'runsite'
         env:
@@ -144,46 +143,6 @@ jobs:
             -H "Authorization: Bearer $RUNSITE_API_KEY" \
             -H "Content-Type: application/json" \
             --data '{"branch":"master"}'
-
-      - name: Deploy via SSH
-        if: vars.DEPLOY_TARGET == 'ssh'
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: IMAGE_TAG,DOMAIN,LETSENCRYPT_EMAIL,GHCR_USER,GHCR_TOKEN
-          script: |
-            set -e
-            cd ${{ vars.DEPLOY_PATH || '/opt/santeplus' }}
-            COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
-
-            [ -f .env.prod ] || { echo "ERROR: .env.prod missing on server — create it from .env.prod.example"; exit 1; }
-
-            # Optional: authenticate to GHCR for private packages
-            if [ -n "$GHCR_TOKEN" ]; then
-              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            fi
-
-            git pull origin main
-
-            # First deploy: issue the initial TLS certificate before starting the stack
-            if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-              echo "==> Issuing first Let's Encrypt certificate for $DOMAIN"
-              $COMPOSE run --rm --entrypoint certbot -p 80:80 certbot \
-                certonly --standalone -d "$DOMAIN" \
-                --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email
-            fi
-
-            # Pull pinned GHCR images (no build on the server)
-            $COMPOSE pull api web
-            $COMPOSE up -d
-            $COMPOSE exec -T api npx prisma migrate deploy
-            docker image prune -f
-        env:
-          IMAGE_TAG: ${{ github.sha }}
-          DOMAIN: ${{ vars.LETSENCRYPT_DOMAIN || 'santeplus.bj' }}
-          LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL || 'admin@santeplus.bj' }}
 
       - name: Health check
         run: |
@@ -233,54 +192,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Deploy to Clever Cloud
-        if: vars.DEPLOY_TARGET == 'clevercloud'
-        env:
-          CC_API_TOKEN: ${{ secrets.CC_API_TOKEN }}
-          CC_API_SECRET: ${{ secrets.CC_API_SECRET }}
+      # Aucune cible d'infrastructure configurée pour la production (staging
+      # seul est câblé, sur Runsite) : échouer tôt et lisiblement plutôt que
+      # de laisser croire à un déploiement réussi sans aucun effet.
+      - name: Guard — cible de déploiement production non configurée
         run: |
-          npm install -g clever-tools
-          clever deploy --alias ${{ vars.CC_APP_ALIAS }} --force
-
-      - name: Deploy via SSH
-        if: vars.DEPLOY_TARGET == 'ssh'
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: IMAGE_TAG,DOMAIN,LETSENCRYPT_EMAIL,GHCR_USER,GHCR_TOKEN
-          script: |
-            set -e
-            cd ${{ vars.DEPLOY_PATH || '/opt/santeplus' }}
-            COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
-
-            [ -f .env.prod ] || { echo "ERROR: .env.prod missing on server — create it from .env.prod.example"; exit 1; }
-
-            # Optional: authenticate to GHCR for private packages
-            if [ -n "$GHCR_TOKEN" ]; then
-              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            fi
-
-            git pull origin main
-
-            # First deploy: issue the initial TLS certificate before starting the stack
-            if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-              echo "==> Issuing first Let's Encrypt certificate for $DOMAIN"
-              $COMPOSE run --rm --entrypoint certbot -p 80:80 certbot \
-                certonly --standalone -d "$DOMAIN" \
-                --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email
-            fi
-
-            # Pull pinned GHCR images (no build on the server)
-            $COMPOSE pull api web
-            $COMPOSE up -d
-            $COMPOSE exec -T api npx prisma migrate deploy
-            docker image prune -f
-        env:
-          IMAGE_TAG: ${{ github.sha }}
-          DOMAIN: ${{ vars.LETSENCRYPT_DOMAIN || 'santeplus.bj' }}
-          LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL || 'admin@santeplus.bj' }}
+          echo "::error::Aucune méthode de déploiement production n'est configurée dans deploy.yml."
+          echo "::error::Ajoutez l'étape correspondant à votre cible (ex. Runsite de production) avant d'utiliser ce workflow."
+          exit 1
 
       - name: Health check
         run: |

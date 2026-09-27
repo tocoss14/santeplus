@@ -41,6 +41,10 @@ concurrency:
   group: db-${{ inputs.environment || 'staging' }}
   cancel-in-progress: false
 
+# Minimal : ce workflow ne touche pas au dépôt (seul Prisma parle à la base).
+permissions:
+  contents: read
+
 env:
   NODE_VERSION: "22"
 

@@ -217,6 +217,55 @@ jobs:
             console.log('Triggered seed.yml (migrate) for staging');
 
   # ──────────────────────────────────────────────
+  # Recette staging (manual trigger only) : rejoue le parcours critique
+  # « inscription avec photo → profil » sur l'environnement déployé.
+  # Ne s'exécute que si le déploiement staging vient de réussir (sonde de
+  # version + health compris) — jamais sur les déploiements automatiques.
+  # ──────────────────────────────────────────────
+  staging-photo-check:
+    name: Recette staging — photo de profil
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Contrôle de non-péremption (au cas où staging aurait bougé)
+        run: |
+          SHA="${GITHUB_SHA}"
+          for i in $(seq 1 12); do
+            V=$(curl -s --max-time 10 "${{ vars.STAGING_URL }}/api/version" || true)
+            if echo "$V" | grep -q "\"version\":\"${SHA}\""; then
+              echo "✅ Staging certifié sur le commit ${SHA}"
+              exit 0
+            fi
+            echo "Tentative $i/12 : ${V:-<injoignable>}"
+            sleep 10
+          done
+          # Pas le SHA attendu mais une sonde qui répond : staging est sur une
+          # autre image (master a avancé depuis le déploiement). La recette
+          # continue — son verdict fonctionnel fait foi — avec un avertissement.
+          if echo "$V" | grep -q '"version"'; then
+            echo "::warning::Staging ne tourne pas sur le commit ${SHA} (image plus ancienne ou plus récente). Recette exécutée quand même."
+            exit 0
+          fi
+          echo "::error::GET /api/version sans sonde sur staging : image antérieure à b2466b3, non certifiable — recette annulée."
+          exit 1
+
+      - name: Recette photo (inscription avec photo → profil)
+        run: node scripts/staging-photo-check.mjs "${{ vars.STAGING_URL }}"
+
+  # ──────────────────────────────────────────────
   # Deploy to production (manual trigger only)
   # ──────────────────────────────────────────────
   deploy-production:

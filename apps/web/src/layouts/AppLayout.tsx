@@ -17,6 +17,7 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/app/contrat', label: 'Mon contrat', icon: '📄' },
       { to: '/app/carte', label: 'Carte', icon: '🪪' },
       { to: '/app/remboursements', label: 'Remboursements', icon: '💊' },
+      { to: '/app/profil', label: 'Mon profil', icon: '👤' },
       { to: '/app/prestataires', label: 'Réseau', icon: '🏥' },
       { to: '/app/distributeur', label: 'Distributeur', icon: '🤝' },
     ],

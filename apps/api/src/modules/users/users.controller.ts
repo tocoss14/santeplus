@@ -212,12 +212,6 @@ private safeSelect() {
     } as const;
   }
 
-  @Get('users/me/photo')
-  async getMyPhoto(@CurrentUser() auth: AuthUser) {
-    const u = await this.prisma.user.findUnique({ where: { id: auth.id }, select: { photoFileId: true } });
-    return { fileId: u?.photoFileId ?? null };
-  }
-
   @Post('beneficiaries/:id/photo')
   @UseInterceptors(FileInterceptor('photo'))
   async addBeneficiaryPhoto(

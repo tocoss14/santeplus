@@ -717,8 +717,11 @@ export class ProviderPortalController {
     if (!['PENDING_CONFIRMATION', 'AUTHORIZED', 'AUTHORIZED_EMERGENCY'].includes(claim.status)) throw new BadRequestException(`Statut ${claim.status} non confirmable`);
     if (Date.now() - new Date(claim.createdAt).getTime() > TP_TTL_MS) {
       await this.prisma.claim.update({ where: { id }, data: { status: 'CANCELLED' } });
-      // CTS : contre-écriture de l'engagement éventuel (non bloquant)
-      try { await this.cts?.recordReversal(claim.contractId, id, 'TTL_EXPIRED', { actorUserId: auth.id }); } catch {}
+      // CTS V1 : contre-écriture de l'engagement éventuel (non bloquant) —
+      // réservée aux contrats V1 (coexistence étanche V1/V2).
+      if (!(await this.isV2Contract(claim.contractId))) {
+        try { await this.cts?.recordReversal(claim.contractId, id, 'TTL_EXPIRED', { actorUserId: auth.id }); } catch {}
+      }
       throw new BadRequestException('Session expirée (> 30 min). Recalculez la prise en charge.');
     }
     // P3-C2 — invariant financier : l'engagement CTS est écrit AVANT/AVEC
@@ -728,7 +731,8 @@ export class ProviderPortalController {
     // maxWait/timeout généreux : sous rafale (16+ confirmations simultanées), la file
     // FOR UPDATE + l'acquisition de connexion ne doivent pas avorter prématurément.
     await this.prisma.$transaction(async tx => {
-      if (this.cts) {
+      // Journal CTS V1 : réservé aux contrats V1 (coexistence étanche).
+      if (this.cts && !(await this.isV2Contract(claim.contractId))) {
         await this.cts.recordEngagement(claim.contractId, id, totalApproved, {
           beneficiaryId: (claim as any).beneficiaryId, providerId: establishment.id,
           actorUserId: auth.id, tx,
@@ -793,8 +797,11 @@ export class ProviderPortalController {
           items: {},
         },
       });
-      // CTS : contre-écriture de l'engagement confirmé (non bloquant)
-      try { await this.cts?.recordReversal(claim.contractId, id, 'REALIZE_OVER_THRESHOLD', { actorUserId: auth.id }); } catch {}
+      // CTS V1 : contre-écriture de l'engagement confirmé (non bloquant) —
+      // réservée aux contrats V1 (coexistence étanche V1/V2).
+      if (!(await this.isV2Contract(claim.contractId))) {
+        try { await this.cts?.recordReversal(claim.contractId, id, 'REALIZE_OVER_THRESHOLD', { actorUserId: auth.id }); } catch {}
+      }
       for (let idx = 0; idx < fresh!.items.length; idx++) {
         const e = estimation.items[idx];
         if (!e) continue;
@@ -948,6 +955,23 @@ export class ProviderPortalController {
         body: 'Votre prise en charge a été enregistrée chez le prestataire.',
       });
     } catch {}
+  }
+
+  /**
+   * Coexistence V1/V2 : true si le contrat relève du modèle V2_MUTUAL —
+   * dans ce cas AUCUNE écriture ne doit alimente le journal CTS V1. Défaut
+   * V1 (comportement historique inchangé) si le contrat est introuvable.
+   */
+  private async isV2Contract(contractId: string): Promise<boolean> {
+    try {
+      const c = await this.prisma.contract.findUnique({
+        where: { id: contractId },
+        select: { financialModelVersion: { select: { code: true } } },
+      });
+      return c?.financialModelVersion?.code === 'V2_MUTUAL';
+    } catch {
+      return false;
+    }
   }
 }
 

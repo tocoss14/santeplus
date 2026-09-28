@@ -16,18 +16,22 @@ export async function apiContext(): Promise<APIRequestContext> {
   });
 }
 
-export async function registerMember(email: string, password = 'Test1234!') {
+export async function registerMember(
+  email: string,
+  password = 'Test1234!',
+  identity?: { firstName?: string; lastName?: string; birthDate?: string; gender?: 'M' | 'F' },
+) {
   const ctx = await apiContext();
   try {
     const res = await ctx.post('/api/auth/register', {
       data: {
-        firstName: 'Test',
-        lastName: 'User' + uid(),
+        firstName: identity?.firstName ?? 'Test',
+        lastName: identity?.lastName ?? 'User' + uid(),
         email,
         password,
         phone: '+229 9' + Math.floor(10000000 + Math.random() * 90000000),
-        birthDate: '1990-06-15',
-        gender: 'M',
+        birthDate: identity?.birthDate ?? '1990-06-15',
+        gender: identity?.gender ?? 'M',
       },
     });
     if (res.status() !== 201 && res.status() !== 200) {

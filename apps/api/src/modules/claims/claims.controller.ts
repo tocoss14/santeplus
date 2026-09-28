@@ -420,11 +420,14 @@ export class ClaimsController {
     if (autoApprovable) {
       // P3-C2 : si l'engagement CTS échoue, revenir au statut SUBMITTED
       // (les relances passe par la file de traitement manuelle des gestionnaires).
-      try {
-        await this.cts?.recordEngagement(claim.contractId, claim.id, estimation.totals.approved, {
-          beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
-        });
-      } catch (e) {
+      // Coexistence V1/V2 : le journal CTS V1 n'est alimenté que pour les
+      // contrats V1 — un contrat V2_MUTUAL n'y écrit JAMAIS.
+      if (!(await this.isV2Contract(claim.contractId))) {
+        try {
+          await this.cts?.recordEngagement(claim.contractId, claim.id, estimation.totals.approved, {
+            beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
+          });
+        } catch (e) {
         // Rollback statut : basculer en file de traitement manuelle
         await this.prisma.claim.update({
           where: { id: claim.id },
@@ -443,6 +446,7 @@ export class ClaimsController {
           body: 'Votre demande a été soumise et sera traitée par un gestionnaire.',
         });
         return { ok: true, autoApproved: false };
+        }
       }
       try { if (claim.providerId) await this.attachInvoice(claim.id); } catch {}
       if (autoAuditSample) {
@@ -735,7 +739,8 @@ export class ClaimsController {
     const authorizedAmount = sumApproved > 0 ? sumApproved : (typeof totalApprovedFromClaim === 'number' ? totalApprovedFromClaim : (claim as any).totalRequested ?? 0);
     // P3-C2 : engagement atomique avec l'autorisation (même transaction).
     await this.prisma.$transaction(async tx => {
-      if (this.cts) {
+      // Journal CTS V1 : réservé aux contrats V1 (coexistence étanche).
+      if (this.cts && !(await this.isV2Contract((claim as any).contractId))) {
         await this.cts.recordEngagement((claim as any).contractId, id, authorizedAmount, {
           beneficiaryId: (claim as any).beneficiaryId, providerId: (claim as any).providerId,
           actorUserId: auth.id, tx,
@@ -852,7 +857,8 @@ export class ClaimsController {
     // mais l'appel est inutile et évite des allers-retours imbriqués.
     const needEngagement = claim.status !== 'CONFIRMED';
     await this.prisma.$transaction(async tx => {
-      if (this.cts && needEngagement) {
+      // Journal CTS V1 : réservé aux contrats V1 (coexistence étanche).
+      if (this.cts && needEngagement && !(await this.isV2Contract(claim.contractId))) {
         await this.cts.recordEngagement(claim.contractId, id, totalApproved, {
           beneficiaryId: claim.beneficiaryId, providerId: claim.providerId,
           actorUserId: auth.id, tx,
@@ -898,14 +904,35 @@ export class ClaimsController {
     const updated = await this.prisma.claim.update({ where: { id }, data: { status: 'PAID', paidAt: new Date(), paidRef: dto.paidRef ?? null, decidedById: claim.decidedById ?? auth.id, decidedAt: claim.decidedAt ?? new Date() } });
     await this.notifyClaimant(claim.claimantUserId, claim.reference, 'Remboursement payÃ©', `Le paiement de ${claim.totalApproved} FCFA a Ã©tÃ© effectuÃ©.`);
     try { await this.accounting?.recordSinistre({ ...claim, ...updated }); } catch {}
-    // CTS : consommation (libère l'engagement), idempotent (non bloquant)
-    try {
-      await this.cts?.recordConsumption(claim.contractId, id, (updated as any).totalApproved ?? claim.totalApproved ?? 0, {
-        beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
-      });
-    } catch {}
+    // CTS V1 : consommation (libère l'engagement), idempotent (non bloquant)
+    // — uniquement pour les contrats V1 (coexistence étanche).
+    if (!(await this.isV2Contract(claim.contractId))) {
+      try {
+        await this.cts?.recordConsumption(claim.contractId, id, (updated as any).totalApproved ?? claim.totalApproved ?? 0, {
+          beneficiaryId: claim.beneficiaryId, providerId: claim.providerId, actorUserId: auth.id,
+        });
+      } catch {}
+    }
     try { if (claim.providerId) await this.attachInvoice(id); } catch {}
     return { ok: true };
+  }
+
+  /**
+   * Coexistence V1/V2 : true si le contrat relève du modèle V2_MUTUAL —
+   * dans ce cas AUCUNE écriture ne doit alimente le journal CTS V1 (les
+   * prestations V2 sont agrégées par le moteur CtsV2Service). Défaut V1 si
+   * le contrat est introuvable (comportement historique inchangé).
+   */
+  private async isV2Contract(contractId: string): Promise<boolean> {
+    try {
+      const c = await this.prisma.contract.findUnique({
+        where: { id: contractId },
+        select: { financialModelVersion: { select: { code: true } } },
+      });
+      return c?.financialModelVersion?.code === 'V2_MUTUAL';
+    } catch {
+      return false;
+    }
   }
 
   private async accessibleContract(auth: AuthUser, contractId: string) {

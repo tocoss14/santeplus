@@ -8,9 +8,17 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [anomalies, setAnomalies] = useState<any[] | null>(null);
   const [anomaliesError, setAnomaliesError] = useState(false);
+  const [models, setModels] = useState<any[] | null>(null);
 
   useEffect(() => {
     api.get('/stats/admin/dashboard').then(setStats).catch(() => setStats({ error: true }));
+  }, []);
+
+  useEffect(() => {
+    // Répartition par modèle financier — compteurs séparés, JAMAIS sommés :
+    // agréger V1 (gelé) et V2 (mutualiste) sans règles de consolidation est
+    // interdit. Silencieux si l'habilitation financière manque.
+    api.get('/admin/financial-models').then(setModels).catch(() => setModels(null));
   }, []);
 
   useEffect(() => {
@@ -38,6 +46,26 @@ export default function AdminDashboard() {
         <StatCard label="Ratio sinistres/cotisations" value={c.lossRatio != null ? `${c.lossRatio}%` : '—'} sub={c.lossRatio != null && c.lossRatio > 80 ? '⚠️ au-dessus de la cible' : undefined} />
         <StatCard label="Demandes en attente" value={c.claimsPending} />
       </div>
+
+      {models && models.length > 0 && (
+        <div className="card-p">
+          <h2 className="mb-3 font-semibold">Modèles financiers — répartition des contrats</h2>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {models.map((m: any) => (
+              <StatCard
+                key={m.id}
+                label={m.code === 'V2_MUTUAL' ? 'V2 — Mutualiste' : 'V1 — Legacy' + (m.status === 'ARCHIVED' ? ' (archivé)' : '')}
+                value={m.contractsCount}
+                sub={m.status}
+                accent={m.status === 'ACTIVE'}
+              />
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-400">
+            Compteurs séparés par modèle — aucune somme V1+V2 (règles de consolidation requises pour tout agrégat).
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card-p">

@@ -35,7 +35,12 @@ export class AccountingService {
     });
   }
 
-  async recordPremium(payment: any) {
+  /**
+   * Écritures de prime. `financialModelVersion` tamponne la version du modèle
+   * ayant produit l'écriture (V1_LEGACY / V2_MUTUAL) — jamais réétiquetée
+   * a posteriori (coexistence, cf. docs/financial-model-versioning.md).
+   */
+  async recordPremium(payment: any, financialModelVersion?: string) {
     await this.ensureChart();
     const journal = await this.prisma.journal.findUnique({ where: { code: 'BQ' } });
     const accBank = await this.prisma.account.findUnique({ where: { code: '512000' } });
@@ -51,16 +56,16 @@ export class AccountingService {
     if (prime > 0) {
       await this.prisma.accountingEntry.createMany({
         data: [
-          { journalId: journal.id, accountId: accBank.id, date: new Date(), label: baseLabel, debit: prime, credit: 0, referenceType: 'Payment', referenceId: payment.id, period },
-          { journalId: journal.id, accountId: accPrime.id, date: new Date(), label: baseLabel, debit: 0, credit: prime, referenceType: 'Payment', referenceId: payment.id, period },
+          { journalId: journal.id, accountId: accBank.id, date: new Date(), label: baseLabel, debit: prime, credit: 0, referenceType: 'Payment', referenceId: payment.id, period, financialModelVersion: financialModelVersion ?? null },
+          { journalId: journal.id, accountId: accPrime.id, date: new Date(), label: baseLabel, debit: 0, credit: prime, referenceType: 'Payment', referenceId: payment.id, period, financialModelVersion: financialModelVersion ?? null },
         ],
       });
     }
     if (adhesion > 0 && accAdhesion) {
       await this.prisma.accountingEntry.createMany({
         data: [
-          { journalId: journal.id, accountId: accBank.id, date: new Date(), label: `Adhésion ${payment.reference}`, debit: adhesion, credit: 0, referenceType: 'Payment', referenceId: payment.id, period },
-          { journalId: journal.id, accountId: accAdhesion.id, date: new Date(), label: `Adhésion ${payment.reference}`, debit: 0, credit: adhesion, referenceType: 'Payment', referenceId: payment.id, period },
+          { journalId: journal.id, accountId: accBank.id, date: new Date(), label: `Adhésion ${payment.reference}`, debit: adhesion, credit: 0, referenceType: 'Payment', referenceId: payment.id, period, financialModelVersion: financialModelVersion ?? null },
+          { journalId: journal.id, accountId: accAdhesion.id, date: new Date(), label: `Adhésion ${payment.reference}`, debit: 0, credit: adhesion, referenceType: 'Payment', referenceId: payment.id, period, financialModelVersion: financialModelVersion ?? null },
         ],
       });
     }
@@ -75,10 +80,15 @@ export class AccountingService {
     const amount = claim.totalApproved ?? claim.totalRequested ?? 0;
     if (amount <= 0) return;
     const period = this.periodOf(claim.paidAt ?? new Date());
+    // Tampon de version résolu depuis le modèle du contrat (jamais réétiqueté).
+    const contract = claim.contractId
+      ? await this.prisma.contract.findUnique({ where: { id: claim.contractId }, select: { financialModelVersion: { select: { code: true } } } })
+      : null;
+    const financialModelVersion = contract?.financialModelVersion?.code ?? null;
     await this.prisma.accountingEntry.createMany({
       data: [
-        { journalId: journal.id, accountId: accSin.id, date: new Date(), label: `Sinistre ${claim.reference}`, debit: amount, credit: 0, referenceType: 'Claim', referenceId: claim.id, period },
-        { journalId: journal.id, accountId: accDette.id, date: new Date(), label: `Sinistre ${claim.reference}`, debit: 0, credit: amount, referenceType: 'Claim', referenceId: claim.id, period },
+        { journalId: journal.id, accountId: accSin.id, date: new Date(), label: `Sinistre ${claim.reference}`, debit: amount, credit: 0, referenceType: 'Claim', referenceId: claim.id, period, financialModelVersion },
+        { journalId: journal.id, accountId: accDette.id, date: new Date(), label: `Sinistre ${claim.reference}`, debit: 0, credit: amount, referenceType: 'Claim', referenceId: claim.id, period, financialModelVersion },
       ],
     });
   }

@@ -181,8 +181,15 @@ export class PaymentsService {
 
     const contract = await this.prisma.contract.findUnique({
       where: { id: succeeded.contractId! },
-      include: { product: { select: { name: true } } },
+      include: {
+        product: { select: { name: true } },
+        financialModelVersion: { select: { code: true } },
+      },
     });
+    // Coexistence V1/V2 : le journal CTS V1 n'est alimenté que par les
+    // contrats V1_LEGACY. Un contrat V2_MUTUAL n'y écrit JAMAIS — sa prime
+    // encaissée est une ressource de la position technique V2.
+    const isV2Contract = contract?.financialModelVersion?.code === 'V2_MUTUAL';
     if (contract) {
       const wasInactive = ['PENDING_PAYMENT', 'DRAFT'].includes(contract.status);
       const wasSuspended = contract.status === 'SUSPENDED';
@@ -201,10 +208,11 @@ export class PaymentsService {
         `Paiement reçu : ${payment.amount} FCFA`,
         `Référence ${payment.reference}. Merci pour votre paiement.`);
       // Compta technique
-      try { await this.accounting?.recordPremium(succeeded); } catch {}
-      // CTS : prime encaissée recalculée depuis les paiements (non bloquant, idempotent)
+      try { await this.accounting?.recordPremium(succeeded, isV2Contract ? 'V2_MUTUAL' : 'V1_LEGACY'); } catch {}
+      // CTS V1 : prime encaissée — uniquement pour les contrats V1 (non
+      // bloquant, idempotent). Les contrats V2 n'écrivent jamais dans ce journal.
       try {
-        if (succeeded.contractId) {
+        if (succeeded.contractId && !isV2Contract) {
           await this.cts?.recordPrimeCollected(succeeded.contractId, {
             reference: `Payment:${succeeded.id}`,
             actorUserId: succeeded.userId,

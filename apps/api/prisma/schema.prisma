@@ -8,53 +8,53 @@ datasource db {
 }
 
 model User {
-  id               String        @id @default(cuid())
-  email            String        @unique
-  phone            String?
-  passwordHash     String
-  role             String
-  status           String        @default("ACTIVE")
-  firstName        String
-  lastName         String
-  birthDate        DateTime?
-  gender           String?
-  address          String?
-  city             String?
-  nationalIdEnc    String?
-  emergencyContact String?
-  memberNumber     String?       @unique
-  photoFileId      String?
-  companyId        String?
-  company          Company?      @relation(fields: [companyId], references: [id])
-  providerId       String?
-  providerStaff    Provider?     @relation(fields: [providerId], references: [id])
-  isEstablishmentAdmin Boolean @default(false)
-  language         String        @default("fr")
-  lastLoginAt      DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  phone                String?
+  passwordHash         String
+  role                 String
+  status               String    @default("ACTIVE")
+  firstName            String
+  lastName             String
+  birthDate            DateTime?
+  gender               String?
+  address              String?
+  city                 String?
+  nationalIdEnc        String?
+  emergencyContact     String?
+  memberNumber         String?   @unique
+  photoFileId          String?
+  companyId            String?
+  company              Company?  @relation(fields: [companyId], references: [id])
+  providerId           String?
+  providerStaff        Provider? @relation(fields: [providerId], references: [id])
+  isEstablishmentAdmin Boolean   @default(false)
+  language             String    @default("fr")
+  lastLoginAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  referredBy           Distributor?    @relation("ReferredUsers", fields: [referredById], references: [id])
+  referredBy           Distributor?        @relation("ReferredUsers", fields: [referredById], references: [id])
   referredById         String?
-  contractsAsPrincipal Contract[]       @relation("PrincipalContracts")
-  beneficiariesAdded   Beneficiary[]    @relation("BeneficiaryCreator")
+  contractsAsPrincipal Contract[]          @relation("PrincipalContracts")
+  beneficiariesAdded   Beneficiary[]       @relation("BeneficiaryCreator")
   beneficiaryChanges   BeneficiaryChange[]
   files                FileObject[]
   notifications        Notification[]
   auditLogs            AuditLog[]
   payments             Payment[]
-  claims               Claim[]          @relation("Claimant")
-  consultations        Consultation[]   @relation("ConsultationPatient")
-  prescriptions        Prescription[]   @relation("PrescriptionPatient")
-  prescriptionsWritten Prescription[]   @relation("PrescriptionPrescriber")
-  deliveries           Delivery[]       @relation("DeliveryUser")
-  deliveriesAsPatient  Delivery[]       @relation("DeliveryPatient")
-  claimsDecided        Claim[]          @relation("ClaimDecider")
+  claims               Claim[]             @relation("Claimant")
+  consultations        Consultation[]      @relation("ConsultationPatient")
+  prescriptions        Prescription[]      @relation("PrescriptionPatient")
+  prescriptionsWritten Prescription[]      @relation("PrescriptionPrescriber")
+  deliveries           Delivery[]          @relation("DeliveryUser")
+  deliveriesAsPatient  Delivery[]          @relation("DeliveryPatient")
+  claimsDecided        Claim[]             @relation("ClaimDecider")
   refreshTokens        RefreshToken[]
-  careRecords          CareRecord[]     @relation("CareRecordPatient")
-  distributorProfile   Distributor?     @relation("DistributorUser")
-  consentGivenAt DateTime?
-  consentIp      String?
+  careRecords          CareRecord[]        @relation("CareRecordPatient")
+  distributorProfile   Distributor?        @relation("DistributorUser")
+  consentGivenAt       DateTime?
+  consentIp            String?
 
   @@index([role])
   @@index([status])
@@ -63,19 +63,19 @@ model User {
 }
 
 model Company {
-  id          String   @id @default(cuid())
-  name        String
-  sector      String?
-  taxId       String?
-  address     String?
-  city        String?
-  phone       String?
-  email       String?
-  contactName String?
-  status      String   @default("ACTIVE")
-  claimsVisibility Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  sector           String?
+  taxId            String?
+  address          String?
+  city             String?
+  phone            String?
+  email            String?
+  contactName      String?
+  status           String   @default("ACTIVE")
+  claimsVisibility Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   employees User[]
   contracts Contract[]
@@ -84,13 +84,13 @@ model Company {
 }
 
 model InsurerPartner {
-  id              String  @id @default(cuid())
+  id              String   @id @default(cuid())
   name            String
-  kind            String  @default("INSURER")
+  kind            String   @default("INSURER")
   agreementNumber String?
   contactEmail    String?
   phone           String?
-  status          String  @default("ACTIVE")
+  status          String   @default("ACTIVE")
   notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -113,36 +113,36 @@ model Guarantee {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  description String?
-  clientType  String   @default("INDIVIDUAL")
-  minAge      Int      @default(0)
-  maxAge      Int      @default(65)
-  beneficiaryRules     String @default("{}")
-  basePremiumAnnual           Int
-  pricePerAdditionalAdultAnnual Int @default(0)
-  pricePerChildAnnual           Int @default(0)
-  frequencyFactors     String @default("{\"ANNUAL\":1,\"QUARTERLY\":1.03,\"MONTHLY\":1.08}")
-  waitingPeriodDays    Int    @default(30)
-  eligibilityConditions String?
-  renewalConditions     String?
-  ageLoadings     String @default("[]")
-  globalAnnualCap Int    @default(5000000)
+  id                            String          @id @default(cuid())
+  code                          String          @unique
+  name                          String
+  description                   String?
+  clientType                    String          @default("INDIVIDUAL")
+  minAge                        Int             @default(0)
+  maxAge                        Int             @default(65)
+  beneficiaryRules              String          @default("{}")
+  basePremiumAnnual             Int
+  pricePerAdditionalAdultAnnual Int             @default(0)
+  pricePerChildAnnual           Int             @default(0)
+  frequencyFactors              String          @default("{\"ANNUAL\":1,\"QUARTERLY\":1.03,\"MONTHLY\":1.08}")
+  waitingPeriodDays             Int             @default(30)
+  eligibilityConditions         String?
+  renewalConditions             String?
+  ageLoadings                   String          @default("[]")
+  globalAnnualCap               Int             @default(5000000)
   // Plafond annuel de reste à charge par contrat (null = désactivé).
-  oopAnnualCap Int?
-  status      String   @default("DRAFT")
-  sortOrder   Int      @default(0)
-  thirdPartyAuthThreshold Int?
-  insurerPartnerId String?
-  insurerPartner   InsurerPartner? @relation(fields: [insurerPartnerId], references: [id])
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  oopAnnualCap                  Int?
+  status                        String          @default("DRAFT")
+  sortOrder                     Int             @default(0)
+  thirdPartyAuthThreshold       Int?
+  insurerPartnerId              String?
+  insurerPartner                InsurerPartner? @relation(fields: [insurerPartnerId], references: [id])
+  branchId                      String?
+  branch                        Branch?         @relation(fields: [branchId], references: [id])
   // Config CTS (JSON) : taux gestion, seuils, stop-loss, taux report, mode renouvellement
-  ctsConfig String @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  ctsConfig                     String          @default("{}")
+  createdAt                     DateTime        @default(now())
+  updatedAt                     DateTime        @updatedAt
 
   guarantees ProductGuarantee[]
   exclusions ProductExclusion[]
@@ -152,33 +152,33 @@ model Product {
 }
 
 model ProductGuarantee {
-  id              String  @id @default(cuid())
-  productId       String
-  guaranteeId     String
+  id                String  @id @default(cuid())
+  productId         String
+  guaranteeId       String
   // Plafond annuel fixe (si null, calculé dynamiquement)
-  annualLimit     Int?
+  annualLimit       Int?
   // Plafond foyer/famille (si null, pas de cumul foyer — voir moteur CTS)
-  familyLimit     Int?
+  familyLimit       Int?
   // Taux de couverture fixe (si null, choisi par l'assuré entre minRate et maxRate)
-  rate            Int?
+  rate              Int?
   // Taux minimum autorisé pour cette garantie (flexible)
-  minRate         Int     @default(50)
+  minRate           Int     @default(50)
   // Taux maximum autorisé pour cette garantie (flexible)
-  maxRate         Int     @default(95)
+  maxRate           Int     @default(95)
   // Plafond minimum autorisé
-  minLimit        Int     @default(0)
+  minLimit          Int     @default(0)
   // Plafond maximum autorisé
-  maxLimit        Int     @default(10000000)
+  maxLimit          Int     @default(10000000)
   // Pas d'incrémentation pour le plafond (ex: 50000)
-  limitStep       Int     @default(50000)
+  limitStep         Int     @default(50000)
   // Prix de base par tranche de plafond (pour calcul de prime flexible)
-  pricePerLimitStep Int   @default(0)
-  copayRate       Int     @default(15)
-  maxUnitPrice    Int?
+  pricePerLimitStep Int     @default(0)
+  copayRate         Int     @default(15)
+  maxUnitPrice      Int?
   // Si true, cette garantie est obligatoire pour le produit
-  mandatory       Boolean @default(true)
+  mandatory         Boolean @default(true)
   // Si true, l'assuré peut personnaliser le taux/plafond
-  customizable    Boolean @default(false)
+  customizable      Boolean @default(false)
 
   product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   guarantee Guarantee @relation(fields: [guaranteeId], references: [id])
@@ -196,52 +196,61 @@ model ProductExclusion {
 }
 
 model Contract {
-  id       String @id @default(cuid())
-  number   String @unique
-  kind     String @default("INDIVIDUAL")
-  status   String @default("DRAFT")
-  principalUserId String
-  principalUser   User   @relation("PrincipalContracts", fields: [principalUserId], references: [id])
-  productId       String
-  product         Product @relation(fields: [productId], references: [id])
-  companyId       String?
-  company         Company? @relation(fields: [companyId], references: [id])
-  groupContractId String?
-  groupContract   Contract?  @relation("GroupMembers", fields: [groupContractId], references: [id])
-  members         Contract[] @relation("GroupMembers")
+  id               String          @id @default(cuid())
+  number           String          @unique
+  kind             String          @default("INDIVIDUAL")
+  status           String          @default("DRAFT")
+  principalUserId  String
+  principalUser    User            @relation("PrincipalContracts", fields: [principalUserId], references: [id])
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id])
+  companyId        String?
+  company          Company?        @relation(fields: [companyId], references: [id])
+  groupContractId  String?
+  groupContract    Contract?       @relation("GroupMembers", fields: [groupContractId], references: [id])
+  members          Contract[]      @relation("GroupMembers")
   insurerPartnerId String?
   insurerPartner   InsurerPartner? @relation(fields: [insurerPartnerId], references: [id])
 
-  startDate DateTime?
-  endDate   DateTime?
-  premiumAnnual Int
-  frequency String
-  quote     String   @default("{}")
-  cardToken String   @unique
-  adhesionFee     Int       @default(0)
-  adhesionPaidAt  DateTime?
+  // Version du modèle financier régissant ce contrat (V1_LEGACY gelé ou
+  // V2_MUTUAL mutualiste). Les contrats existants restent en V1 tant qu'une
+  // migration volontaire, tracée et certifiée n'a pas été exécutée.
+  financialModelVersionId String?
+  financialModelVersion   FinancialModelVersion? @relation(fields: [financialModelVersionId], references: [id])
+  // MIGRATION_PENDING | MIGRATED_TO_V2 | null (jamais migré)
+  migrationStatus         String?
+
+  startDate          DateTime?
+  endDate            DateTime?
+  premiumAnnual      Int
+  frequency          String
+  quote              String    @default("{}")
+  cardToken          String    @unique
+  adhesionFee        Int       @default(0)
+  adhesionPaidAt     DateTime?
   // Surcharges CTS spécifiques au contrat (nullable — sinon Product.ctsConfig)
-  ctsOverride String?
+  ctsOverride        String?
   // Modèle de gestion du risque : MUTUALITE (défaut, solidaire) ou INDIVIDUEL
   // (auto-assuré). Passage en INDIVIDUEL réservé après 24 mois en MUTUALITE.
-  riskModel String @default("MUTUALITE")
-  riskModelSince DateTime?
+  riskModel          String    @default("MUTUALITE")
+  riskModelSince     DateTime?
   riskModelChangedAt DateTime?
 
-  beneficiaries Beneficiary[]
-  contributions Contribution[]
-  claims        Claim[]
-  payments      Payment[]
-  distributorId String?
-  distributor   Distributor? @relation(fields: [distributorId], references: [id])
-  commissions   Commission[]
-  technicalAccount TechnicalAccount?
-  ctsJournals   CtsJournal[]
-  fundCalls     FundCall[]
-  ctsAlerts     CtsAlert[]
+  beneficiaries       Beneficiary[]
+  contributions       Contribution[]
+  claims              Claim[]
+  payments            Payment[]
+  distributorId       String?
+  distributor         Distributor?              @relation(fields: [distributorId], references: [id])
+  commissions         Commission[]
+  technicalAccount    TechnicalAccount?
+  ctsJournals         CtsJournal[]
+  fundCalls           FundCall[]
+  ctsAlerts           CtsAlert[]
   solidarityMovements SolidarityMovement[]
-  closure       ContractClosure?
-  fraudCases    FraudCase[]
+  closure             ContractClosure?
+  fraudCases          FraudCase[]
+  financialMigrations FinancialModelMigration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -270,22 +279,22 @@ model Beneficiary {
   status       String    @default("COVERED")
   removedAt    DateTime?
 
-  changes BeneficiaryChange[]
-  claims  Claim[]
+  changes     BeneficiaryChange[]
+  claims      Claim[]
   careRecords CareRecord[]
 
   @@index([contractId])
 }
 
 model BeneficiaryChange {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   beneficiaryId String
   beneficiary   Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
   action        String
   meta          String?
   byUserId      String?
-  byUser        User?    @relation(fields: [byUserId], references: [id])
-  createdAt     DateTime @default(now())
+  byUser        User?       @relation(fields: [byUserId], references: [id])
+  createdAt     DateTime    @default(now())
 
   @@index([beneficiaryId])
 }
@@ -326,50 +335,50 @@ model Payment {
 }
 
 model Claim {
-  id             String    @id @default(cuid())
-  reference      String    @unique
-  kind           String    @default("REIMBURSEMENT")
-  contractId     String
-  contract       Contract  @relation(fields: [contractId], references: [id])
-  claimantUserId String
-  claimantUser   User      @relation("Claimant", fields: [claimantUserId], references: [id])
-  beneficiaryId  String?
-  beneficiary    Beneficiary? @relation(fields: [beneficiaryId], references: [id])
-  providerId     String?
-  provider       Provider? @relation(fields: [providerId], references: [id])
-  providerUserId String?
-  careDate       DateTime
-  submittedAt    DateTime?
-  status         String    @default("DRAFT")
-  totalRequested Int       @default(0)
-  totalApproved  Int?
-  decisionNote   String?
-  decidedById    String?
-  decidedBy      User?     @relation("ClaimDecider", fields: [decidedById], references: [id])
-  decidedAt      DateTime?
-  paidAt         DateTime?
-  paidRef        String?
-  invoiceNumber  String?
-  invoicedAt     DateTime?
-  realizationNote String?
-  estimation     String?
-  flags          String    @default("[]")
-  emergencyOverride      Boolean   @default(false)
+  id                     String       @id @default(cuid())
+  reference              String       @unique
+  kind                   String       @default("REIMBURSEMENT")
+  contractId             String
+  contract               Contract     @relation(fields: [contractId], references: [id])
+  claimantUserId         String
+  claimantUser           User         @relation("Claimant", fields: [claimantUserId], references: [id])
+  beneficiaryId          String?
+  beneficiary            Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+  providerId             String?
+  provider               Provider?    @relation(fields: [providerId], references: [id])
+  providerUserId         String?
+  careDate               DateTime
+  submittedAt            DateTime?
+  status                 String       @default("DRAFT")
+  totalRequested         Int          @default(0)
+  totalApproved          Int?
+  decisionNote           String?
+  decidedById            String?
+  decidedBy              User?        @relation("ClaimDecider", fields: [decidedById], references: [id])
+  decidedAt              DateTime?
+  paidAt                 DateTime?
+  paidRef                String?
+  invoiceNumber          String?
+  invoicedAt             DateTime?
+  realizationNote        String?
+  estimation             String?
+  flags                  String       @default("[]")
+  emergencyOverride      Boolean      @default(false)
   emergencyJustification String?
   emergencyActorId       String?
   emergencyAt            DateTime?
   authorizedAmount       Int?
-  diseaseId String?
-  disease   Disease? @relation(fields: [diseaseId], references: [id])
+  diseaseId              String?
+  disease                Disease?     @relation(fields: [diseaseId], references: [id])
 
-  items     ClaimItem[]
-  documents ClaimDocument[]
-  consultation  Consultation? @relation("ConsultationClaim")
-  delivery      Delivery?     @relation("DeliveryClaim")
-  prescription  Prescription? @relation("ClaimPrescription", fields: [prescriptionId], references: [id])
-  prescriptionId String?
-  deliveryId     String?
-  careRecord     CareRecord?
+  items             ClaimItem[]
+  documents         ClaimDocument[]
+  consultation      Consultation?      @relation("ConsultationClaim")
+  delivery          Delivery?          @relation("DeliveryClaim")
+  prescription      Prescription?      @relation("ClaimPrescription", fields: [prescriptionId], references: [id])
+  prescriptionId    String?
+  deliveryId        String?
+  careRecord        CareRecord?
   batchInvoiceItems BatchInvoiceItem[]
 
   createdAt DateTime @default(now())
@@ -387,54 +396,54 @@ model Claim {
 }
 
 model ClaimItem {
-  id               String  @id @default(cuid())
-  claimId          String
-  claim            Claim   @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  actId            String?
-  code             String?
-  label            String?
-  quantity         Int?
-  unitPrice        Int?
-  practitioner     String?
-  guaranteeId      String?
-  categoryLabel    String
-  amountRequested  Int
-  amountEligible   Int?
-  rateApplied      Int?
+  id                String  @id @default(cuid())
+  claimId           String
+  claim             Claim   @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  actId             String?
+  code              String?
+  label             String?
+  quantity          Int?
+  unitPrice         Int?
+  practitioner      String?
+  guaranteeId       String?
+  categoryLabel     String
+  amountRequested   Int
+  amountEligible    Int?
+  rateApplied       Int?
   deductibleApplied Int?
-  amountApproved   Int?
+  amountApproved    Int?
 }
 
 model ClaimDocument {
-  id         String  @id @default(cuid())
-  claimId    String
-  claim      Claim   @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  fileId     String
-  file       FileObject @relation(fields: [fileId], references: [id])
-  docType    String
-  fileName   String
-  mime       String
-  size       Int
-  sha256     String
-  extracted  String?
+  id        String     @id @default(cuid())
+  claimId   String
+  claim     Claim      @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      FileObject @relation(fields: [fileId], references: [id])
+  docType   String
+  fileName  String
+  mime      String
+  size      Int
+  sha256    String
+  extracted String?
 
   @@index([sha256])
 }
 
 model FileObject {
-  id          String   @id @default(cuid())
-  storagePath String   @unique
-  mime        String
-  size        Int
-  sha256      String
+  id                String   @id @default(cuid())
+  storagePath       String   @unique
+  mime              String
+  size              Int
+  sha256            String
   // Nullable : documents pré-compte (ex. pièces d'inscription prestataire)
-  ownerId     String?
-  owner       User?    @relation(fields: [ownerId], references: [id])
-  documentType String?
-  tags         String? @default("[]")
-  version      Int     @default(1)
+  ownerId           String?
+  owner             User?    @relation(fields: [ownerId], references: [id])
+  documentType      String?
+  tags              String?  @default("[]")
+  version           Int      @default(1)
   previousVersionId String?
-  createdAt   DateTime @default(now())
+  createdAt         DateTime @default(now())
 
   claimDocs ClaimDocument[]
 
@@ -443,44 +452,44 @@ model FileObject {
 }
 
 model Provider {
-  id              String  @id @default(cuid())
-  name            String
-  type            String
-  city            String
-  address         String?
-  phone           String?
-  email           String?
-  lat             Float?
-  lng             Float?
-  specialties     String?
-  openingHours    String?
-  services        String?
-  partnerStatus   String  @default("ACTIVE")
-  conventionLevel String  @default("BASIC")
-  thirdPartyPayer Boolean @default(false)
-  status          String  @default("ACTIVE")
-  notes           String?
-  active          Boolean @default(true)
-  photoUrl        String?
+  id                 String   @id @default(cuid())
+  name               String
+  type               String
+  city               String
+  address            String?
+  phone              String?
+  email              String?
+  lat                Float?
+  lng                Float?
+  specialties        String?
+  openingHours       String?
+  services           String?
+  partnerStatus      String   @default("ACTIVE")
+  conventionLevel    String   @default("BASIC")
+  thirdPartyPayer    Boolean  @default(false)
+  status             String   @default("ACTIVE")
+  notes              String?
+  active             Boolean  @default(true)
+  photoUrl           String?
   // Champs inscription publique
-  registrationStatus String @default("")  // PENDING_REGISTRATION, DOCUMENTS_REVIEWED, APPROVED, REJECTED
+  registrationStatus String   @default("") // PENDING_REGISTRATION, DOCUMENTS_REVIEWED, APPROVED, REJECTED
   registrationNote   String?
-  contactFirstName  String?
-  contactLastName   String?
-  contactEmail      String?
-  contactPhone      String?
-  registrationDocs  String  @default("[]")  // JSON array of uploaded doc refs
-  createdAt       DateTime @default(now())
+  contactFirstName   String?
+  contactLastName    String?
+  contactEmail       String?
+  contactPhone       String?
+  registrationDocs   String   @default("[]") // JSON array of uploaded doc refs
+  createdAt          DateTime @default(now())
 
-  staff  User[]
-  claims Claim[]
-  consultations Consultation[]
-  prescriptions Prescription[] @relation("PrescriptionProvider")
-  deliveries Delivery[]
-  careRecords CareRecord[]
-  fraudCases FraudCase[]
-  batchInvoices BatchInvoice[]
-  creditNotes CreditNote[]
+  staff           User[]
+  claims          Claim[]
+  consultations   Consultation[]
+  prescriptions   Prescription[]   @relation("PrescriptionProvider")
+  deliveries      Delivery[]
+  careRecords     CareRecord[]
+  fraudCases      FraudCase[]
+  batchInvoices   BatchInvoice[]
+  creditNotes     CreditNote[]
   reconciliations Reconciliation[]
 
   @@index([city])
@@ -488,27 +497,27 @@ model Provider {
 }
 
 model BatchInvoice {
-  id            String   @id @default(cuid())
-  number        String   @unique
+  id            String    @id @default(cuid())
+  number        String    @unique
   providerId    String
-  provider      Provider @relation(fields: [providerId], references: [id])
+  provider      Provider  @relation(fields: [providerId], references: [id])
   periodStart   DateTime
   periodEnd     DateTime
-  status        String   @default("DRAFT")  // DRAFT | SUBMITTED | VALIDATED | PAID | REJECTED | PARTIAL
-  totalAmount   Int      @default(0)
-  totalApproved Int      @default(0)
-  totalRejected Int      @default(0)
+  status        String    @default("DRAFT") // DRAFT | SUBMITTED | VALIDATED | PAID | REJECTED | PARTIAL
+  totalAmount   Int       @default(0)
+  totalApproved Int       @default(0)
+  totalRejected Int       @default(0)
   notes         String?
   submittedAt   DateTime?
   validatedAt   DateTime?
   paidAt        DateTime?
   paymentRef    String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  items         BatchInvoiceItem[]
-  rejections    Rejection[]
-  creditNotes   CreditNote[]
+  items       BatchInvoiceItem[]
+  rejections  Rejection[]
+  creditNotes CreditNote[]
 
   @@index([providerId, status])
   @@index([periodStart, periodEnd])
@@ -528,11 +537,11 @@ model BatchInvoiceItem {
   amountApproved  Int          @default(0)
   amountRejected  Int          @default(0)
   rejectionReason String?
-  status          String       @default("PENDING")  // PENDING | APPROVED | REJECTED | PARTIAL
+  status          String       @default("PENDING") // PENDING | APPROVED | REJECTED | PARTIAL
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  rejections      Rejection[]
+  rejections Rejection[]
 
   @@index([batchInvoiceId])
   @@index([claimId])
@@ -540,21 +549,21 @@ model BatchInvoiceItem {
 }
 
 model Rejection {
-  id               String        @id @default(cuid())
-  code             String        @unique
-  batchInvoiceId   String
-  batchInvoice     BatchInvoice  @relation(fields: [batchInvoiceId], references: [id])
+  id                 String           @id @default(cuid())
+  code               String           @unique
+  batchInvoiceId     String
+  batchInvoice       BatchInvoice     @relation(fields: [batchInvoiceId], references: [id])
   batchInvoiceItemId String
-  batchInvoiceItem BatchInvoiceItem @relation(fields: [batchInvoiceItemId], references: [id])
-  type             String        // MEDICAL | ADMINISTRATIVE | CODING | DUPLICATE | OUT_OF_COVERAGE | OTHER
-  reason           String
-  amount           Int
-  status           String        @default("OPEN")  // OPEN | ACKNOWLEDGED | DISPUTED | RESOLVED
-  disputedAt       DateTime?
-  resolvedAt       DateTime?
-  resolutionNote   String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  batchInvoiceItem   BatchInvoiceItem @relation(fields: [batchInvoiceItemId], references: [id])
+  type               String // MEDICAL | ADMINISTRATIVE | CODING | DUPLICATE | OUT_OF_COVERAGE | OTHER
+  reason             String
+  amount             Int
+  status             String           @default("OPEN") // OPEN | ACKNOWLEDGED | DISPUTED | RESOLVED
+  disputedAt         DateTime?
+  resolvedAt         DateTime?
+  resolutionNote     String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@index([batchInvoiceId])
   @@index([status])
@@ -562,19 +571,19 @@ model Rejection {
 }
 
 model CreditNote {
-  id              String       @id @default(cuid())
-  number          String       @unique
-  providerId      String
-  provider        Provider     @relation(fields: [providerId], references: [id])
-  batchInvoiceId  String?
-  batchInvoice    BatchInvoice? @relation(fields: [batchInvoiceId], references: [id])
-  type            String       // REJECTION | OVERPAYMENT | ADJUSTMENT | DUPLICATE_PAYMENT
-  reason          String
-  amount          Int
-  status          String       @default("DRAFT")  // DRAFT | ISSUED | APPLIED | CANCELLED
-  appliedAt       DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id             String        @id @default(cuid())
+  number         String        @unique
+  providerId     String
+  provider       Provider      @relation(fields: [providerId], references: [id])
+  batchInvoiceId String?
+  batchInvoice   BatchInvoice? @relation(fields: [batchInvoiceId], references: [id])
+  type           String // REJECTION | OVERPAYMENT | ADJUSTMENT | DUPLICATE_PAYMENT
+  reason         String
+  amount         Int
+  status         String        @default("DRAFT") // DRAFT | ISSUED | APPLIED | CANCELLED
+  appliedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([providerId])
   @@index([batchInvoiceId])
@@ -582,19 +591,19 @@ model CreditNote {
 }
 
 model Reconciliation {
-  id              String   @id @default(cuid())
-  providerId      String
-  provider        Provider @relation(fields: [providerId], references: [id])
-  periodStart     DateTime
-  periodEnd       DateTime
-  status          String   @default("PENDING")  // PENDING | MATCHED | DISCREPANCY | RESOLVED
-  expectedAmount  Int
-  paidAmount      Int
-  difference      Int
-  notes           String?
-  matchedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String    @id @default(cuid())
+  providerId     String
+  provider       Provider  @relation(fields: [providerId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  status         String    @default("PENDING") // PENDING | MATCHED | DISCREPANCY | RESOLVED
+  expectedAmount Int
+  paidAmount     Int
+  difference     Int
+  notes          String?
+  matchedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([providerId])
   @@index([status])
@@ -602,20 +611,20 @@ model Reconciliation {
 }
 
 model Act {
-  id             String  @id @default(cuid())
-  code           String  @unique
-  name           String
-  categoryId     String
-  branchId       String?
-  branch         Branch? @relation(fields: [branchId], references: [id])
-  referencePrice Int
-  requiresPrescription Boolean @default(false)
-  requiresPriorAuth    Boolean @default(false)
-  authThreshold  Int?
-  active         Boolean @default(true)
-  sortOrder      Int     @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  code                 String   @unique
+  name                 String
+  categoryId           String
+  branchId             String?
+  branch               Branch?  @relation(fields: [branchId], references: [id])
+  referencePrice       Int
+  requiresPrescription Boolean  @default(false)
+  requiresPriorAuth    Boolean  @default(false)
+  authThreshold        Int?
+  active               Boolean  @default(true)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@index([categoryId])
   @@index([branchId])
@@ -623,17 +632,17 @@ model Act {
 }
 
 model Medication {
-  id             String  @id @default(cuid())
-  code           String  @unique
-  name           String
-  dci            String?
-  dosage         String?
-  form           String?
-  price          Int
-  requiresPrescription Boolean @default(true)
-  active         Boolean @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  code                 String   @unique
+  name                 String
+  dci                  String?
+  dosage               String?
+  form                 String?
+  price                Int
+  requiresPrescription Boolean  @default(true)
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   prescriptionLines PrescriptionLine[]
   deliveryLines     DeliveryLine[]
@@ -642,91 +651,91 @@ model Medication {
 }
 
 model Consultation {
-  id                String   @id @default(cuid())
-  reference         String   @unique
-  patientUserId     String
-  patientUser       User     @relation("ConsultationPatient", fields: [patientUserId], references: [id])
-  beneficiaryId     String?
-  providerId        String
-  provider          Provider @relation(fields: [providerId], references: [id])
+  id                 String   @id @default(cuid())
+  reference          String   @unique
+  patientUserId      String
+  patientUser        User     @relation("ConsultationPatient", fields: [patientUserId], references: [id])
+  beneficiaryId      String?
+  providerId         String
+  provider           Provider @relation(fields: [providerId], references: [id])
   practitionerUserId String?
-  practitionerName  String
-  specialty         String?
+  practitionerName   String
+  specialty          String?
   // Champs médicaux : UNIQUEMENT chiffrés (AES-256-GCM) — pas de doublon en clair
-  motifEnc          String?
-  diagnosticEnc     String?
-  careDate          DateTime @default(now())
-  claimId           String? @unique
-  claim             Claim?   @relation("ConsultationClaim", fields: [claimId], references: [id])
-  createdAt         DateTime @default(now())
+  motifEnc           String?
+  diagnosticEnc      String?
+  careDate           DateTime @default(now())
+  claimId            String?  @unique
+  claim              Claim?   @relation("ConsultationClaim", fields: [claimId], references: [id])
+  createdAt          DateTime @default(now())
 
-  prescriptions     Prescription[]
-  careRecord        CareRecord?
+  prescriptions Prescription[]
+  careRecord    CareRecord?
 
   @@index([patientUserId])
   @@index([providerId])
 }
 
 model Prescription {
-  id                String   @id @default(cuid())
-  number            String   @unique
-  qrToken           String   @unique
-  status            String   @default("ACTIVE")
-  patientUserId     String
-  patientUser       User     @relation("PrescriptionPatient", fields: [patientUserId], references: [id])
-  beneficiaryId     String?
-  consultationId    String?
-  consultation      Consultation? @relation(fields: [consultationId], references: [id])
-  providerId        String
-  provider          Provider @relation("PrescriptionProvider", fields: [providerId], references: [id])
-  prescriberUserId  String
-  prescriberUser    User     @relation("PrescriptionPrescriber", fields: [prescriberUserId], references: [id])
-  prescriberName    String
-  specialty         String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  validFrom         DateTime @default(now())
-  validUntil        DateTime
-  renewalsAllowed   Int      @default(0)
-  renewalsUsed      Int      @default(0)
+  id               String             @id @default(cuid())
+  number           String             @unique
+  qrToken          String             @unique
+  status           String             @default("ACTIVE")
+  patientUserId    String
+  patientUser      User               @relation("PrescriptionPatient", fields: [patientUserId], references: [id])
+  beneficiaryId    String?
+  consultationId   String?
+  consultation     Consultation?      @relation(fields: [consultationId], references: [id])
+  providerId       String
+  provider         Provider           @relation("PrescriptionProvider", fields: [providerId], references: [id])
+  prescriberUserId String
+  prescriberUser   User               @relation("PrescriptionPrescriber", fields: [prescriberUserId], references: [id])
+  prescriberName   String
+  specialty        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  validFrom        DateTime           @default(now())
+  validUntil       DateTime
+  renewalsAllowed  Int                @default(0)
+  renewalsUsed     Int                @default(0)
   // Note médicale : UNIQUEMENT chiffrée (AES-256-GCM) — pas de doublon en clair
-  noteEnc           String?
-  claims            Claim[]  @relation("ClaimPrescription")
-  careRecord        CareRecord?
-  lines             PrescriptionLine[]
-  deliveries        Delivery[]
+  noteEnc          String?
+  claims           Claim[]            @relation("ClaimPrescription")
+  careRecord       CareRecord?
+  lines            PrescriptionLine[]
+  deliveries       Delivery[]
 
   @@index([patientUserId])
   @@index([status])
 }
 
 model Distributor {
-  id              String    @id @default(cuid())
-  userId          String    @unique
-  user            User      @relation("DistributorUser", fields: [userId], references: [id])
+  id                  String        @id @default(cuid())
+  userId              String        @unique
+  user                User          @relation("DistributorUser", fields: [userId], references: [id])
   parentDistributorId String?
-  parentDistributor Distributor? @relation("DistributorHierarchy", fields: [parentDistributorId], references: [id])
-  children        Distributor[] @relation("DistributorHierarchy")
+  parentDistributor   Distributor?  @relation("DistributorHierarchy", fields: [parentDistributorId], references: [id])
+  children            Distributor[] @relation("DistributorHierarchy")
 
-  level           String    @default("AMBASSADOR")  // AMBASSADOR | COMMERCIAL | DISTRIBUTOR | INSTITUTIONAL
-  territory       String?
-  referralCode    String    @unique
-  status          String    @default("PENDING")     // PENDING | ACTIVE | SUSPENDED
+  level        String  @default("AMBASSADOR") // AMBASSADOR | COMMERCIAL | DISTRIBUTOR | INSTITUTIONAL
+  territory    String?
+  referralCode String  @unique
+  status       String  @default("PENDING") // PENDING | ACTIVE | SUSPENDED
 
-  commissionRate  Int       @default(10)            // % sur nouvelles souscriptions
-  renewalRate     Int       @default(3)             // % sur renouvellements
-  overrideRate    Int       @default(0)             // % override sur équipe
+  commissionRate Int @default(10) // % sur nouvelles souscriptions
+  renewalRate    Int @default(3) // % sur renouvellements
+  overrideRate   Int @default(0) // % override sur équipe
 
-  totalRecruited  Int       @default(0)
+  totalRecruited        Int @default(0)
   totalPremiumGenerated Int @default(0)
 
-  referredUsers   User[]    @relation("ReferredUsers")
-  contracts       Contract[]
-  commissions     Commission[]
+  referredUsers      User[]             @relation("ReferredUsers")
+  contracts          Contract[]
+  commissions        Commission[]
   performanceBonuses PerformanceBonus[]
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([referralCode])
   @@index([level])
@@ -734,26 +743,26 @@ model Distributor {
 }
 
 model Commission {
-  id              String    @id @default(cuid())
-  distributorId   String
-  distributor     Distributor @relation(fields: [distributorId], references: [id])
-  contractId      String?
-  contract        Contract?  @relation(fields: [contractId], references: [id])
+  id            String      @id @default(cuid())
+  distributorId String
+  distributor   Distributor @relation(fields: [distributorId], references: [id])
+  contractId    String?
+  contract      Contract?   @relation(fields: [contractId], references: [id])
 
-  type            String                      // NEW_BUSINESS | RENEWAL | OVERRIDE | BONUS
-  status          String    @default("PENDING")  // PENDING | APPROVED | PAID | REJECTED
+  type   String // NEW_BUSINESS | RENEWAL | OVERRIDE | BONUS
+  status String @default("PENDING") // PENDING | APPROVED | PAID | REJECTED
 
-  baseAmount      Int                          // Montant de base de la prime
-  rate            Int                          // Taux de commission en %
-  amount          Int                          // Montant de la commission calculée
+  baseAmount Int // Montant de base de la prime
+  rate       Int // Taux de commission en %
+  amount     Int // Montant de la commission calculée
 
-  period          String?                      // "2026-01" pour les renouvellements
-  paidAt          DateTime?
-  paymentRef      String?
-  note            String?
+  period     String? // "2026-01" pour les renouvellements
+  paidAt     DateTime?
+  paymentRef String?
+  note       String?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([distributorId, status])
   @@index([type, status])
@@ -761,29 +770,29 @@ model Commission {
 }
 
 model PerformanceBonus {
-  id              String    @id @default(cuid())
-  distributorId   String
-  distributor     Distributor @relation(fields: [distributorId], references: [id])
+  id            String      @id @default(cuid())
+  distributorId String
+  distributor   Distributor @relation(fields: [distributorId], references: [id])
 
-  period          String                      // "2026-01" or "2026-Q1"
-  metric          String                      // NEW_SIGNUPS | RETENTION | ZERO_FRAUD
-  target          Int
-  bonusAmount     Int
+  period      String // "2026-01" or "2026-Q1"
+  metric      String // NEW_SIGNUPS | RETENTION | ZERO_FRAUD
+  target      Int
+  bonusAmount Int
 
-  status          String    @default("PENDING")
-  paidAt          DateTime?
+  status String    @default("PENDING")
+  paidAt DateTime?
 
-  createdAt       DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([distributorId, period])
 }
 
 model PrescriptionLine {
-  id             String  @id @default(cuid())
+  id             String       @id @default(cuid())
   prescriptionId String
   prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   medicationId   String?
-  medication     Medication? @relation(fields: [medicationId], references: [id])
+  medication     Medication?  @relation(fields: [medicationId], references: [id])
   actId          String?
   code           String
   name           String
@@ -793,53 +802,53 @@ model PrescriptionLine {
   posology       String?
   duration       String?
   instructions   String?
-  deliveredQty   Int     @default(0)
+  deliveredQty   Int          @default(0)
 
-  deliveryLines  DeliveryLine[]
+  deliveryLines DeliveryLine[]
 
   @@index([prescriptionId])
 }
 
 model Delivery {
-  id             String   @id @default(cuid())
-  reference      String   @unique
+  id             String        @id @default(cuid())
+  reference      String        @unique
   prescriptionId String?
   prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
   providerId     String
-  provider       Provider @relation(fields: [providerId], references: [id])
+  provider       Provider      @relation(fields: [providerId], references: [id])
   userId         String
-  user           User     @relation("DeliveryUser", fields: [userId], references: [id])
+  user           User          @relation("DeliveryUser", fields: [userId], references: [id])
   patientUserId  String
-  patientUser    User     @relation("DeliveryPatient", fields: [patientUserId], references: [id])
+  patientUser    User          @relation("DeliveryPatient", fields: [patientUserId], references: [id])
   beneficiaryId  String?
   totalAmount    Int
   coveredAmount  Int
   patientAmount  Int
-  claimId        String?  @unique
-  claim          Claim?   @relation("DeliveryClaim", fields: [claimId], references: [id])
+  claimId        String?       @unique
+  claim          Claim?        @relation("DeliveryClaim", fields: [claimId], references: [id])
   careRecord     CareRecord?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
 
-  lines          DeliveryLine[]
+  lines DeliveryLine[]
 
   @@index([prescriptionId])
   @@index([providerId])
 }
 
 model DeliveryLine {
-  id             String  @id @default(cuid())
-  deliveryId     String
-  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
-  lineId         String?
-  line           PrescriptionLine? @relation(fields: [lineId], references: [id])
-  medicationId   String?
-  medication     Medication? @relation(fields: [medicationId], references: [id])
-  code           String
-  name           String
-  categoryId     String
-  quantity       Int
-  unitPrice      Int
-  amount         Int
+  id               String            @id @default(cuid())
+  deliveryId       String
+  delivery         Delivery          @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  lineId           String?
+  line             PrescriptionLine? @relation(fields: [lineId], references: [id])
+  medicationId     String?
+  medication       Medication?       @relation(fields: [medicationId], references: [id])
+  code             String
+  name             String
+  categoryId       String
+  quantity         Int
+  unitPrice        Int
+  amount           Int
   substitutionNote String?
 }
 
@@ -857,6 +866,71 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([topic])
+}
+
+// ── Modèles financiers versionnés (V1 legacy gelé / V2 mutualiste cible) ──
+// V1 est ARCHIVÉ et READ ONLY : aucune règle ni écriture historique ne change.
+// Une seule version peut être ACTIVE à un instant donné pour les nouveaux contrats.
+model FinancialModelVersion {
+  id            String    @id @default(cuid())
+  code          String    @unique // V1_LEGACY | V2_MUTUAL
+  label         String
+  status        String    @default("DRAFT") // DRAFT | ACTIVE | ARCHIVED | SUSPENDED
+  engineVersion String    @default("V1") // moteur CTS déterminé par le modèle du contrat : V1 | V2
+  activatedAt   DateTime?
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  contracts      Contract[]
+  migrationsFrom FinancialModelMigration[] @relation("FromVersion")
+  migrationsTo   FinancialModelMigration[] @relation("ToVersion")
+}
+
+// Migration contrôlée d'un contrat d'un modèle vers un autre :
+// ANALYSIS → PREVIEW → VALIDATION → SNAPSHOT → MIGRATION → VERIFICATION → CERTIFICATION.
+// Volontaire, traçable (audit log), certifiée avant effet définitif.
+model FinancialModelMigration {
+  id            String                @id @default(cuid())
+  contractId    String
+  contract      Contract              @relation(fields: [contractId], references: [id])
+  fromVersionId String
+  fromVersion   FinancialModelVersion @relation("FromVersion", fields: [fromVersionId], references: [id])
+  toVersionId   String
+  toVersion     FinancialModelVersion @relation("ToVersion", fields: [toVersionId], references: [id])
+  status        String                @default("ANALYSIS")
+  analysis      String? // JSON : données collectées, différences de règles
+  snapshot      String? // JSON : état complet du contrat avant migration (écritures, contributions, sinistres, CTS)
+  verification  String? // JSON : contrôles post-migration vs snapshot
+  createdBy     String?
+  certifiedAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([contractId])
+  @@index([status])
+}
+
+// Historisation hebdomadaire de la marge de solvabilité du portefeuille V2 :
+// un point par semaine ISO (clé unique), écrit par le job d'alerte même sans
+// breach. Le graphique admin survit ainsi aux reconstructions de données et
+// remonte sur plusieurs années — les flux recalculés à la volée ne couvrent
+// que la fenêtre récente.
+model V2SolvencySnapshot {
+  id             String   @id @default(cuid())
+  weekKey        String   @unique // 2026-S39 (semaine ISO, clé de dédup)
+  weekStart      DateTime // lundi de la semaine (UTC)
+  solvencyRatio  Float // marge (position + solidarité) / engagements ; 1 si aucun engagement
+  threshold      Float // seuil d'alerte en vigueur cette semaine-là
+  breach         Boolean  @default(false) // marge sous le seuil cette semaine-là
+  contractsCount Int      @default(0)
+  contributions  Int      @default(0) // flux cumulés au moment du point
+  engagedClaims  Int      @default(0)
+  paidClaims     Int      @default(0)
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([weekStart])
 }
 
 model AuditLog {
@@ -889,14 +963,14 @@ model SystemConfig {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  expiresAt DateTime
-  revokedAt DateTime?
+  id         String    @id @default(cuid())
+  token      String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  expiresAt  DateTime
+  revokedAt  DateTime?
   replacedBy String?
-  createdAt DateTime   @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([userId])
   @@index([token])
@@ -904,28 +978,28 @@ model RefreshToken {
 }
 
 model CareRecord {
-  id             String   @id @default(cuid())
-  reference      String   @unique
+  id             String        @id @default(cuid())
+  reference      String        @unique
   patientUserId  String
-  patientUser    User     @relation("CareRecordPatient", fields: [patientUserId], references: [id])
+  patientUser    User          @relation("CareRecordPatient", fields: [patientUserId], references: [id])
   beneficiaryId  String?
-  beneficiary    Beneficiary? @relation(fields: [beneficiaryId], references: [id])
+  beneficiary    Beneficiary?  @relation(fields: [beneficiaryId], references: [id])
   providerId     String?
-  provider       Provider? @relation(fields: [providerId], references: [id])
-  consultationId String?  @unique
+  provider       Provider?     @relation(fields: [providerId], references: [id])
+  consultationId String?       @unique
   consultation   Consultation? @relation(fields: [consultationId], references: [id])
-  prescriptionId String?  @unique
+  prescriptionId String?       @unique
   prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
-  deliveryId     String?  @unique
-  delivery       Delivery? @relation(fields: [deliveryId], references: [id])
-  claimId        String?  @unique
-  claim          Claim?   @relation(fields: [claimId], references: [id])
-  status         String   @default("OPEN")
-  type           String   @default("GENERAL")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  deliveryId     String?       @unique
+  delivery       Delivery?     @relation(fields: [deliveryId], references: [id])
+  claimId        String?       @unique
+  claim          Claim?        @relation(fields: [claimId], references: [id])
+  status         String        @default("OPEN")
+  type           String        @default("GENERAL")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  events         CareRecordEvent[]
+  events CareRecordEvent[]
 
   @@index([patientUserId])
   @@index([providerId])
@@ -949,93 +1023,98 @@ model CareRecordEvent {
 
 // ── Comptabilité technique OHADA ──
 model Account {
-  id        String  @id @default(cuid())
-  code      String  @unique
+  id        String            @id @default(cuid())
+  code      String            @unique
   name      String
   type      String
-  active    Boolean @default(true)
-  sortOrder Int     @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  active    Boolean           @default(true)
+  sortOrder Int               @default(0)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
   entries   AccountingEntry[]
 }
 
 model Journal {
-  id        String  @id @default(cuid())
-  code      String  @unique
+  id        String            @id @default(cuid())
+  code      String            @unique
   name      String
-  createdAt DateTime @default(now())
+  createdAt DateTime          @default(now())
   entries   AccountingEntry[]
 }
 
 model AccountingEntry {
-  id            String   @id @default(cuid())
-  journalId     String
-  journal       Journal  @relation(fields: [journalId], references: [id])
-  accountId     String
-  account       Account  @relation(fields: [accountId], references: [id])
-  date          DateTime @default(now())
-  label         String
-  debit         Int      @default(0)
-  credit        Int      @default(0)
-  referenceType String?
-  referenceId   String?
-  period        String?
-  createdAt     DateTime @default(now())
+  id                    String   @id @default(cuid())
+  journalId             String
+  journal               Journal  @relation(fields: [journalId], references: [id])
+  accountId             String
+  account               Account  @relation(fields: [accountId], references: [id])
+  date                  DateTime @default(now())
+  label                 String
+  debit                 Int      @default(0)
+  credit                Int      @default(0)
+  referenceType         String?
+  referenceId           String?
+  period                String?
+  // Version du modèle financier à l'origine de l'écriture (V1_LEGACY |
+  // V2_MUTUAL). Les écritures historiques V1 restent sans valeur : le passé
+  // n'est jamais réécrit ni recalculé.
+  financialModelVersion String?
+  createdAt             DateTime @default(now())
 
   @@index([journalId])
   @@index([accountId])
   @@index([date])
   @@index([referenceType, referenceId])
   @@index([period])
+  @@index([financialModelVersion])
 }
 
 // ── Référentiels Branchen / Maladies / Panier ──
 model Branch {
-  id          String  @id @default(cuid())
-  code        String  @unique
+  id          String    @id @default(cuid())
+  code        String    @unique
   name        String
   description String?
-  active      Boolean @default(true)
-  sortOrder   Int     @default(0)
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
   products    Product[]
   acts        Act[]
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 }
 
 model Disease {
-  id        String  @id @default(cuid())
-  code      String  @unique // CIM-10
+  id        String   @id @default(cuid())
+  code      String   @unique // CIM-10
   name      String
   category  String?
-  active    Boolean @default(true)
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   claims    Claim[]
 }
 
 // ── COMPTE TECHNIQUE SANTÉ (CTS) — pilotage par contrat ──
 model TechnicalAccount {
-  id              String   @id @default(cuid())
-  contractId      String   @unique
-  contract        Contract @relation(fields: [contractId], references: [id])
-  primeSubscribed Int      @default(0)
-  primeBilled     Int      @default(0)
-  primeCollected  Int      @default(0)
-  primeUnpaid     Int      @default(0)
-  managementFees  Int      @default(0)
-  benefitBudget   Int      @default(0)
+  id                String   @id @default(cuid())
+  contractId        String   @unique
+  contract          Contract @relation(fields: [contractId], references: [id])
+  primeSubscribed   Int      @default(0)
+  primeBilled       Int      @default(0)
+  primeCollected    Int      @default(0)
+  primeUnpaid       Int      @default(0)
+  managementFees    Int      @default(0)
+  benefitBudget     Int      @default(0)
   // Boost de budget issu d'un crédit de renouvellement (mode BUDGET_BOOST)
-  budgetBoost     Int      @default(0)
-  consumed        Int      @default(0)
-  committed       Int      @default(0)
-  available       Int      @default(0)
-  consumptionRatio Float   @default(0)
-  provisionalResult Int    @default(0)
-  fundCallsTotal  Int      @default(0)
-  renewalCredit   Int      @default(0)
-  deficit         Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  budgetBoost       Int      @default(0)
+  consumed          Int      @default(0)
+  committed         Int      @default(0)
+  available         Int      @default(0)
+  consumptionRatio  Float    @default(0)
+  provisionalResult Int      @default(0)
+  fundCallsTotal    Int      @default(0)
+  renewalCredit     Int      @default(0)
+  deficit           Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // Journal CTS immuable : jamais d'update/delete, uniquement des
@@ -1064,38 +1143,38 @@ model CtsJournal {
 }
 
 model FundCall {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   contractId    String
-  contract      Contract @relation(fields: [contractId], references: [id])
+  contract      Contract  @relation(fields: [contractId], references: [id])
   targetAmount  Int
-  minimum       Int      @default(0)
-  recommended   Int      @default(0)
-  chosenAmount  Int      @default(0)
+  minimum       Int       @default(0)
+  recommended   Int       @default(0)
+  chosenAmount  Int       @default(0)
   // DRAFT | SENT | PAID | CANCELLED
-  status        String   @default("DRAFT")
+  status        String    @default("DRAFT")
   dueDate       DateTime?
   invoiceNumber String?
   paymentId     String?
   paidAt        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([contractId])
   @@index([status])
 }
 
 model CtsAlert {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   contractId String
-  contract   Contract @relation(fields: [contractId], references: [id])
+  contract   Contract  @relation(fields: [contractId], references: [id])
   // CONSOMMATION | CONSOMMATION_ELEVEE | SEUIL | CRITIQUE | EPUISEMENT |
   // APPEL_FONDS | RENOUVELLEMENT | ANOMALIE | FACTURE | PAIEMENT
   type       String
-  severity   String   @default("INFO")
+  severity   String    @default("INFO")
   // OPEN | ACKED | RESOLVED
-  status     String   @default("OPEN")
-  payload    String   @default("{}")
-  createdAt  DateTime @default(now())
+  status     String    @default("OPEN")
+  payload    String    @default("{}")
+  createdAt  DateTime  @default(now())
   resolvedAt DateTime?
 
   @@index([contractId])
@@ -1103,23 +1182,23 @@ model CtsAlert {
 }
 
 model ContractClosure {
-  id            String   @id @default(cuid())
-  contractId    String   @unique
-  contract      Contract @relation(fields: [contractId], references: [id])
-  finalConsumed Int      @default(0)
-  finalCommitted Int     @default(0)
-  surplus       Int      @default(0)
-  carryRate     Int      @default(70)
+  id                     String    @id @default(cuid())
+  contractId             String    @unique
+  contract               Contract  @relation(fields: [contractId], references: [id])
+  finalConsumed          Int       @default(0)
+  finalCommitted         Int       @default(0)
+  surplus                Int       @default(0)
+  carryRate              Int       @default(70)
   // Part de l'excédent versée au Fonds de solidarité (0-1) et montant correspondant.
-  solidarityShare Float   @default(0)
-  solidarityContribution Int @default(0)
-  renewalCredit Int      @default(0)
+  solidarityShare        Float     @default(0)
+  solidarityContribution Int       @default(0)
+  renewalCredit          Int       @default(0)
   // DEDUCT | BUDGET_BOOST
-  mode          String   @default("DEDUCT")
+  mode                   String    @default("DEDUCT")
   // DRAFT | CONFIRMED
-  status        String   @default("DRAFT")
-  closedAt      DateTime?
-  createdAt     DateTime @default(now())
+  status                 String    @default("DRAFT")
+  closedAt               DateTime?
+  createdAt              DateTime  @default(now())
 
   @@index([status])
 }
@@ -1128,18 +1207,18 @@ model ContractClosure {
 // fonds, qui couvre les déficits des contrats en difficulté. Journal
 // immuable par mouvements (jamais d'update/delete).
 model SolidarityMovement {
-  id         String   @id @default(cuid())
+  id          String    @id @default(cuid())
   // CONTRIBUTION | COVERAGE | ADJUSTMENT
-  kind       String
-  amount     Int
-  contractId String?
-  contract   Contract? @relation(fields: [contractId], references: [id])
+  kind        String
+  amount      Int
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id])
   // Modèle de gestion du contrat à l'origine du mouvement (dénormalisé pour le pilotage par mode)
-  riskModel  String?
-  reference  String?
-  meta       String   @default("{}")
+  riskModel   String?
+  reference   String?
+  meta        String    @default("{}")
   actorUserId String?
-  createdAt  DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([kind])
   @@index([contractId])
@@ -1157,8 +1236,8 @@ model FraudCase {
   status         String    @default("OPEN")
   linkedAuditIds String    @default("[]")
   note           String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([status])
 }

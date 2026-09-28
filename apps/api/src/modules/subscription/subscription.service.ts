@@ -4,6 +4,7 @@ import { computeQuote, computeFlexibleQuote, buildSchedule, Frequency, QuotePers
 import { ref, memberNumber, secureToken, startOfDay } from '../../common/utils';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { CtsService } from '../cts/cts.service';
+import { FinancialModelService, V1_LEGACY_ID } from '../financial-model/financial-model.service';
 import { BirthCertificateService } from './birth-certificate.service';
 import { contractActivatedEmail, smsTemplates } from '../../common/notifications/email-templates';
 
@@ -35,7 +36,23 @@ export class SubscriptionService {
     private dispatch: NotificationDispatchService,
     private birthCertificates: BirthCertificateService,
     @Optional() private cts?: CtsService,
+    @Optional() private financialModels?: FinancialModelService,
   ) {}
+
+  /**
+   * Version du modèle financier pour un NOUVEAU contrat : la version ACTIVE
+   * du moment (V2_MUTUAL par défaut). Non bloquant : en cas d'indisponibilité
+   * du service de versionnement, rattachement explicite V1_LEGACY — jamais
+   * de conversion silencieuse ni de réécriture a posteriori.
+   */
+  private async resolveFinancialModel(): Promise<{ financialModelVersionId: string; engineVersion: string }> {
+    try {
+      const version = await this.financialModels?.resolveVersionForNewContract();
+      return { financialModelVersionId: version?.id ?? V1_LEGACY_ID, engineVersion: version?.engineVersion ?? 'V1' };
+    } catch {
+      return { financialModelVersionId: V1_LEGACY_ID, engineVersion: 'V1' };
+    }
+  }
 
   private async adhesionConfig(): Promise<{ perPerson: number; enterpriseCap: number }> {
     try {
@@ -277,6 +294,7 @@ export class SubscriptionService {
 
     const { perPerson } = await this.adhesionConfig();
     const adhesionFee = (1 + beneficiaries.length) * perPerson;
+    const financialModel = await this.resolveFinancialModel();
 
     const contract = await this.prisma.$transaction(async tx => {
       const created = await tx.contract.create({
@@ -291,6 +309,7 @@ export class SubscriptionService {
           frequency,
           riskModel,
           riskModelSince: new Date(),
+          financialModelVersionId: financialModel.financialModelVersionId,
           quote: JSON.stringify({ ...quote, adhesionFee, adhesionPerPerson: perPerson }),
           cardToken: secureToken(16),
           distributorId: distributor?.id ?? null,
@@ -316,11 +335,15 @@ export class SubscriptionService {
       return created;
     });
 
-    // CTS : prime souscrite + facturée (non bloquant, idempotent)
-    try {
-      await this.cts?.recordPrimeSubscribed(contract.id, quote.totalAnnual, { actorUserId: userId });
-      await this.cts?.recordPrimeBilled(contract.id, { actorUserId: userId });
-    } catch {}
+    // CTS V1 : prime souscrite + facturée (non bloquant, idempotent).
+    // Réservée aux contrats V1 — un contrat V2 n'écrit JAMAIS dans le
+    // journal V1 (coexistence étanche, cf. docs/financial-model-versioning.md).
+    if (financialModel.engineVersion === 'V1') {
+      try {
+        await this.cts?.recordPrimeSubscribed(contract.id, quote.totalAnnual, { actorUserId: userId });
+        await this.cts?.recordPrimeBilled(contract.id, { actorUserId: userId });
+      } catch {}
+    }
 
     // Auto-generate NEW_BUSINESS commission for distributor
     if (distributor && distributor.status === 'ACTIVE') {
@@ -422,6 +445,7 @@ export class SubscriptionService {
 
     const today = startOfDay(new Date());
     const schedule = buildSchedule(total, frequency, today);
+    const financialModel = await this.resolveFinancialModel();
 
     const contract = await this.prisma.$transaction(async tx => {
       const created = await tx.contract.create({
@@ -435,6 +459,7 @@ export class SubscriptionService {
           insurerPartnerId: product.insurerPartnerId,
           premiumAnnual: total,
           frequency,
+          financialModelVersionId: financialModel.financialModelVersionId,
           quote: JSON.stringify({ ...quote, employeesCount, adhesionFee, adhesionPerPerson: perPerson, adhesionCap: enterpriseCap }),
           cardToken: secureToken(16),
           adhesionFee,
@@ -446,11 +471,14 @@ export class SubscriptionService {
       return created;
     });
 
-    // CTS : prime souscrite + facturée (non bloquant, idempotent)
-    try {
-      await this.cts?.recordPrimeSubscribed(contract.id, total, { actorUserId: admin.id });
-      await this.cts?.recordPrimeBilled(contract.id, { actorUserId: admin.id });
-    } catch {}
+    // CTS V1 : réservée aux contrats V1 — les contrats V2 n'écrivent jamais
+    // dans le journal V1 (coexistence étanche).
+    if (financialModel.engineVersion === 'V1') {
+      try {
+        await this.cts?.recordPrimeSubscribed(contract.id, total, { actorUserId: admin.id });
+        await this.cts?.recordPrimeBilled(contract.id, { actorUserId: admin.id });
+      } catch {}
+    }
 
     return { contractId: contract.id, number: contract.number, quote: { ...quote, adhesionFee, adhesionPerPerson: perPerson, adhesionCap: enterpriseCap }, contributions: schedule, firstPayment: { ...schedule[0], adhesionFee, totalFirstPayment: schedule[0].amount + adhesionFee }, adhesion: { perPerson, personsCount: employeesCount, adhesionFee, enterpriseCap } };
   }

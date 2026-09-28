@@ -31,6 +31,7 @@ import { FraudModule } from './modules/fraud/fraud.controller';
 import { AnalyticsModule } from './modules/analytics/analytics.controller';
 import { BatchBillingModule } from './modules/billing/batch-billing.controller';
 import { CtsModule } from './modules/cts/cts.service';
+import { FinancialModelModule } from './modules/financial-model/financial-model.controller';
 import { ReferentialModule } from './modules/referential/referential.controller';
 import { HospitalModule } from './modules/hospital/hospital.controller';
 import { CronService } from './jobs/cron.service';
@@ -41,6 +42,7 @@ import { CommissionFraudJob } from './jobs/commission-fraud.job';
 import { PaymentReminderJob } from './jobs/payment-reminder.job';
 import { PaymentReconciliationJob } from './jobs/payment-reconciliation.job';
 import { CareDossierWatchJob } from './jobs/care-dossier-watch.job';
+import { V2SolvencyAlertJob } from './jobs/v2-solvency-alert.job';
 
 @Module({
   imports: [
@@ -74,6 +76,7 @@ import { CareDossierWatchJob } from './jobs/care-dossier-watch.job';
     ReferentialModule,
     HospitalModule,
     CtsModule,
+    FinancialModelModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
@@ -86,6 +89,7 @@ import { CareDossierWatchJob } from './jobs/care-dossier-watch.job';
     PaymentReminderJob,
     PaymentReconciliationJob,
     CareDossierWatchJob,
+    V2SolvencyAlertJob,
     CronService,
   ],
 })

@@ -53,6 +53,8 @@ const AdminBilling = lazy(() => import('./pages/admin/AdminBilling'));
 const AdminBranches = lazy(() => import('./pages/admin/AdminBranches'));
 const AdminDiseases = lazy(() => import('./pages/admin/AdminDiseases'));
 const AdminCts = lazy(() => import('./pages/admin/AdminCts'));
+const AdminFinancialModels = lazy(() => import('./pages/admin/AdminFinancialModels'));
+const AdminPositionV2 = lazy(() => import('./pages/admin/AdminPositionV2'));
 const AdminFraud = lazy(() => import('./pages/admin/AdminFraud'));
 const AdminFraudDetail = lazy(() => import('./pages/admin/AdminFraudDetail'));
 const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'));
@@ -171,6 +173,8 @@ export default function App() {
         <Route path="analytics" element={<Lazy><AdminAnalytics /></Lazy>} />
         <Route path="billing" element={<Lazy><AdminBilling /></Lazy>} />
         <Route path="cts" element={<Lazy><AdminCts /></Lazy>} />
+        <Route path="financial-models" element={<Lazy><AdminFinancialModels /></Lazy>} />
+        <Route path="position-v2" element={<Lazy><AdminPositionV2 /></Lazy>} />
         <Route path="fraud" element={<Lazy><AdminFraud /></Lazy>} />
         <Route path="fraud/:id" element={<Lazy><AdminFraudDetail /></Lazy>} />
         <Route path="claims-workflow" element={<Lazy><AdminClaimsWorkflow /></Lazy>} />

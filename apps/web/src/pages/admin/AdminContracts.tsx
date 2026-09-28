@@ -110,7 +110,7 @@ export default function AdminContracts() {
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[820px]">
-            <thead><tr><th className="th">Contrat</th><th className="th">Assuré / Entreprise</th><th className="th">Produit</th><th className="th">Validité</th><th className="th">Cotisation</th><th className="th">Statut</th><th className="th"></th></tr></thead>
+            <thead><tr><th className="th">Contrat</th><th className="th">Assuré / Entreprise</th><th className="th">Produit</th><th className="th">Modèle</th><th className="th">Validité</th><th className="th">Cotisation</th><th className="th">Statut</th><th className="th"></th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {data.items.map((c: any) => (
                 <tr key={c.id}>
@@ -120,6 +120,23 @@ export default function AdminContracts() {
                     {c.company && <span className="block text-xs text-slate-400">{c.company.name}</span>}
                   </td>
                   <td className="td text-xs">{c.product.name}</td>
+                  <td className="td whitespace-nowrap">
+                    {c.financialModelVersion ? (
+                      <span
+                        className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                          c.financialModelVersion.code === 'V2_MUTUAL'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}
+                        title={c.financialModelVersion.label}
+                      >
+                        {c.financialModelVersion.code === 'V2_MUTUAL' ? 'V2 — Mutualiste' : 'V1 — Legacy'}
+                        {c.financialModelVersion.status === 'ARCHIVED' && <span className="ml-1 font-normal">· archivé</span>}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
                   <td className="td text-xs whitespace-nowrap">{fmtDate(c.startDate)} → {fmtDate(c.endDate)}</td>
                   <td className="td text-xs">{fcfa(c.premiumAnnual)}</td>
                   <td className="td"><StatusBadge status={c.status} /></td>

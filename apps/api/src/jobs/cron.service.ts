@@ -10,6 +10,7 @@ import { CommissionFraudJob } from './commission-fraud.job';
 import { PaymentReminderJob } from './payment-reminder.job';
 import { PaymentReconciliationJob } from './payment-reconciliation.job';
 import { CareDossierWatchJob } from './care-dossier-watch.job';
+import { V2SolvencyAlertJob } from './v2-solvency-alert.job';
 
 @Injectable()
 export class CronService implements OnApplicationBootstrap {
@@ -23,6 +24,7 @@ export class CronService implements OnApplicationBootstrap {
     private paymentReminderJob?: PaymentReminderJob,
     private paymentReconciliationJob?: PaymentReconciliationJob,
     private careDossierWatchJob?: CareDossierWatchJob,
+    private v2SolvencyAlertJob?: V2SolvencyAlertJob,
   ) {}
 
   onApplicationBootstrap() {
@@ -37,6 +39,9 @@ export class CronService implements OnApplicationBootstrap {
     // Réconciliation PSP : toutes les 10 min, filet de sécurité si un webhook
     // n'arrive jamais (P0 ③) — le statut est toujours re-vérifié chez le PSP.
     cron.schedule('*/10 * * * *', () => void this.reconcilePayments().catch((e) => console.error('[cron] paymentReconciliation error', e)));
+    // Solvabilité V2 : hebdomadaire (lundi 07:00) — le job porte sa propre
+    // dédup hebdomadaire et son seuil configurable (v2SolvencyAlert.*).
+    cron.schedule('0 7 * * 1', () => void this.checkV2Solvency().catch((e) => console.error('[cron] v2Solvency error', e)));
     // also delegate to dedicated job if injected
     if (this.renewalAlertJob) {
       // already scheduled above; also ensure job's own schedule is not double
@@ -88,6 +93,14 @@ export class CronService implements OnApplicationBootstrap {
       return this.careDossierWatchJob.run(now);
     }
     return { drifted: 0, notified: 0 };
+  }
+
+  /** Alerte hebdomadaire de solvabilité V2 (moteur cts-v2, seuil SystemConfig). */
+  async checkV2Solvency(now = new Date()) {
+    if (this.v2SolvencyAlertJob) {
+      return this.v2SolvencyAlertJob.run(now);
+    }
+    return { enabled: true, threshold: 1, solvencyRatio: null, breach: false, notified: false, contractsCount: 0 };
   }
 
   async reconcilePayments(now = new Date()) {

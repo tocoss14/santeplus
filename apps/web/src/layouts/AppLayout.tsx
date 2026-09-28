@@ -47,6 +47,8 @@ const MENUS: Record<string, { items: Item[] }> = {
       { to: '/admin/analytics', label: 'Analytique', icon: '📈' },
       { to: '/admin/billing', label: 'Facturation', icon: '🧾' },
       { to: '/admin/cts', label: 'Comptes techniques', icon: '📉' },
+      { to: '/admin/financial-models', label: 'Modèles financiers', icon: '🔁' },
+      { to: '/admin/position-v2', label: 'Position technique V2', icon: '🧮' },
       { to: '/admin/fraud', label: 'Fraude', icon: '🕵️' },
       { to: '/admin/audit', label: 'Audit', icon: '📜' },
       { to: '/admin/claims-workflow', label: 'Instruction dossiers', icon: '📋' },

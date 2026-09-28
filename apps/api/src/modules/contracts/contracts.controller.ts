@@ -253,6 +253,7 @@ export class ContractsController {
           principalUser: { select: { firstName: true, lastName: true, memberNumber: true } },
           product: { select: { name: true, code: true } },
           company: { select: { name: true } },
+          financialModelVersion: { select: { code: true, label: true, status: true } },
           _count: { select: { beneficiaries: true, claims: true } },
         },
       }),

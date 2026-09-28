@@ -7,6 +7,7 @@ import { SubscriptionService } from './subscription.service';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { CtsModule } from '../cts/cts.service';
 import { BirthCertificateModule } from './birth-certificate.controller';
+import { FinancialModelModule } from '../financial-model/financial-model.controller';
 
 const beneficiaryDraftSchema = z.object({
   firstName: z.string().min(2).max(60),
@@ -90,7 +91,7 @@ export class SubscriptionController {
 @Module({
   controllers: [SubscriptionController],
   providers: [SubscriptionService, NotificationDispatchService],
-  imports: [CtsModule, BirthCertificateModule],
+  imports: [CtsModule, BirthCertificateModule, FinancialModelModule],
   exports: [SubscriptionService],
 })
 export class SubscriptionModule {}

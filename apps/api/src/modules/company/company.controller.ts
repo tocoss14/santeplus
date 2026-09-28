@@ -9,6 +9,7 @@ import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { memberNumber, secureToken } from '../../common/utils';
+import { FinancialModelModule } from '../financial-model/financial-model.controller';
 
 const registerCompanySchema = z.object({
   companyName: z.string().min(2).max(120),
@@ -277,6 +278,9 @@ export class CompanyService {
             endDate: group.endDate,
             premiumAnnual: 0,
             frequency: group.frequency,
+            // Coexistence V1/V2 : un contrat membre hérite du modèle financier
+            // de son contrat collectif — jamais de conversion silencieuse.
+            financialModelVersionId: group.financialModelVersionId ?? undefined,
             quote: JSON.stringify({ viaGroup: group.number }),
             cardToken: secureToken(16),
           },
@@ -535,5 +539,10 @@ export class CompanyController {
   }
 }
 
-@Module({ controllers: [CompanyController], providers: [CompanyService], exports: [CompanyService] })
+@Module({
+  controllers: [CompanyController],
+  providers: [CompanyService],
+  exports: [CompanyService],
+  imports: [FinancialModelModule],
+})
 export class CompanyModule {}

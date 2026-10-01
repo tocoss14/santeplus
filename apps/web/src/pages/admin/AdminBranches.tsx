@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field } from '../../components/ui';
 
 export default function AdminBranches() {
   const [items, setItems] = useState<any[]>([]);

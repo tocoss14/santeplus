@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fmtDate } from '../../format';
-import { Spinner } from '../../components/ui';
+import { SkeletonTable } from '../../components/ui';
 
 function qs(obj: Record<string, any>) {
   return new URLSearchParams(Object.entries(obj).filter(([, v]) => v !== '' && v != null)).toString();
@@ -16,7 +16,7 @@ export default function AdminAudit() {
     api.get(`/admin/audit?${q}`).then(setData).catch(() => setData({ error: true }));
   }, [filter]);
 
-  if (!data) return <Spinner />;
+  if (!data) return <SkeletonTable rows={8} />;
   if (data.error) return <div className="card-p text-sm text-red-700">Indisponible.</div>;
 
   return (

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { Spinner } from '../../components/ui';
+import { SkeletonCards } from '../../components/ui';
 import DateRangeFilter from '../../components/DateRangeFilter';
 import { printReport, exportCsv } from '../../printReport';
 
@@ -36,7 +36,7 @@ export default function AdminPositionV2() {
   }, [from, to]);
 
   if (error) return <div className="card-p text-sm text-red-600">{error}</div>;
-  if (!data) return <Spinner />;
+  if (!data) return <SkeletonCards rows={4} />;
 
   const a = data.aggregates;
   const sol = data.solvency;

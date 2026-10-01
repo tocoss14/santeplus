@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonTable } from '../../components/ui';
 
 export default function AdminPartners() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -13,7 +13,7 @@ export default function AdminPartners() {
   };
   useEffect(() => { load(); }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonTable rows={8} />;
 
   return (
     <div className="space-y-4 max-w-3xl">

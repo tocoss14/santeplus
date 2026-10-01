@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { Badge, Spinner, StatCard } from '../../components/ui';
+import { Badge, SkeletonCards, StatCard } from '../../components/ui';
 
 const LEVEL_BADGES: Record<string, string> = {
   AMBASSADOR: 'bg-sky-100 text-sky-800',
@@ -45,7 +45,7 @@ export default function DistributorDashboard() {
     }).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonCards rows={4} />;
 
   if (!profile) {
     return (

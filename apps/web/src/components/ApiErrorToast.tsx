@@ -41,7 +41,7 @@ export default function ApiErrorToast() {
       {items.map(t => (
         <div
           key={t.id}
-          className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-3 shadow-lg"
+          className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-3 shadow-lg motion-safe:animate-toast-in"
         >
           <span aria-hidden>⚠️</span>
           <div className="min-w-0 flex-1">

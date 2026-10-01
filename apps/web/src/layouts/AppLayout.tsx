@@ -95,7 +95,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-slate-600 hover:bg-slate-100'}`
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-brand-50 text-brand-800 shadow-[inset_2px_0_0_0_theme(colors.brand.600)]' : 'text-slate-600 hover:bg-slate-100 hover:translate-x-0.5'}`
               }
             >
               <span aria-hidden="true">{item.icon}</span>
@@ -122,7 +122,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
               <NavLink to={`${variant === 'member' ? '/app' : '/entreprise'}/notifications`} className="relative rounded-full p-2 hover:bg-slate-100" title="Notifications">
                 🔔
                 {(me?.unreadNotifications ?? 0) > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white motion-safe:animate-pop-in">
                     {me!.unreadNotifications}
                   </span>
                 )}
@@ -132,7 +132,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
           </div>
         </header>
 
-        <main className="mx-auto max-w-5xl px-4 py-6">
+        <main className="mx-auto max-w-5xl px-4 py-6 motion-safe:animate-fade-up">
           <Outlet />
         </main>
 
@@ -143,7 +143,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex min-w-[72px] flex-none flex-col items-center gap-0.5 px-2 py-2 text-[10px] font-medium ${
+                `flex min-w-[72px] flex-none flex-col items-center gap-0.5 px-2 py-2 text-[10px] font-medium transition-colors ${
                   isActive ? 'text-brand-700' : 'text-slate-400'
                 }`
               }

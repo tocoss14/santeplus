@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, StatusBadge } from '../../components/ui';
 
 const STATUSES = ['DRAFT', 'SUBMITTED', 'VALIDATED', 'PAID', 'PARTIAL', 'CANCELLED'] as const;
 

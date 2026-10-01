@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { PROVIDER_TYPES } from '../../format';
-import { Badge, ConfirmModal, ErrorBanner, Field, Modal, Spinner } from '../../components/ui';
+import { Badge, ConfirmModal, ErrorBanner, Field, Modal, SkeletonTable } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import BulkProviderImport from '../../components/BulkProviderImport';
 import { printReport, exportCsv } from '../../printReport';
@@ -187,7 +187,7 @@ export default function AdminProviders() {
       {tab === 'all' && (
         <>
           {!items ? (
-            <Spinner />
+            <SkeletonTable bare rows={6} cols={6} />
           ) : (
             <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {items.map((p: any) => (

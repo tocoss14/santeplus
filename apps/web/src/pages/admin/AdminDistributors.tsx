@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { Badge, ConfirmModal, ErrorBanner, Field, Modal, Spinner, StatCard } from '../../components/ui';
+import { Badge, ConfirmModal, ErrorBanner, Field, Modal, SkeletonTable, StatCard } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 
@@ -184,7 +184,7 @@ export default function AdminDistributors() {
       {tab === 'list' && (
         <>
           {!items ? (
-            <Spinner />
+            <SkeletonTable bare rows={6} cols={6} />
           ) : items.length === 0 ? (
             <div className="card-p text-center py-8 text-slate-400">Aucun distributeur trouvé</div>
           ) : (

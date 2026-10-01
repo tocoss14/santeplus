@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, ratioPct } from '../../format';
-import { Spinner } from '../../components/ui';
+import { SkeletonTable } from '../../components/ui';
 import { BandBadge } from '../../components/CtsCards';
 
 export default function AdminCts() {
@@ -17,7 +17,7 @@ export default function AdminCts() {
 
   useEffect(load, []);
 
-  if (!data) return <Spinner />;
+  if (!data) return <SkeletonTable rows={8} />;
   if (data.error) return <div className="card-p text-sm text-red-700">Portefeuille indisponible.</div>;
 
   const cover = async (contractId: string, number: string) => {

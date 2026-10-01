@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, Modal, SkeletonTable, Spinner, StatusBadge } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
@@ -88,7 +88,7 @@ export default function AdminClaims() {
       </div>
 
       {!items ? (
-        <Spinner />
+        <SkeletonTable bare rows={6} cols={6} />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[760px]">

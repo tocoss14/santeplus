@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { Badge, EmptyState, ErrorBanner, Spinner, StatCard, StatusBadge } from '../../components/ui';
+import { Badge, EmptyState, ErrorBanner, SkeletonList, StatCard, StatusBadge } from '../../components/ui';
 
 export default function MemberDashboard() {
   const [contracts, setContracts] = useState<any[] | null>(null);
@@ -30,7 +30,7 @@ export default function MemberDashboard() {
       });
   }, []);
 
-  if (!contracts) return <Spinner />;
+  if (!contracts) return <SkeletonList rows={4} />;
   const active = contracts.find(c => ['ACTIVE', 'SUSPENDED'].includes(c.status));
   const pendingPayment = contracts.find(c => c.status === 'PENDING_PAYMENT');
 

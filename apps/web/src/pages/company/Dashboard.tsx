@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { EmptyState, Spinner, StatCard, StatusBadge } from '../../components/ui';
+import { EmptyState, SkeletonCards, StatCard, StatusBadge } from '../../components/ui';
 import { BandBadge, CtsAlertList, FundCallList } from '../../components/CtsCards';
 
 export default function CompanyDashboard() {
@@ -14,7 +14,7 @@ export default function CompanyDashboard() {
     api.get('/company/me/cts').then(setCts).catch(() => setCts({ error: true }));
   }, []);
 
-  if (!data) return <Spinner />;
+  if (!data) return <SkeletonCards rows={4} />;
   if (data.error) return <ErrorBanner message="Espace entreprise indisponible" />;
   void EmptyState;
 

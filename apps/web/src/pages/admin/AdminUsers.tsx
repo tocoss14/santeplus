@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { ROLE_LABELS, statusLabel, statusStyle } from '../../format';
-import { Modal, PhotoImg, Spinner, Field, ErrorBanner } from '../../components/ui';
+import { Modal, PhotoImg, SkeletonTable, Field, ErrorBanner } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
@@ -86,7 +86,7 @@ export default function AdminUsers() {
       </div>
 
       {!data ? (
-        <Spinner />
+        <SkeletonTable bare rows={6} cols={6} />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[720px]">

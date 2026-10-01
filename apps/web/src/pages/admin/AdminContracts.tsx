@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { ConfirmModal, Spinner, StatusBadge } from '../../components/ui';
+import { ConfirmModal, SkeletonTable, StatusBadge } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
@@ -106,7 +106,7 @@ export default function AdminContracts() {
       </div>
 
       {!data ? (
-        <Spinner />
+        <SkeletonTable bare rows={6} cols={6} />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[820px]">

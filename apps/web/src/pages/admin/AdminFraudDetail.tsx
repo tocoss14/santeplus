@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { fmtDate } from '../../format';
-import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonList, StatusBadge } from '../../components/ui';
 
 const TRANSITIONS: Record<string, Array<{ status: string; label: string }>> = {
   OPEN: [
@@ -48,7 +48,7 @@ export default function AdminFraudDetail() {
     }
   };
 
-  if (!fraudCase && !error) return <Spinner />;
+  if (!fraudCase && !error) return <SkeletonList rows={5} />;
   if (!fraudCase) {
     return (
       <div className="space-y-3">

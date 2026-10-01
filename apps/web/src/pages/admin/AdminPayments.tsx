@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { Spinner } from '../../components/ui';
+import { SkeletonTable } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
 import DateRangeFilter from '../../components/DateRangeFilter';
@@ -77,7 +77,7 @@ export default function AdminPayments() {
         }}>📊 CSV</button>
       </div>
       {!data ? (
-        <Spinner />
+        <SkeletonTable bare rows={6} cols={6} />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[720px]">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { fcfa } from '../format';
+import { CountUp, Reveal } from '../components/motion';
 
 const FAQ = [
   ['Comment souscrire ?', 'Choisissez une formule, ajoutez vos ayants droit, payez par mobile money : votre contrat et votre carte d’assuré sont générés immédiatement.'],
@@ -36,21 +37,24 @@ export default function Landing() {
       <section className="relative overflow-hidden bg-ink text-white">
         {/* wax pattern overlay */}
         <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='48' height='24' viewBox='0 0 48 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 12 L12 0 L24 12 L36 0 L48 12 L36 24 L24 12 L12 24 Z' fill='white'/%3E%3C/svg%3E")`, backgroundSize: '48px 24px' }} />
+        {/* halos flottants — la page respire dès l'arrivée */}
+        <div aria-hidden className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl motion-safe:animate-float" />
+        <div aria-hidden className="pointer-events-none absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-laterite-500/15 blur-3xl motion-safe:animate-float-delayed" />
         <div className="relative mx-auto max-w-6xl px-4 py-10 sm:py-16 lg:py-20">
           <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
             {/* left */}
             <div>
-              <p className="eyebrow text-white/60">Mutuelle santé digitale · Bénin</p>
-              <h1 className="mt-3 font-display text-[34px] sm:text-[52px] font-bold leading-[0.95] tracking-[-0.03em] text-balance">
+              <p className="eyebrow text-white/60 motion-safe:animate-fade-up">Mutuelle santé digitale · Bénin</p>
+              <h1 className="mt-3 font-display text-[34px] sm:text-[52px] font-bold leading-[0.95] tracking-[-0.03em] text-balance motion-safe:animate-fade-up" style={{ animationDelay: '90ms' }}>
                 Votre santé.<br />
                 Vos proches.<br />
                 <span className="font-display italic font-bold text-[#FACC15]">Simplement</span> protégés.
               </h1>
-              <p className="mt-5 max-w-xl text-[15px] sm:text-[17px] leading-relaxed text-white/70">
+              <p className="mt-5 max-w-xl text-[15px] sm:text-[17px] leading-relaxed text-white/70 motion-safe:animate-fade-up" style={{ animationDelay: '180ms' }}>
                 Souscrivez en quelques minutes depuis votre téléphone. Payez par mobile money, recevez
                 votre carte d’assuré numérique — et utilisez-la directement chez nos partenaires.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-8 flex flex-wrap gap-3 motion-safe:animate-fade-up" style={{ animationDelay: '270ms' }}>
                 <Link to="/offres" className="btn-primary bg-white text-ink hover:bg-sand hover:text-ink px-7 py-3.5 text-[15px] rounded-full">
                   Voir les formules
                 </Link>
@@ -58,14 +62,14 @@ export default function Landing() {
                   Créer mon compte
                 </Link>
               </div>
-              <div className="mt-8 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white/70">
+              <div className="mt-8 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white/70 motion-safe:animate-fade-up" style={{ animationDelay: '340ms' }}>
                 <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-laterite-500" /> Sans papier</span>
                 <span className="text-white/20">·</span>
                 <span>Sans déplacement</span>
                 <span className="text-white/20">·</span>
                 <span>Résiliable à l’échéance</span>
               </div>
-              <div className="mt-8 overflow-hidden rounded-[20px] border border-white/10 bg-white/5 backdrop-blur">
+              <div className="mt-8 overflow-hidden rounded-[20px] border border-white/10 bg-white/5 backdrop-blur motion-safe:animate-fade-up" style={{ animationDelay: '420ms' }}>
                 <img
                   src="/img/famille-protegee-800.jpg"
                   srcSet="/img/famille-protegee-400.jpg 400w, /img/famille-protegee-800.jpg 800w"
@@ -82,7 +86,7 @@ export default function Landing() {
             </div>
 
             {/* right — interactive simulator card */}
-            <div className="relative lg:pl-6">
+            <div className="relative lg:pl-6 motion-safe:animate-fade-up" style={{ animationDelay: '200ms' }}>
               {/* stack behind */}
               <div className="absolute -right-2 top-6 hidden h-[92%] w-[92%] rotate-[1.2deg] rounded-[24px] border border-white/10 bg-white/5 backdrop-blur lg:block" />
               <div className="absolute -right-1 top-3 hidden h-[94%] w-[94%] rotate-[0.6deg] rounded-[24px] border border-white/10 bg-white/[0.04] lg:block" />
@@ -92,7 +96,7 @@ export default function Landing() {
                     <p className="eyebrow">Simulateur familial</p>
                     <p className="mt-1 font-display text-xl font-bold text-ink">Combien pour ma famille ?</p>
                   </div>
-                  <span className="rounded-full bg-laterite-600 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">En direct</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-laterite-600 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-white motion-safe:animate-ping motion-safe:[animation-duration:1.6s]" /> En direct</span>
                 </div>
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
@@ -129,7 +133,7 @@ export default function Landing() {
                 <div className="mt-6 rounded-2xl bg-ink p-5 text-white">
                   <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">Cotisation estimée</p>
                   <div className="mt-1 flex items-baseline gap-2">
-                    <span className="font-mono text-3xl font-bold tracking-tight">{simProduct ? fcfa(Math.round(simTotal / 12)) : '—'}</span>
+                    <span key={simTotal} className="inline-block font-mono text-3xl font-bold tracking-tight motion-safe:animate-pop-in">{simProduct ? fcfa(Math.round(simTotal / 12)) : '—'}</span>
                     <span className="text-sm font-bold text-white/70">/ mois</span>
                   </div>
                   <p className="mt-1 font-mono text-xs text-white/65">soit {simProduct ? fcfa(simTotal) : '—'} / an · Famille {adults} adulte{adults > 1 ? 's' : ''}{children ? ` + ${children} enfant${children > 1 ? 's' : ''}` : ''}</p>
@@ -143,7 +147,7 @@ export default function Landing() {
             </div>
           </div>
         </div>
-        <div className="wax-divider" aria-hidden />
+        <div className="wax-divider motion-safe:animate-wax-slide" aria-hidden />
       </section>
 
       {/* TRUST BAR */}
@@ -174,18 +178,20 @@ export default function Landing() {
             ['02', 'Choisissez votre formule', 'Devis instantané, ayants droit inclus', '→'],
             ['03', 'Payez par mobile money', 'Mensuel, trimestriel ou annuel', '→'],
             ['04', 'Utilisez votre carte', 'QR chez nos partenaires', ''],
-          ].map(([n, t, d, arrow]) => (
-            <div key={n} className="group relative card-wax p-6 text-center transition hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(15,30,46,0.08)]">
+          ].map(([n, t, d, arrow], i) => (
+            <Reveal key={n} delay={i * 90} className="h-full">
+            <div className="group relative card-wax h-full p-6 text-center transition hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(15,30,46,0.08)]">
               <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-ink font-mono text-sm font-bold text-white">{n}</span>
               <p className="mt-4 font-display text-[17px] font-bold leading-tight">{t}</p>
               <p className="mx-auto mt-1.5 max-w-[18ch] text-sm leading-relaxed text-stone">{d}</p>
               {arrow && <span className="absolute -right-2 top-[38px] hidden h-8 w-8 place-items-center rounded-full bg-laterite-600 text-white sm:grid">→</span>}
             </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
-      <div className="wax-divider wax-divider--laterite mx-auto max-w-6xl rounded-full" />
+      <div className="wax-divider wax-divider--laterite mx-auto max-w-6xl rounded-full motion-safe:animate-wax-slide" />
 
       {/* FORMULES */}
       <section id="offres" className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
@@ -198,7 +204,8 @@ export default function Landing() {
           {individualProducts.map((p, i) => {
             const isPopular = p.code === 'CONF';
             return (
-            <div key={p.id} className={`group relative flex flex-col overflow-hidden rounded-[24px] border bg-white p-6 shadow-[0_8px_30px_rgba(15,30,46,0.06)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,30,46,0.10)] ${isPopular ? 'border-ink ring-[1.5px] ring-ink' : 'border-mist'}`}>
+            <Reveal key={p.id} delay={i * 110} className="h-full">
+            <div className={`group relative flex h-full flex-col overflow-hidden rounded-[24px] border bg-white p-6 shadow-[0_8px_30px_rgba(15,30,46,0.06)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,30,46,0.10)] ${isPopular ? 'border-ink ring-[1.5px] ring-ink' : 'border-mist'}`}>
               {isPopular && <div className="absolute left-0 right-0 top-0 h-[10px]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='12' viewBox='0 0 24 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6 L6 0 L12 6 L18 0 L24 6 L18 12 L12 6 L6 12 Z' fill='%23C2512F'/%3E%3C/svg%3E")`, backgroundSize: '24px 12px' }} />}
               {isPopular && <span className="absolute right-4 top-4 rounded-full bg-laterite-600 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white">Populaire</span>}
               <h3 className="font-display text-xl font-bold leading-tight">{p.name}</h3>
@@ -219,6 +226,7 @@ export default function Landing() {
               <Link to="/offres" className={`mt-6 w-full ${isPopular ? 'btn-primary rounded-full' : 'btn-outline rounded-full'}`}>Voir la formule</Link>
               <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-stone">Sans engagement · Détails à l’étape suivante</p>
             </div>
+            </Reveal>
             );
           })}
         </div>
@@ -245,6 +253,7 @@ export default function Landing() {
             </ul>
             <Link to="/register-entreprise" className="btn-primary mt-6 rounded-full">Créer mon espace entreprise</Link>
           </div>
+          <Reveal>
           <div className="relative rounded-2xl bg-ink p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-white/50">Import salariés · SOTRABEN SARL</p>
@@ -262,6 +271,7 @@ export default function Landing() {
             </div>
             <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-widest text-white/65">CSV validé ligne par ligne · 0 doublon</p>
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -282,13 +292,15 @@ export default function Landing() {
               <span className="rounded-full bg-laterite-600 px-3 py-1.5 font-bold">Abomey-Calavi</span>
             </div>
           </div>
+          <Reveal>
           <div className="rounded-[24px] bg-white p-6 text-ink shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
             <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-stone/80">Établissements partenaires</p>
-            <p className="mt-2 font-display text-5xl font-bold tracking-tight">{providerCount || 12}<span className="text-laterite-600">+</span></p>
+            <p className="mt-2 font-display text-5xl font-bold tracking-tight"><CountUp value={providerCount || 12} /><span className="text-laterite-600">+</span></p>
             <p className="mt-1 text-sm font-medium text-stone">référencés dans la démo, partout sur le territoire</p>
             <Link to="/reseau" className="btn-outline mt-5 w-full rounded-full">Explorer le réseau</Link>
             <Link to="/inscription-prestataire" className="mt-3 block text-center text-xs font-bold text-brand-700 hover:underline">🏥 Vous êtes prestataire ? Inscrivez-vous</Link>
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -298,15 +310,18 @@ export default function Landing() {
         <h2 className="mt-2 text-center font-display text-2xl sm:text-[32px] font-bold">On répond à vos questions</h2>
         <div className="mt-8 space-y-3" id="faq">
           {FAQ.map(([q, a], i) => (
-            <div key={q} className={`overflow-hidden rounded-2xl border bg-white transition ${openFaq === i ? 'border-ink shadow-[0_8px_24px_rgba(15,30,46,0.08)]' : 'border-mist hover:border-ink/20'}`}>
+            <Reveal key={q} delay={i * 60}>
+            <div className={`overflow-hidden rounded-2xl border bg-white transition ${openFaq === i ? 'border-ink shadow-[0_8px_24px_rgba(15,30,46,0.08)]' : 'border-mist hover:border-ink/20'}`}>
               <button onClick={() => setOpenFaq(openFaq === i ? null : i)} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left">
                 <span className="font-display text-[15px] font-bold leading-snug">{q}</span>
                 <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold transition ${openFaq === i ? 'bg-ink text-white' : 'bg-sand text-ink'}`}>{openFaq === i ? '−' : '+'}</span>
               </button>
               {openFaq === i && <p className="px-5 pb-5 text-sm leading-relaxed text-stone">{a}</p>}
             </div>
+            </Reveal>
           ))}
         </div>
+        <Reveal>
         <div className="card-wax mt-10 overflow-hidden rounded-[24px] bg-ink p-8 text-center text-white">
           <h3 className="font-display text-2xl font-bold">Prêt à protéger votre famille ?</h3>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-white/60">Souscription 100% en ligne, effective dès paiement. Votre carte arrive instantanément.</p>
@@ -316,6 +331,7 @@ export default function Landing() {
           </div>
           <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-white/65">Paiement sécurisé · Données chiffrées</p>
         </div>
+        </Reveal>
       </section>
     </div>
   );

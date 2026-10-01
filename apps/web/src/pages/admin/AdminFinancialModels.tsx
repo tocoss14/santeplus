@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fmtDate } from '../../format';
-import { ConfirmModal, Spinner } from '../../components/ui';
+import { ConfirmModal, SkeletonTable } from '../../components/ui';
 
 const statusStyles: Record<string, string> = {
   ACTIVE: 'bg-emerald-100 text-emerald-700',
@@ -62,7 +62,7 @@ export default function AdminFinancialModels() {
       {error && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       {!versions ? (
-        <Spinner />
+        <SkeletonTable bare rows={5} cols={5} />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[720px]">

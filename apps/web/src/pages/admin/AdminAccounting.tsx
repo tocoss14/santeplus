@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, API_BASE } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { Spinner } from '../../components/ui';
+import { SkeletonTable } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import DateRangeFilter from '../../components/DateRangeFilter';
 
@@ -72,7 +72,7 @@ export default function AdminAccounting() {
         {summary.length === 0 && <p className="text-sm text-slate-400">Aucune écriture sur la période</p>}
       </div>
 
-      {!entries ? <Spinner /> : (
+      {!entries ? <SkeletonTable bare rows={6} cols={7} /> : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[900px]">
             <thead><tr><th className="th">Date</th><th className="th">Journal</th><th className="th">Compte</th><th className="th">Libellé</th><th className="th">Débit</th><th className="th">Crédit</th><th className="th">Période</th></tr></thead>

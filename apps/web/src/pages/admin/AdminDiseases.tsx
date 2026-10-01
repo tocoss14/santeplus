@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonTable } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 
 export default function AdminDiseases() {
@@ -39,7 +39,7 @@ export default function AdminDiseases() {
       <div className="flex gap-2">
         <input className="input flex-1" placeholder="Rechercher code/nom…" value={q} onChange={e => setQ(e.target.value)} />
       </div>
-      {!data ? <Spinner /> : (
+      {!data ? <SkeletonTable bare rows={6} cols={3} /> : (
         <>
           <div className="card overflow-x-auto">
             <table className="w-full">

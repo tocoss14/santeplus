@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonList, StatusBadge } from '../../components/ui';
 
 export const WORKFLOW_STATUSES = [
   'DRAFT',
@@ -206,7 +206,7 @@ export default function AdminClaimsWorkflow() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1 card-p space-y-2 max-h-[70vh] overflow-auto">
           {!data ? (
-            <Spinner />
+            <SkeletonList rows={6} />
           ) : data.items.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-500">Aucun dossier pour ces critères.</p>
           ) : (
@@ -234,7 +234,7 @@ export default function AdminClaimsWorkflow() {
           {!selectedId ? (
             <div className="card-p text-sm text-slate-500">Sélectionnez un dossier pour voir le détail et les actions possibles.</div>
           ) : !detail ? (
-            <div className="card-p"><Spinner /></div>
+            <div className="card-p"><SkeletonList rows={5} /></div>
           ) : (
             <div className="card-p space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -317,7 +317,7 @@ export default function AdminClaimsWorkflow() {
                           {timelineOpen && (
                             <div className="mt-2">
                               {timeline === null ? (
-                                <Spinner />
+                                <SkeletonList rows={3} />
                               ) : timeline.length === 0 ? (
                                 <p className="text-sm text-slate-500">Aucun événement sur ce dossier.</p>
                               ) : (

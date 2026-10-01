@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, ratioPct } from '../../format';
-import { ErrorBanner, Spinner, StatCard } from '../../components/ui';
+import { ErrorBanner, SkeletonCards, StatCard } from '../../components/ui';
 
 export default function AdminAnalytics() {
   const [data, setData] = useState<any>(null);
@@ -50,7 +50,7 @@ export default function AdminAnalytics() {
       </div>
     );
   }
-  if (!data) return <Spinner />;
+  if (!data) return <SkeletonCards rows={4} />;
 
   const topProviders = [...(data.providers ?? [])]
     .sort((a: any, b: any) => (b.totalAmount ?? 0) - (a.totalAmount ?? 0))

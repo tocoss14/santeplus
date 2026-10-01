@@ -1,4 +1,5 @@
 import { Children, cloneElement, isValidElement, useId, useState } from 'react';
+import { CountUp } from './motion';
 import { statusLabel, statusStyle } from '../format';
 import { passwordCriteria, type PasswordCriterion } from '../lib/password';
 
@@ -35,6 +36,77 @@ export function Spinner() {
   );
 }
 
+/** Bloc de chargement scintillant (classe .skeleton dans index.css). */
+export function Skeleton({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
+  return <div className={`skeleton ${className}`} style={style} aria-hidden="true" />;
+}
+
+/** Grille de cartes fantômes — remplace le Spinner sur les écrans de stats. */
+export function SkeletonCards({ rows = 4, className = 'grid-cols-2 lg:grid-cols-4' }: { rows?: number; className?: string }) {
+  return (
+    <div className={`grid gap-4 ${className}`} role="status" aria-label="Chargement…">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="card-p">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="mt-3 h-7 w-16" />
+          <Skeleton className="mt-2 h-3 w-28" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const TABLE_ROWS = [42, 68, 55, 78, 36, 62, 50, 71];
+
+/** Tableau fantôme (en-tête + lignes) — remplace le Spinner sur les pages de listes.
+ *  `bare` : sans l'habillage carte, pour s'insérer dans une carte existante. */
+export function SkeletonTable({ rows = 6, cols = 4, bare = false, className = '' }: { rows?: number; cols?: number; bare?: boolean; className?: string }) {
+  return (
+    <div className={`${bare ? '' : 'card overflow-hidden'} ${className}`} role="status" aria-label="Chargement…">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-mist bg-sand/60">
+              {Array.from({ length: cols }, (_, i) => (
+                <th key={i} className="th"><Skeleton className="h-3" style={{ width: `${28 + ((i * 17) % 34)}%` }} /></th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-mist">
+            {Array.from({ length: rows }, (_, r) => (
+              <tr key={r} style={{ opacity: 1 - r * 0.09 }}>
+                {Array.from({ length: cols }, (_, c) => (
+                  <td key={c} className="td">
+                    <Skeleton className="h-3.5" style={{ width: `${TABLE_ROWS[(r + c) % TABLE_ROWS.length]}%` }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Liste fantôme (avatar + deux lignes de texte) — pour les fils et flux d'activité. */
+export function SkeletonList({ rows = 5, className = '' }: { rows?: number; className?: string }) {
+  return (
+    <div className={`space-y-3 ${className}`} role="status" aria-label="Chargement…">
+      {Array.from({ length: rows }, (_, r) => (
+        <div key={r} className="card flex items-center gap-3 p-4" style={{ opacity: 1 - r * 0.12 }}>
+          <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-3.5" style={{ width: `${TABLE_ROWS[(r * 3) % TABLE_ROWS.length]}%` }} />
+            <Skeleton className="mt-2 h-3" style={{ width: `${TABLE_ROWS[(r * 5 + 2) % TABLE_ROWS.length]}%` }} />
+          </div>
+          <Skeleton className="h-6 w-16 shrink-0 rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function EmptyState({ icon = '📭', title, hint }: { icon?: string; title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -46,10 +118,13 @@ export function EmptyState({ icon = '📭', title, hint }: { icon?: string; titl
 }
 
 export function StatCard({ label, value, sub, accent }: { label: string; value: React.ReactNode; sub?: string; accent?: boolean }) {
+  // Compteur animé uniquement pour les valeurs numériques brutes — les valeurs
+  // déjà formatées (fcfa, %, texte) restent intactes pour ne rien dénaturer.
+  const animatedValue = typeof value === 'number' ? <CountUp value={value} /> : value;
   return (
-    <div className={`card-p ${accent ? 'bg-brand-600 border-brand-600 text-white' : ''}`}>
+    <div className={`card-p transition-transform duration-200 motion-safe:hover:-translate-y-0.5 ${accent ? 'bg-brand-600 border-brand-600 text-white' : ''}`}>
       <p className={`text-xs font-semibold uppercase tracking-wide ${accent ? 'text-brand-100' : 'text-slate-500'}`}>{label}</p>
-      <p className={`mt-1.5 text-2xl font-bold ${accent ? '' : 'text-slate-900'}`}>{value}</p>
+      <p className={`mt-1.5 text-2xl font-bold ${accent ? '' : 'text-slate-900'}`}>{animatedValue}</p>
       {sub && <p className={`mt-0.5 text-xs ${accent ? 'text-brand-100' : 'text-slate-400'}`}>{sub}</p>}
     </div>
   );
@@ -58,9 +133,9 @@ export function StatCard({ label, value, sub, accent }: { label: string; value: 
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 motion-safe:animate-fade-in" onClick={onClose}>
       <div
-        className={`bg-white w-full ${wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'} rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto`}
+        className={`bg-white w-full ${wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'} rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto motion-safe:animate-pop-in`}
         onClick={e => e.stopPropagation()}
       >
         <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3.5">

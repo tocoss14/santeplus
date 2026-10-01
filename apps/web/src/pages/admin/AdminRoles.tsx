@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { ROLE_LABELS } from '../../format';
-import { ErrorBanner, Spinner } from '../../components/ui';
+import { ErrorBanner, SkeletonTable } from '../../components/ui';
 
 const PERMISSION_GROUPS: Record<string, string[]> = {
   Assurés: ['members.read', 'members.manage'],
@@ -58,7 +58,7 @@ export default function AdminRoles() {
     }
   }
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonTable rows={8} />;
 
   return (
     <div className="space-y-4">

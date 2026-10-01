@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { ErrorBanner, Spinner, StatCard } from '../../components/ui';
+import { ErrorBanner, SkeletonCards, StatCard } from '../../components/ui';
 
 export default function ProviderDashboard() {
   const [data, setData] = useState<any>(null);
@@ -13,7 +13,7 @@ export default function ProviderDashboard() {
   }, []);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!data) return <Spinner />;
+  if (!data) return <SkeletonCards rows={4} />;
 
   const authRequired = data.statusCounts?.AUTH_REQUIRED ?? 0;
   const pendingConfirm = (data.statusCounts?.PENDING_CONFIRMATION ?? 0) + (data.statusCounts?.AUTHORIZED ?? 0);

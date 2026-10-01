@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../../api';
 import { fcfa } from '../../format';
-import { Spinner, StatCard } from '../../components/ui';
+import { SkeletonCards, StatCard } from '../../components/ui';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -25,7 +25,7 @@ export default function AdminDashboard() {
     api.get('/admin/anomalies').then((res: any) => setAnomalies(res.items ?? res ?? [])).catch(() => setAnomaliesError(true));
   }, []);
 
-  if (!stats) return <Spinner />;
+  if (!stats) return <SkeletonCards rows={8} />;
   if (stats.error) return <div className="card-p text-sm text-red-600">Statistiques indisponibles.</div>;
 
   const c = stats.cards;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa } from '../../format';
-import { ErrorBanner, Field, Modal, Spinner, StatusBadge, Badge } from '../../components/ui';
+import { ErrorBanner, Field, Modal, SkeletonTable, StatusBadge, Badge } from '../../components/ui';
 
 const EMPTY = {
   code: '', name: '', description: '', clientType: 'INDIVIDUAL', minAge: 0, maxAge: 65,
@@ -38,7 +38,7 @@ export default function AdminProducts() {
       </div>
 
       {!items ? (
-        <Spinner />
+        <SkeletonTable bare rows={6} cols={5} />
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {items.map(p => (

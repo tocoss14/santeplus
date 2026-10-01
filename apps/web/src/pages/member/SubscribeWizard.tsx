@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
 import { ErrorBanner, Field, PhotoImg, Spinner } from '../../components/ui';
+import { Confetti } from '../../components/motion';
 import FormulaComparisonTable from '../../components/FormulaComparisonTable';
 
 interface BenefDraft {
@@ -1178,8 +1179,9 @@ export default function SubscribeWizard() {
 
       {/* Étape 8 : Terminé */}
       {step === 8 && (
-        <div className="card-p text-center">
-          <div className="text-5xl">🎉</div>
+        <div className="card-p relative overflow-hidden text-center">
+          <Confetti />
+          <div className="text-5xl motion-safe:animate-wiggle">🎉</div>
           <h2 className="mt-3 text-xl font-bold text-emerald-700">Paiement confirmé — contrat actif !</h2>
           <p className="mt-1 text-sm text-slate-500">
             Votre couverture est effective. Votre carte d'assuré numérique avec QR code est prête.

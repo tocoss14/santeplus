@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { ErrorBanner, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, SkeletonTable, StatusBadge } from '../../components/ui';
 
 const STATUSES = ['OPEN', 'REVIEWING', 'CONFIRMED', 'DISMISSED'] as const;
 
@@ -55,7 +55,7 @@ export default function AdminFraud() {
 
       <div className="card-p">
         {!data ? (
-          <Spinner />
+          <SkeletonTable bare rows={6} cols={5} />
         ) : data.items.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">Aucun dossier pour ces critères.</p>
         ) : (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa } from '../../format';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonTable } from '../../components/ui';
 
 export default function AdminActs() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -65,7 +65,7 @@ export default function AdminActs() {
         Seuil par acte (FCFA) : si vide, le seuil produit s’applique (défaut global 150 000 FCFA). Le plus restrictif des deux s’applique par acte ; si un acte dépasse son seuil, la prise en charge passe en AUTH_REQUIRED.
       </p>
       {!items ? (
-        <Spinner />
+        <SkeletonTable bare rows={6} cols={5} />
       ) : (
         <div className="overflow-auto rounded-lg border border-slate-200 bg-white">
           <table className="min-w-full text-sm">

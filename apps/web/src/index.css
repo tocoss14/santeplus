@@ -9,7 +9,7 @@
 }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold tracking-tight transition-all disabled:opacity-50 disabled:pointer-events-none; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold tracking-tight transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none; }
   .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-[0_4px_14px_rgba(13,124,92,0.25)] hover:shadow-[0_6px_20px_rgba(13,124,92,0.3)] hover:-translate-y-px; }
   .btn-outline { @apply btn border-[1.5px] border-ink/15 bg-white text-ink hover:bg-ink hover:text-white hover:border-ink; }
   .btn-danger { @apply btn bg-laterite-600 text-white hover:bg-laterite-700; }
@@ -26,6 +26,24 @@
   .th { @apply px-3 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-stone; }
   .td { @apply px-3 py-3.5 text-sm; }
   .eyebrow { @apply text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600; font-family: 'JetBrains Mono', monospace; }
+  /* Bloc de chargement scintillant (voir Skeleton dans components/ui.tsx) */
+  .skeleton { @apply relative overflow-hidden rounded-lg bg-mist/70; }
+  .skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Accessibilité : on coupe tout quand l'utilisateur préfère moins de mouvement */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer utilities {

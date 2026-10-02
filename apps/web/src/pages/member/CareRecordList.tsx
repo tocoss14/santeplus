@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { Spinner, StatusBadge } from '../../components/ui';
+import { SkeletonList, StatusBadge } from '../../components/ui';
 
 export default function CareRecordList() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -11,7 +11,7 @@ export default function CareRecordList() {
     api.get('/care-records/mine').then(setItems).catch(() => setItems([]));
   }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonList rows={6} />;
 
   return (
     <div className="space-y-4">

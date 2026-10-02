@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate, CATEGORY_LABELS } from '../../format';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonDetail } from '../../components/ui';
 import QrScanner from '../../components/QrScanner';
 import { printDocument, escapeHtml } from '../../print';
 
@@ -102,7 +102,7 @@ export default function VerifyCard() {
 
 function VerifyResult({ r, scannedToken, onNew }: { r: any; scannedToken: string; onNew: () => void }) {
   const [tpOpen, setTpOpen] = useState(false);
-  if (!r.contract) return <Spinner />;
+  if (!r.contract) return <SkeletonDetail />;
   const active = r.contract.status === 'ACTIVE' && r.warnings.length === 0;
 
   return (

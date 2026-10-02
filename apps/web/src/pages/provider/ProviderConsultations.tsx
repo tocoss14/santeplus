@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fmtDate, fmtDateTime } from '../../format';
-import { Field, Modal, Spinner, ErrorBanner } from '../../components/ui';
+import { ErrorBanner, Field, Modal, SkeletonTable } from '../../components/ui';
 
 export default function ProviderConsultations() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -37,7 +37,7 @@ export default function ProviderConsultations() {
         <button className="btn-primary btn-sm" onClick={() => setAddOpen(true)}>＋ Enregistrer une consultation</button>
       </div>
       <ErrorBanner message={error} />
-      {!items ? <Spinner /> : (
+      {!items ? <SkeletonTable bare rows={6} cols={6} /> : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[720px]">
             <thead><tr><th className="th">Référence</th><th className="th">Patient</th><th className="th">Praticien</th><th className="th">Motif</th><th className="th">Diagnostic</th><th className="th">Date</th></tr></thead>

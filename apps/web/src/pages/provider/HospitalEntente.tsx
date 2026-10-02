@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field } from '../../components/ui';
 import { fmtDate } from '../../format';
 
 export default function HospitalEntente() {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, fileUrl } from '../../api';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonDetail } from '../../components/ui';
 import { PROVIDER_TYPES } from '../../format';
 
 export default function Establishment() {
@@ -30,7 +30,7 @@ export default function Establishment() {
     }).catch(e => setError(e?.message));
   }, []);
 
-  if (!form || !me) return <Spinner />;
+  if (!form || !me) return <SkeletonDetail />;
 
   const e = me.establishment;
 

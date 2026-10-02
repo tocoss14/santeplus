@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
-import { ErrorBanner, Field, PhotoImg, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, PhotoImg, SkeletonCards, Spinner } from '../../components/ui';
 import { Confetti } from '../../components/motion';
 import FormulaComparisonTable from '../../components/FormulaComparisonTable';
 
@@ -547,7 +547,7 @@ export default function SubscribeWizard() {
     }
   };
 
-  if (!products) return <Spinner />;
+  if (!products) return <SkeletonCards rows={3} />;
 
   return (
     <div className="mx-auto max-w-2xl">

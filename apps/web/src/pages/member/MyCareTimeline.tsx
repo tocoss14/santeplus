@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { Spinner, StatusBadge } from '../../components/ui';
+import { SkeletonList, StatusBadge } from '../../components/ui';
 
 interface TimelineEvent {
   id: string;
@@ -90,7 +90,7 @@ export default function MyCareTimeline() {
     });
   }, []);
 
-  if (!events) return <Spinner />;
+  if (!events) return <SkeletonList rows={6} />;
 
   const filtered = filter === 'all' ? events : events.filter(e => e.type === filter);
   const grouped = groupByMonth(filtered);

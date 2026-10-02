@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { Spinner, StatusBadge } from '../../components/ui';
+import { SkeletonTable, StatusBadge } from '../../components/ui';
 
 type Tab = 'consultations' | 'ordonnances' | 'delivrances';
 
@@ -44,7 +44,7 @@ function ConsultationsTab() {
   const [items, setItems] = useState<any[] | null>(null);
   useEffect(() => { api.get('/provider/consultations').then(setItems).catch(() => setItems([])); }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonTable rows={8} />;
   return (
     <div className="card overflow-x-auto">
       <table className="w-full min-w-[720px]">
@@ -74,7 +74,7 @@ function PrescriptionsTab() {
   const [items, setItems] = useState<any[] | null>(null);
   useEffect(() => { api.get('/provider/prescriptions').then(setItems).catch(() => setItems([])); }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonTable rows={8} />;
   return (
     <div className="card overflow-x-auto">
       <table className="w-full min-w-[720px]">
@@ -103,7 +103,7 @@ function DeliveriesTab() {
   const [items, setItems] = useState<any[] | null>(null);
   useEffect(() => { api.get('/provider/deliveries').then(setItems).catch(() => setItems([])); }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonTable rows={8} />;
   return (
     <div className="card overflow-x-auto">
       <table className="w-full min-w-[720px]">

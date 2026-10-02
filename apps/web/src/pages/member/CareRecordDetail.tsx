@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { ErrorBanner, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, SkeletonDetail, SkeletonList, StatusBadge } from '../../components/ui';
 import { useAuth } from '../../auth';
 
 const EVENT_ICON: Record<string, string> = {
@@ -29,7 +29,7 @@ export default function CareRecordDetail() {
   }, [id]);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!dossier) return <Spinner />;
+  if (!dossier) return <SkeletonDetail />;
 
   const showMedical = me?.role !== 'COMPANY_ADMIN';
 
@@ -94,7 +94,7 @@ export default function CareRecordDetail() {
 
       <div className="card-p">
         <h2 className="font-semibold mb-3">Timeline du dossier</h2>
-        {!timeline ? <Spinner /> : timeline.length === 0 ? <p className="text-sm text-slate-400">Aucun événement.</p> : (
+        {!timeline ? <SkeletonList rows={4} /> : timeline.length === 0 ? <p className="text-sm text-slate-400">Aucun événement.</p> : (
           <ol className="relative border-l border-slate-200 pl-6 space-y-4">
             {timeline.map((ev: any) => (
               <li key={ev.id} className="relative">

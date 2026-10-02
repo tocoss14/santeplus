@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getQueue, clearQueue, syncQueue } from '../../../lib/offlineQueue';
 import { fmtDate } from '../../../format';
-import { ConfirmModal, Spinner, StatusBadge } from '../../../components/ui';
+import { ConfirmModal, StatusBadge } from '../../../components/ui';
 
 export default function MobileSyncPage() {
   const [queue, setQueue] = useState<any[]>([]);

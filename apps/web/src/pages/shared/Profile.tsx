@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, fileUrl } from '../../api';
 import { useAuth } from '../../auth';
 import { isPasswordValid } from '../../lib/password';
-import { ErrorBanner, Field, PasswordChecklist, PhotoImg, Spinner } from '../../components/ui';
+import { ErrorBanner, Field, PasswordChecklist, PhotoImg, SkeletonCards, SkeletonDetail } from '../../components/ui';
 
 /** Comparaison tolérante (casse/accents) — même normalisation que l'API. */
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
@@ -118,7 +118,7 @@ export default function Profile() {
     }
   }, [me]);
 
-  if (!form || !me) return <Spinner />;
+  if (!form || !me) return <SkeletonDetail />;
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
@@ -205,7 +205,7 @@ export default function Profile() {
           )}
         </div>
         {acteLoading ? (
-          <Spinner />
+          <SkeletonCards rows={1} />
         ) : !acteDiff?.acte ? (
           <div>
             <p className="text-sm text-slate-500">

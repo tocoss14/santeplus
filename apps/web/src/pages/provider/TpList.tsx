@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { Spinner } from '../../components/ui';
+import { SkeletonTable } from '../../components/ui';
 
 const STATUSES = [
   ['PENDING_CONFIRMATION', 'À confirmer'],
@@ -45,7 +45,7 @@ export default function TpList() {
       </div>
 
       {!data ? (
-        <Spinner />
+        <SkeletonTable bare rows={6} cols={6} />
       ) : (
         <>
           <div className="card overflow-x-auto">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fcfa, fmtDate } from '../../format';
-import { Field, Spinner, StatusBadge } from '../../components/ui';
+import { Field, SkeletonList, StatusBadge } from '../../components/ui';
 
 export default function MemberConsultations() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -10,7 +10,7 @@ export default function MemberConsultations() {
     api.get('/consultations/mine').then(setItems).catch(() => setItems([]));
   }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonList rows={5} />;
 
   return (
     <div className="space-y-4">

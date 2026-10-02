@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../api';
 import { fcfa, fmtDate } from '../../../format';
-import { EmptyState, ErrorBanner, Spinner, StatusBadge } from '../../../components/ui';
+import { EmptyState, ErrorBanner, SkeletonList, StatusBadge } from '../../../components/ui';
 
 function qs(obj: Record<string, any>) {
   return new URLSearchParams(Object.entries(obj).filter(([, v]) => v !== '' && v != null)).toString();
@@ -85,7 +85,7 @@ export default function MobileRejetsPage() {
     { value: 'RESOLVED', label: 'Résolus' },
   ];
 
-  if (loading && rejections.length === 0 && !error) return <Spinner />;
+  if (loading && rejections.length === 0 && !error) return <SkeletonList rows={6} />;
 
   return (
     <div className="px-4 space-y-4">

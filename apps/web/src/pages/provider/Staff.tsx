@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fmtDateTime } from '../../format';
-import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, Modal, SkeletonTable, StatusBadge } from '../../components/ui';
 
 export default function Staff() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -32,7 +32,7 @@ export default function Staff() {
       <ErrorBanner message={error} />
 
       {!items ? (
-        <Spinner />
+        <SkeletonTable bare rows={5} cols={5} />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[640px]">

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
-import { Spinner, StatCard } from '../../components/ui';
+import { SkeletonTable, StatCard } from '../../components/ui';
 
 export default function ProviderPayments() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -11,7 +11,7 @@ export default function ProviderPayments() {
     api.get('/provider/thirdparty').then((d: any) => setItems(d.items)).catch(() => setItems([]));
   }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonTable rows={8} />;
 
   const invoiced = items.filter(c => c.invoiceNumber && !c.paidAt);
   const paid = items.filter(c => c.paidAt);

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { EmptyState, Spinner } from '../../components/ui';
+import { EmptyState, SkeletonList } from '../../components/ui';
 
 export default function Claims() {
   const [claims, setClaims] = useState<any[] | null>(null);
@@ -12,7 +12,7 @@ export default function Claims() {
     api.get<any[]>('/claims/mine').then(setClaims).catch(() => setClaims([]));
   }, []);
 
-  if (!claims) return <Spinner />;
+  if (!claims) return <SkeletonList rows={6} />;
 
   return (
     <div className="space-y-4">

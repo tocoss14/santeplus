@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../../api';
 import { fcfa, fmtDate, prescriptionStatusLabel } from '../../format';
-import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, Modal, SkeletonTable, StatusBadge } from '../../components/ui';
 import { printDocument, escapeHtml } from '../../print';
 
 export default function ProviderPrescriptions() {
@@ -83,7 +83,7 @@ export default function ProviderPrescriptions() {
         </div>
       )}
 
-      {!items ? <Spinner /> : (
+      {!items ? <SkeletonTable bare rows={6} cols={6} /> : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[720px]">
             <thead><tr><th className="th">Numéro</th><th className="th">Patient</th><th className="th">Lignes</th><th className="th">Validité</th><th className="th">Renouv.</th><th className="th">Statut</th></tr></thead>

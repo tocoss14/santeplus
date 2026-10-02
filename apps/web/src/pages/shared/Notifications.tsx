@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fmtDateTime } from '../../format';
-import { EmptyState, Spinner } from '../../components/ui';
+import { EmptyState, SkeletonList } from '../../components/ui';
 import { useAuth } from '../../auth';
 
 export default function Notifications() {
@@ -26,7 +26,7 @@ export default function Notifications() {
     }
   };
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonList rows={6} />;
 
   return (
     <div className="mx-auto max-w-xl space-y-4">

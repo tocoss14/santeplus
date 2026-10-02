@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Link } from 'react-router-dom';
 import { api, API_BASE } from '../../api';
 import { cardQrPayload, fcfa, fmtDate, ticketModerateurLabel, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
-import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonDetail, StatusBadge } from '../../components/ui';
 
 type Tab = 'contrat' | 'paiements' | 'carte';
 
@@ -71,7 +71,7 @@ export default function MyContractUnified() {
     return () => clearInterval(poll);
   }, []);
 
-  if (!contracts) return <Spinner />;
+  if (!contracts) return <SkeletonDetail />;
 
   if (!contracts.length)
     return (

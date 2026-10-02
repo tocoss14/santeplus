@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
-import { ErrorBanner, Spinner } from '../../components/ui';
+import { ErrorBanner, SkeletonDetail } from '../../components/ui';
 
 const TIMELINE = ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'PAID'];
 
@@ -48,7 +48,7 @@ export default function ClaimDetail() {
   }
 
   if (error) return <ErrorBanner message={error} />;
-  if (!claim) return <Spinner />;
+  if (!claim) return <SkeletonDetail />;
 
   const estimation: any = claim.estimation ? JSON.parse(claim.estimation) : null;
   const flags: string[] = claim.flags ? JSON.parse(claim.flags) : [];

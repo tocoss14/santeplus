@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, API_BASE } from '../../api';
 import { fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
-import { ErrorBanner, Spinner } from '../../components/ui';
+import { ErrorBanner, SkeletonDetail } from '../../components/ui';
 
 export default function MyContract() {
   const [contracts, setContracts] = useState<any[] | null>(null);
@@ -18,7 +18,7 @@ export default function MyContract() {
     }).catch(() => setContracts([]));
   }, []);
 
-  if (!contracts) return <Spinner />;
+  if (!contracts) return <SkeletonDetail />;
   if (!contracts.length)
     return (
       <div className="card-p text-center">

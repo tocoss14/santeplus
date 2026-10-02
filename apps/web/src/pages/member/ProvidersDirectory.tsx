@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api';
 import { PROVIDER_TYPES } from '../../format';
-import { EmptyState, ErrorBanner, Spinner } from '../../components/ui';
+import { EmptyState, ErrorBanner, SkeletonCards } from '../../components/ui';
 
 export default function ProvidersDirectory() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -68,7 +68,7 @@ export default function ProvidersDirectory() {
       </div>
 
       {!items ? (
-        <Spinner />
+        <SkeletonCards rows={6} className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" />
       ) : items.length === 0 ? (
         <EmptyState icon="🏥" title="Aucun établissement trouvé" hint="Essayez d’élargir votre recherche." />
       ) : (

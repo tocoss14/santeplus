@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
 import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle, CATEGORY_LABELS } from '../../format';
-import { ErrorBanner, Spinner } from '../../components/ui';
+import { ErrorBanner, SkeletonDetail } from '../../components/ui';
 import { printDocument, escapeHtml } from '../../print';
 
 export default function TpDetail() {
@@ -23,7 +23,7 @@ export default function TpDetail() {
   useEffect(() => { if (id) void load(); }, [id]);
 
   if (error && !claim) return <ErrorBanner message={error} />;
-  if (!claim) return <Spinner />;
+  if (!claim) return <SkeletonDetail />;
 
   const est: any = claim.estimation ? JSON.parse(claim.estimation) : null;
   const canConfirm = ['PENDING_CONFIRMATION', 'AUTHORIZED'].includes(claim.status);

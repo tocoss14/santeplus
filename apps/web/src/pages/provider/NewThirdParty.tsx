@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { fcfa, CATEGORY_LABELS } from '../../format';
-import { ErrorBanner, Field, Spinner } from '../../components/ui';
+import { ErrorBanner, Field } from '../../components/ui';
 
 // Task 10 — Tiers payant PHARMACY : le circuit direct "legacy" sans ordonnance
 // a été supprimé côté API (provider-portal.controller.ts). Pour PHARMACY ou

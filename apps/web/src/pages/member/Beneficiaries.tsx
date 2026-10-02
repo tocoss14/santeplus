@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { fmtDate, RELATION_LABELS } from '../../format';
-import { ConfirmModal, EmptyState, ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { ConfirmModal, EmptyState, ErrorBanner, Field, Modal, SkeletonCards, StatusBadge } from '../../components/ui';
 
 export default function Beneficiaries() {
   const [contractId, setContractId] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export default function Beneficiaries() {
     }
   };
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonCards rows={3} className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" />;
 
   return (
     <div className="space-y-4">

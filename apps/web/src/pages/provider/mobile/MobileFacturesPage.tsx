@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../../api';
 import { fcfa, fmtDate, statusLabel } from '../../../format';
-import { StatusBadge, Spinner, EmptyState } from '../../../components/ui';
+import { EmptyState, SkeletonList, StatusBadge } from '../../../components/ui';
 
 function qs(obj: Record<string, any>) {
   return new URLSearchParams(Object.entries(obj).filter(([, v]) => v !== '' && v != null)).toString();
@@ -40,7 +40,7 @@ export default function MobileFacturesPage() {
     { value: 'REJECTED', label: 'Rejetée' },
   ];
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonList rows={6} />;
 
   return (
     <div className="px-4 space-y-4">

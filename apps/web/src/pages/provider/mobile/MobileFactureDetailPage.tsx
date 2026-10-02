@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../../api';
 import { fcfa, fmtDate } from '../../../format';
-import { ErrorBanner, Spinner, StatusBadge } from '../../../components/ui';
+import { ErrorBanner, SkeletonDetail, StatusBadge } from '../../../components/ui';
 
 export default function MobileFactureDetailPage() {
   const { id = '' } = useParams();
@@ -36,7 +36,7 @@ export default function MobileFactureDetailPage() {
     }
   };
 
-  if (!invoice && !error) return <Spinner />;
+  if (!invoice && !error) return <SkeletonDetail />;
   if (!invoice) {
     return (
       <div className="px-4 space-y-3">

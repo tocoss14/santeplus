@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, API_BASE, fileUrl } from '../../api';
 import { cardQrPayload, fmtDate } from '../../format';
-import { ConfirmModal, PhotoImg, Spinner, StatusBadge } from '../../components/ui';
+import { ConfirmModal, PhotoImg, SkeletonCards, StatusBadge } from '../../components/ui';
 
 export default function DigitalCard() {
   const [card, setCard] = useState<any>(null);
@@ -31,7 +31,7 @@ export default function DigitalCard() {
   useEffect(() => { load(); }, []);
 
   if (error) return <div className="card-p text-center text-slate-500">{error}</div>;
-  if (!card) return <Spinner />;
+  if (!card) return <SkeletonCards rows={1} className="max-w-md" />;
 
   return (
     <div className="mx-auto max-w-md space-y-4">

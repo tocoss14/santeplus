@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
 import { useAuth } from '../../auth';
 import { fcfa, fmtDate, fmtDateTime } from '../../format';
-import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, SkeletonTable, StatusBadge } from '../../components/ui';
 import OfflineBanner from '../../components/OfflineBanner';
 import { computeHash, enqueueDelivery, syncQueue, getQueue } from '../../lib/offlineQueue';
 import { cacheGuarantees, getCachedGuarantees } from '../../lib/offlineCache';
@@ -253,7 +253,7 @@ export default function ProviderDeliveries() {
       </div>
 
       <h2 className="font-semibold">Historique des délivrances</h2>
-      {!deliveries ? <Spinner /> : deliveries.length === 0 ? (
+      {!deliveries ? <SkeletonTable bare rows={6} cols={5} /> : deliveries.length === 0 ? (
         <div className="card-p text-center text-sm text-slate-500">Aucune délivrance.</div>
       ) : (
         <div className="card overflow-x-auto">

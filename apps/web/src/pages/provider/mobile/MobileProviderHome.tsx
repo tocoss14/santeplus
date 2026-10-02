@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../../api';
 import { fcfa, fmtDate, statusLabel } from '../../../format';
-import { StatusBadge, Spinner } from '../../../components/ui';
+import { SkeletonCards, StatusBadge } from '../../../components/ui';
 
 function qs(obj: Record<string, any>) {
   return new URLSearchParams(Object.entries(obj).filter(([, v]) => v !== '' && v != null)).toString();
@@ -31,7 +31,7 @@ export default function MobileProviderHome() {
     }).catch(() => setRecentFactures([]));
   }, []);
 
-  if (!dashboard) return <Spinner />;
+  if (!dashboard) return <SkeletonCards rows={4} />;
   if (dashboard.error) {
     return (
       <div className="px-4">

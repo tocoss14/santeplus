@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../../api';
 import { fcfa, fmtDate, fmtDateTime, prescriptionStatusLabel, CATEGORY_LABELS } from '../../format';
-import { ErrorBanner, Field, Modal, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, Field, Modal, SkeletonList, StatusBadge } from '../../components/ui';
 import { printDocument, escapeHtml } from '../../print';
 
 export default function MemberPrescriptions() {
@@ -12,7 +12,7 @@ export default function MemberPrescriptions() {
   const load = () => { api.get('/prescriptions/mine').then(setItems).catch(() => setItems([])); };
   useEffect(() => { load(); }, []);
 
-  if (!items) return <Spinner />;
+  if (!items) return <SkeletonList rows={5} />;
 
   const printOrdonnance = (p: any) => {
     const rows = p.lines.map((l: any) => `<tr><td>${escapeHtml(l.name)}</td><td>${l.quantity}</td><td>${fcfa(l.unitPrice)}</td><td>${escapeHtml(l.posology ?? '')}</td><td>${l.deliveredQty}/${l.quantity}</td></tr>`).join('');

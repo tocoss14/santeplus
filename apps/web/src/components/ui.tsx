@@ -107,6 +107,34 @@ export function SkeletonList({ rows = 5, className = '' }: { rows?: number; clas
   );
 }
 
+/** Page détail fantôme (titre, blocs de champs, carte latérale) — remplace le Spinner
+ *  sur les écrans « détail » (dossier, claim, contrat, formulaire). */
+export function SkeletonDetail({ className = '' }: { className?: string }) {
+  return (
+    <div className={`space-y-4 ${className}`} role="status" aria-label="Chargement…">
+      <Skeleton className="h-7 w-56" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="card-p space-y-3 lg:col-span-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-4/5" />
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="mt-2 h-20 w-full rounded-xl" />
+          <Skeleton className="h-3 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+        <div className="card-p space-y-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-3/4" />
+          <Skeleton className="h-8 w-1/2" />
+          <Skeleton className="h-10 w-full rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EmptyState({ icon = '📭', title, hint }: { icon?: string; title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">

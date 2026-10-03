@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { ROLE_HOME, useAuth } from './auth';
-import { Spinner } from './components/ui';
+import { SkeletonDetail } from './components/ui';
 import PublicLayout from './layouts/PublicLayout';
 import AppLayout from './layouts/AppLayout';
 import Landing from './pages/Landing';
@@ -99,7 +99,7 @@ const Notifications = lazy(() => import('./pages/shared/Notifications'));
 function Require({ roles, children }: { roles: string[]; children: React.ReactNode }) {
   const { me, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonDetail className="mx-auto max-w-3xl py-8" />;
   if (!me) {
     return <Navigate to="/login" state={{ from: `${location.pathname}${location.search}` }} replace />;
   }
@@ -108,7 +108,7 @@ function Require({ roles, children }: { roles: string[]; children: React.ReactNo
 }
 
 function Lazy({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<div className="grid place-items-center py-16"><Spinner /></div>}>{children}</Suspense>;
+  return <Suspense fallback={<div className="py-8"><SkeletonDetail className="mx-auto max-w-3xl" /></div>}>{children}</Suspense>;
 }
 
 export default function App() {

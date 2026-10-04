@@ -6,7 +6,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "dev": "infisical run --env=dev -- concurrently -n api,web -c blue,green \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build -w apps/api",
     "start": "node apps/api/node_modules/.bin/prisma migrate deploy && node apps/api/dist/main.js",
     "postinstall": "npm run build -w apps/api",

@@ -8,6 +8,8 @@ apps/api/uploads/
 .env.local
 .env.prod
 .env.staging
+.env.backup
+.env.*.backup
 COMPTES_DEMO.md
 coverage/
 

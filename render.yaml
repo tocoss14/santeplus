@@ -1,0 +1,47 @@
+# Blueprint Render — API SantéPlus (plan gratuit, sans carte bancaire).
+# Création : dashboard.render.com → New → Blueprint → choisir ce repo.
+# Les secrets (sync: false) sont saisis dans l'UI Render, jamais stockés ici.
+
+services:
+  - type: web
+    name: santeplus-api
+    runtime: docker
+    plan: free
+    # Le Dockerfile racine est multi-stage (build TS + Prisma, puis image finale).
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Le conteneur écoute $PORT (fourni par Render) — main.ts lit PORT, défaut 4000.
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      # --- Secrets : à saisir dans le dashboard Render (valeur laissée vide ici) ---
+      - key: DATABASE_URL
+        sync: false      # postgresql://postgres.<ref>:<mdp>@aws-0-<zone>.pooler.supabase.com:5432/postgres?sslmode=require
+      - key: JWT_SECRET
+        sync: false      # ≥ 32 caractères — ne jamais changer après coup
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false      # 64 hex — ne JAMAIS changer (sinon données chiffrées illisibles)
+      - key: WEB_ORIGIN
+        sync: false      # https://santeplus-one.vercel.app (CORS + CSRF)
+      - key: APP_URL
+        sync: false      # URL publique de l'API (callbacks de paiement)
+      # --- Fichiers : R2 est S3-compatible, le module files bascule dessus ---
+      - key: S3_ENDPOINT
+        sync: false      # https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false      # santeplus-files
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      # --- Paiements (sandbox jusqu'au go-live) ---
+      - key: MOCK_PAYMENTS
+        value: "true"
+      - key: PAY_PROVIDERS
+        value: MOCK_MOMO

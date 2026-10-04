@@ -7,7 +7,7 @@ Guide opérationnel : **[DEPLOY_FREE.md](DEPLOY_FREE.md)** (source de vérité).
 | Composant | Service | Free tier | État côté repo |
 |---|---|---|---|
 | Frontend React (SPA) | **Vercel** | builds/bande passante illimités | `apps/web/vercel.json` prêt (remplacer le placeholder `VOTRE-URL-API`) |
-| API NestJS (27 modules) | **Koyeb** | 1 instance 512 MB, sans veille, sans CB | `Dockerfile` racine vert, health check `/api/health`, CMD attendant la base |
+| API NestJS (27 modules) | **Render** | 750 h/mois, veille après 15 min, sans CB | `render.yaml` (blueprint) + `Dockerfile` racine vert, health check `/api/health`, CMD attendant la base |
 | PostgreSQL | **Supabase** | 500 MB DB, 50 k MAU | 34 migrations prêtes (`prisma migrate deploy`) |
 | Fichiers | **Cloudflare R2** | 10 GB, S3-compatible | branchable par `S3_*` (module `files` déjà `@aws-sdk/client-s3`) — zéro code |
 | Auth / Realtime | gardés dans l'app (JWT + guards) | — | bascule Supabase Auth/Réaltime : plus tard, hors périmètre |
@@ -28,7 +28,7 @@ Restauré depuis HEAD. Un **prototype edge** honnête est conservé hors compila
 
 | Fichier | Rôle |
 |---|---|
-| `DEPLOY_FREE.md` | guide complet (Supabase → Koyeb → R2 → Vercel) |
+| `DEPLOY_FREE.md` | guide complet (Supabase → Render → R2 → Vercel) |
 | `apps/web/vercel.json` | rewrites SPA + en-têtes + PWA |
 | `edge/worker.ts`, `wrangler.toml` | prototype edge optionnel (non branché) |
 | `.env.example` | + section Supabase / R2 (`S3_*`) / Vercel (`VITE_API_URL`) |
@@ -43,7 +43,8 @@ Restauré depuis HEAD. Un **prototype edge** honnête est conservé hors compila
 
 ## Reste à faire (comptes, sans CB)
 
-- [ ] Comptes Supabase / Koyeb / Vercel / Cloudflare créés
-- [ ] `prisma migrate deploy` sur Supabase ; service Koyeb vert (`/api/health` 200)
-- [ ] R2 bucket + `S3_*` côté Koyeb ; `VITE_API_URL` + placeholder `vercel.json` → URL Koyeb
+- [ ] Comptes Supabase / Render / Vercel / Cloudflare créés
+- [x] `prisma migrate deploy` sur Supabase (34 migrations, 55 tables)
+- [ ] Service Render créé via blueprint `render.yaml` (`/api/health` 200)
+- [ ] R2 bucket + `S3_*` côté Render ; `VITE_API_URL` + placeholder `vercel.json` → URL Render
 - [ ] `WEB_ORIGIN` = URL Vercel exacte (CSRF) ; smoke test login + webhook PSP sandbox

@@ -10,7 +10,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:seed:catalogue": "tsx prisma/seed-catalogue.ts",
+    "db:seed:catalogue:dry": "tsx prisma/seed-catalogue.ts --dry"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1116.0",

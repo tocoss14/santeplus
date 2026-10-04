@@ -1,0 +1,25 @@
+# PROTOTYPE edge (voir edge/worker.ts) — non requis pour le déploiement principal.
+# L'API de production reste l'application NestJS (apps/api) : voir DEPLOY_FREE.md.
+name = "santeplus-edge"
+main = "edge/worker.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NODE_ENV = "production"
+
+# Secrets (jamais dans ce fichier) :
+#   wrangler secret put JWT_SECRET
+#   wrangler secret put SUPABASE_URL
+#   wrangler secret put SUPABASE_SERVICE_KEY
+
+# Décommenter après création des ressources :
+# Cloudflare Dashboard > R2 > Create bucket "santeplus-files"
+# [[r2_buckets]]
+# binding = "R2_BUCKET"
+# bucket_name = "santeplus-files"
+
+# wrangler kv:namespace create "CACHE"
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "<id renvoyé par la commande ci-dessus>"

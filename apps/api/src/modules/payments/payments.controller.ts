@@ -302,10 +302,19 @@ export class PaymentsController {
   @Post('payments/mock/confirm')
   async mockConfirm(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(mockConfirmSchema)) dto: any) {
     // Simulation interdite en production et dès que MOCK_PAYMENTS=false :
-    // un succès ne peut venir que d'un PSP réel vérifié.
+    // un succès ne peut venir que d'un PSP réel vérifié. Ce garde passe AVANT
+    // toute lecture du paiement : en prod il ne doit rien révéler de
+    // l'existence d'un paymentId.
     if (config.isProd || !config.mockPayments) throw new ForbiddenException('Simulation de paiement désactivée');
     const payment = await this.payments.findPayment(dto.paymentId);
     if (!payment) throw new NotFoundException('Paiement introuvable');
+    // Et ce point de terminaison ne sert QUE les fournisseurs de test : un
+    // paiement déjà lancé chez un vrai PSP ne doit JAMAIS pouvoir être confirmé
+    // ici (sinon un succès s'invente sans le PSP). Même invariant que
+    // isProviderUsable côté /payments/methods, qui refuse d'annoncer le test
+    // hors prod — les deux ne peuvent donc pas diverger.
+    const provider = getProvider(payment.method);
+    if (!provider || provider.kind !== 'TEST') throw new ForbiddenException('Simulation de paiement désactivée');
     const allowed =
       auth.role === 'SUPER_ADMIN' || auth.role === 'INSURANCE_MANAGER' || payment.userId === auth.id;
     if (!allowed) throw new ForbiddenException();

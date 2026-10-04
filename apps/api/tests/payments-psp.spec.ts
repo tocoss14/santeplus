@@ -20,10 +20,18 @@ vi.mock('../src/modules/payments/providers', () => ({
   getProvider: (code: string) => ({
     code,
     available: true,
+    // kind fidèle au registre réel : seul MOCK_MOMO est 'TEST'. Sans lui, le
+    // test « un vrai PSP ne peut pas être confirmé » passerait pour la mauvaise
+    // raison (kind absent) et ne surveillerait pas le garde.
+    kind: code === 'MOCK_MOMO' ? 'TEST' : 'MOBILE_MONEY',
     initiate: async (p: any) => ({ provider: code, instructions: { mode: 'SIMULATION', reference: p.reference } }),
     checkStatus,
   }),
   getProviders: () => [],
+  // Miroir du prédicat réel : un fournisseur de test n'est utilisable que hors
+  // production et si MOCK_PAYMENTS est actif.
+  isProviderUsable: (p: any) =>
+    p.kind === 'TEST' ? !mockConfig.isProd && mockConfig.mockPayments : p.available,
 }));
 
 const auth: any = { id: 'u1', email: 'u@t.bj', role: 'MEMBER', companyId: null, providerId: null };
@@ -143,5 +151,61 @@ describe('Verrouillage de la simulation', () => {
     const { controller } = makeHarness(makePayment());
     await expect(controller.mockConfirm(auth, { paymentId: 'p1', outcome: 'SUCCESS' } as any))
       .rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('mock/confirm ne confirme jamais un paiement déjà lancé chez un vrai PSP', async () => {
+    // Même hors production et avec MOCK_PAYMENTS=true : confirmer par ce point de
+    // terminaison un paiement CINETPAY inventerait un succès sans le PSP.
+    mockConfig.isProd = false;
+    mockConfig.mockPayments = true;
+    const { controller } = makeHarness(makePayment({ method: 'CINETPAY' }));
+    await expect(controller.mockConfirm(auth, { paymentId: 'p1', outcome: 'SUCCESS' } as any))
+      .rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('mock/confirm confirme un paiement de simulation hors production', async () => {
+    // Cas positif : le garde kind ne doit pas tout fermer. C'est ce que le test
+    // e2e de souscription utilise pour atteindre l'étape « Paiement confirmé ».
+    mockConfig.isProd = false;
+    mockConfig.mockPayments = true;
+    const { controller } = makeHarness(makePayment({ method: 'MOCK_MOMO' }));
+    const out = await controller.mockConfirm(auth, { paymentId: 'p1', outcome: 'SUCCESS' } as any);
+    expect(out).toBeDefined();
+  });
+});
+
+describe('/payments/methods n’annonce que des moyens qui peuvent aboutir', () => {
+  // Le vrai providers.ts (non mocké) : ce que /payments/methods renvoie est ce
+  // que le front affiche, et chaque moyen listé doit pouvoir mener au bout.
+  it('marque la simulation indisponible en production et disponible hors production', async () => {
+    vi.resetModules();
+    vi.doMock('../src/config', () => ({ config: { ...mockConfig, isProd: true } }));
+    vi.doUnmock('../src/modules/payments/providers');
+    const prod = await import('../src/modules/payments/providers');
+    const [enProd] = prod.getProviders(['MOCK_MOMO']);
+    expect(enProd.code).toBe('MOCK_MOMO');
+    // Le garde de mock/confirm répond 403 en prod : l'annoncer serait un mensonge.
+    expect(enProd.available).toBe(false);
+
+    vi.resetModules();
+    vi.doMock('../src/config', () => ({ config: { ...mockConfig, isProd: false, mockPayments: true } }));
+    const dev = await import('../src/modules/payments/providers');
+    expect(dev.getProviders(['MOCK_MOMO'])[0].available).toBe(true);
+
+    vi.resetModules();
+    vi.doMock('../src/config', () => ({ config: { ...mockConfig, isProd: false, mockPayments: false } }));
+    const noMock = await import('../src/modules/payments/providers');
+    expect(noMock.getProviders(['MOCK_MOMO'])[0].available).toBe(false);
+  });
+
+  it('laisse les moyens sans identifiants (FedaPay, CinetPay) indisponibles', async () => {
+    vi.resetModules();
+    vi.doMock('../src/config', () => ({
+      config: { ...mockConfig, isProd: true, cinetpayApiKey: '', cinetpaySiteId: '', fedapaySecretKey: '' },
+    }));
+    const { getProviders } = await import('../src/modules/payments/providers');
+    const list = getProviders(['MOCK_MOMO', 'FEDAPAY', 'CINETPAY']);
+    expect(list).toHaveLength(3);
+    expect(list.every((m: any) => m.available === false)).toBe(true);
   });
 });

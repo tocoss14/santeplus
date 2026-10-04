@@ -4,6 +4,7 @@ import { api, fileUrl } from '../../api';
 import { fcfa, CATEGORY_LABELS, FREQUENCY_LABELS } from '../../format';
 import { ErrorBanner, Field, PhotoImg, SkeletonCards, Spinner } from '../../components/ui';
 import { Confetti } from '../../components/motion';
+import { useAuth } from '../../auth';
 import FormulaComparisonTable from '../../components/FormulaComparisonTable';
 
 interface BenefDraft {
@@ -45,9 +46,46 @@ interface GuaranteeChangeDraft {
 
 const STEPS = ['Profil initial', 'Formule', 'Acte de naissance', 'Garanties incluses', 'Photo', 'Bénéficiaires', 'Devis', 'Paiement', 'Terminé'];
 
+/** Message d'erreur si l'un des trois champs comparables à l'acte manque. */
+export function validateIdentity(p: InitialProfile): string | null {
+  if (!p.firstName.trim() || !p.lastName.trim() || !p.birthDate) return 'Tous les champs sont obligatoires.';
+  return null;
+}
+
+/**
+ * Sortie de l'étape « Profil initial » en mode correction (revenu de l'étape
+ * acte via « Corriger cette identité »).
+ *
+ * La vérification de l'acte compare la lecture machine au profil EN BASE
+ * (birth-certificate.service lit user.firstName/lastName/birthDate) : sans
+ * écriture, corriger le formulaire ne débloquait rien et le message d'erreur
+ * renvoyait vers une impasse.
+ *
+ * Renvoie null si le profil a bien été écrit (on peut avancer), sinon le
+ * message à afficher — l'appelant reste alors sur l'étape 0.
+ */
+export async function persistIdentity(opts: {
+  profile: InitialProfile;
+  patchProfile: (body: { firstName: string; lastName: string; birthDate: string }) => Promise<unknown>;
+}): Promise<string | null> {
+  const invalid = validateIdentity(opts.profile);
+  if (invalid) return invalid;
+  try {
+    await opts.patchProfile({
+      firstName: opts.profile.firstName.trim(),
+      lastName: opts.profile.lastName.trim(),
+      birthDate: opts.profile.birthDate,
+    });
+    return null;
+  } catch (e: any) {
+    return `Identité non enregistrée : ${e?.message ?? 'erreur inconnue'}. Réessayez ou corrigez depuis la page Profil.`;
+  }
+}
+
 export default function SubscribeWizard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { refresh } = useAuth();
   const [step, setStep] = useState(0);
   const [products, setProducts] = useState<any[] | null>(null);
   const [productId, setProductId] = useState<string>(
@@ -58,6 +96,11 @@ export default function SubscribeWizard() {
   const [beneficiaries, setBeneficiaries] = useState<BenefDraft[]>([]);
   const [initialProfile, setInitialProfile] = useState<InitialProfile>({ firstName: '', lastName: '', birthDate: '' });
   const [initialProfileError, setInitialProfileError] = useState<string | null>(null);
+  // Vrai quand l'étape 0 a été re-ouverte depuis « Corriger cette identité » de
+  // l'étape acte. La vérification de l'acte compare la lecture machine au
+  // profil EN BASE : sans cette persistance, corriger le formulaire ne
+  // débloquait rien et l'utilisateur tournait en boucle sur le même refus.
+  const [correctingIdentity, setCorrectingIdentity] = useState(false);
   const [guaranteeRequest, setGuaranteeRequest] = useState<GuaranteeChangeDraft | null>(null);
   const [guaranteeRequestResult, setGuaranteeRequestResult] = useState<any | null>(null);
   const [guaranteeRequestError, setGuaranteeRequestError] = useState<string | null>(null);
@@ -169,7 +212,11 @@ export default function SubscribeWizard() {
     api.get<any[]>('/products?clientType=INDIVIDUAL').then(setProducts).catch(() => setProducts([]));
     api.get<any[]>('/payments/methods').then(m => {
       setPaymentMethods(m);
-      if (m[0]) setMethod(m[0].code);
+      // On ne présélectionne que le premier moyen RÉELLEMENT disponible : le
+      // serveur marque available=false tout moyen qui ne peut pas aboutir
+      // (simulation interdite en prod), et le bouton Payer échouerait dessus.
+      const firstUsable = m.find((x: any) => x.available);
+      if (firstUsable) setMethod(firstUsable.code);
     }).catch((e: any) => {
       // Sans moyens de paiement l'étape 7 est dans une impasse — l'afficher.
       setMethodsError(e?.message ?? 'Impossible de charger les moyens de paiement');
@@ -423,7 +470,7 @@ export default function SubscribeWizard() {
             : 'Les informations de l’acte ne correspondent pas à votre profil.',
         );
         problems.push(locked
-          ? 'Ces données sont lues automatiquement sur votre acte : corrigez votre compte (page « Profil ») ou l’identité saisie au début pour qu’elles coïncident.'
+          ? 'Ces données sont lues automatiquement sur votre acte : cliquez sur « Corriger cette identité » ci-dessus et recopiez exactement le prénom, le nom et la date qui y figurent — votre profil sera mis à jour en conséquence.'
           : 'Vérifiez votre recopie manuelle.');
       }
       if (initialComparison && !initialMatches) {
@@ -432,7 +479,7 @@ export default function SubscribeWizard() {
           : '';
         problems.push(
           'Les informations saisies au début ne correspondent pas à l’acte de naissance vérifié. ' +
-          'Retournez à la première étape et renseignez exactement le prénom, le nom et la date figurant sur votre acte de naissance ou votre carte d’identité.' +
+          'Cliquez sur « Corriger cette identité » ci-dessus, puis renseignez exactement le prénom, le nom et la date figurant sur votre acte de naissance ou votre carte d’identité : votre profil sera aligné dessus avant de revenir ici.' +
           initialWarnings,
         );
       } else if (!initialComparison) {
@@ -453,14 +500,33 @@ export default function SubscribeWizard() {
     setError(null);
   };
 
-  const goStep1 = () => {
-    if (!initialProfile.firstName.trim() || !initialProfile.lastName.trim() || !initialProfile.birthDate) {
-      setInitialProfileError('Tous les champs sont obligatoires.');
-      return;
+  const goStep1 = async () => {
+    // Premier passage : l'inscription a déjà écrit ces valeurs en base, on
+    // avance sans requête.
+    if (!correctingIdentity) {
+      const invalid = validateIdentity(initialProfile);
+      if (invalid) return setInitialProfileError(invalid);
+      setInitialProfileError(null);
+      setError(null);
+      return setStep(1);
     }
-    setStep(1); // Goes to formula selection
+
+    // Correction depuis l'étape acte : on écrit d'abord, on n'avance qu'en cas
+    // de succès — sinon l'étape acte rejouerait le même refus sans cause visible.
+    setBusy(true);
+    const failure = await persistIdentity({
+      profile: initialProfile,
+      patchProfile: (body) => api.patch('/users/me', body),
+    });
+    setBusy(false);
+    if (failure) return setInitialProfileError(failure);
+
+    // Le nom affiché ailleurs (en-tête, carte d'assuré) doit suivre.
+    await refresh().catch(() => {});
+    setCorrectingIdentity(false);
     setInitialProfileError(null);
     setError(null);
+    setStep(1);
   };
 
   const goStep3 = () => {
@@ -481,6 +547,26 @@ export default function SubscribeWizard() {
       api.post('/users/me/photo', fd).catch((e: any) => {
         // La photo n'est pas bloquante pour la souscription, mais ne pas la
         // perdre en silence — l'utilisateur devra la renvoyer depuis son profil.
+        setError(`Photo non enregistrée (${e?.message ?? 'erreur inconnue'}) — vous pourrez la renvoyer depuis votre profil.`);
+      });
+    }
+    // Étape 4 (0-indexée) = « Photo » : sans ce saut, l'étape Photo était
+    // inaccessible et la photo de la carte d'assuré ne pouvait jamais être envoyée.
+    setStep(4);
+    setError(null);
+  };
+
+  // Étape 5 (0-indexée) = « Bénéficiaires ».
+  // L'insertion de l'étape « Garanties incluses » a décalé tous les indices de +1 :
+  // le « Continuer » de l'étape Photo pointait encore sur goStep4, qui reboucle
+  // sur setStep(4) — l'étape Photo se rechargeait elle-même et « Bénéficiaires »
+  // devenait INATTEIGNABLE (aucun setStep(5) dans le fichier). La photo choisie à
+  // cette étape est envoyée ici, puis on enchaîne sur les bénéficiaires.
+  const goPhotoToBeneficiaries = () => {
+    if (photoFile) {
+      const fd = new FormData();
+      fd.append('photo', photoFile);
+      api.post('/users/me/photo', fd).catch((e: any) => {
         setError(`Photo non enregistrée (${e?.message ?? 'erreur inconnue'}) — vous pourrez la renvoyer depuis votre profil.`);
       });
     }
@@ -625,6 +711,15 @@ export default function SubscribeWizard() {
 
           {initialProfileError && <ErrorBanner message={initialProfileError} />}
 
+          {correctingIdentity && (
+            <p className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800">
+              Votre acte a été refusé car il ne correspond pas à votre profil.
+              En continuant, ces trois champs <strong>écrasent votre profil</strong>{' '}
+              (c’est lui que la vérification compare à l’acte). Ils doivent donc
+              être identiques à ceux de votre acte de naissance.
+            </p>
+          )}
+
           <button
             type="button"
             onClick={goStep1}
@@ -682,7 +777,7 @@ export default function SubscribeWizard() {
             <p className="mt-1">
               {initialProfile.firstName} {initialProfile.lastName} — né(e) le {initialProfile.birthDate || '—'}.
             </p>
-            <button type="button" className="mt-1 font-medium text-brand-700 hover:underline" onClick={() => setStep(0)}>
+            <button type="button" className="mt-1 font-medium text-brand-700 hover:underline" onClick={() => { setCorrectingIdentity(true); setStep(0); }}>
               Corriger cette identité
             </button>
           </div>
@@ -1014,7 +1109,7 @@ export default function SubscribeWizard() {
           </div>
           <div className="flex gap-2">
             <button className="btn-outline flex-1" onClick={() => setStep(3)}>Retour</button>
-            <button className="btn-primary flex-[2]" onClick={goStep4}>Continuer</button>
+            <button className="btn-primary flex-[2]" onClick={goPhotoToBeneficiaries}>Continuer</button>
           </div>
         </div>
       )}
@@ -1162,13 +1257,22 @@ export default function SubscribeWizard() {
               {methodsError && <ErrorBanner message={methodsError} />}
               <div className="grid gap-2">
                 {paymentMethods.map(m => (
-                  <label key={m.code} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${method === m.code ? 'border-brand-600 ring-1 ring-brand-600 bg-brand-50/50' : 'border-slate-200'}`}>
-                    <input type="radio" name="method" checked={method === m.code} onChange={() => setMethod(m.code)} />
+                  <label key={m.code} className={`flex items-center gap-3 rounded-lg border p-3 text-sm ${method === m.code ? 'border-brand-600 ring-1 ring-brand-600 bg-brand-50/50' : 'border-slate-200'} ${m.available ? 'cursor-pointer' : 'opacity-60'}`}>
+                    <input type="radio" name="method" checked={method === m.code} disabled={!m.available} onChange={() => setMethod(m.code)} />
                     <span className="font-medium">{m.label}</span>
                     {!m.available && <span className="ml-auto badge bg-slate-100 text-slate-400">Bientôt</span>}
                   </label>
                 ))}
               </div>
+              {/* Aucun moyen ne peut aboutir (ex. prod sans PSP) : le dire plutôt
+                  que d'offrir un bouton « Payer » qui finira en 403. */}
+              {paymentMethods.length > 0 && !paymentMethods.some((m: any) => m.available) && (
+                <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                  Aucun moyen de paiement n’est activé pour le moment. Votre contrat
+                  {subscription.number ? ` ${subscription.number}` : ''} est enregistré sans être
+                  activé&nbsp;: revenez plus tard ou contactez votre gestionnaire pour le régler.
+                </p>
+              )}
             </Field>
           </div>
           <button className="btn-primary w-full" disabled={busy || !method} onClick={pay}>

@@ -378,9 +378,20 @@ function PendingPaymentCard({ contract, onPaid }: { contract: any; onPaid: () =>
   const [method, setMethod] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [methodsLoaded, setMethodsLoaded] = useState(false);
 
   useEffect(() => {
-    api.get<any[]>('/payments/methods').then(m => { setMethods(m); if (m[0]) setMethod(m[0].code); }).catch(() => {});
+    // Le serveur marque available=false tout moyen qui ne peut pas aboutir
+    // (simulation interdite en prod) : ne proposer que les moyens utilisables,
+    // sinon « Payer maintenant » mène droit à un 403 affiché brut.
+    api.get<any[]>('/payments/methods')
+      .then(m => {
+        const usable = m.filter((x: any) => x.available);
+        setMethods(usable);
+        if (usable[0]) setMethod(usable[0].code);
+      })
+      .catch(() => {})
+      .finally(() => setMethodsLoaded(true));
   }, []);
 
   if (!next) return null;
@@ -389,6 +400,13 @@ function PendingPaymentCard({ contract, onPaid }: { contract: any; onPaid: () =>
     <div className="card-p border-amber-300 bg-amber-50">
       <p className="font-semibold text-amber-800">⏳ Paiement en attente — {fcfa(next.amount)} à régler</p>
       {error && <ErrorBanner message={error} />}
+      {methodsLoaded && methods.length === 0 && (
+        <p className="mt-2 text-sm text-amber-800">
+          Aucun moyen de paiement n’est activé pour le moment. Votre contrat reste
+          enregistré sans être activé&nbsp;: revenez plus tard ou contactez votre
+          gestionnaire pour le régler.
+        </p>
+      )}
       <div className="mt-3 flex flex-col sm:flex-row gap-2">
         <select className="input sm:w-64" value={method} onChange={e => setMethod(e.target.value)}>
           {methods.map(m => <option key={m.code} value={m.code}>{m.label}</option>)}

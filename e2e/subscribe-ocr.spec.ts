@@ -152,13 +152,15 @@ test.describe('Souscription: acte de naissance lu par OCR et verrouillé', () =>
    * Étapes après une vérification réussie — ancres sur des textes UNIQUES au
    * corps de chaque étape : les noms d'étapes apparaissent aussi dans la barre
    * de progression (toujours visibles) et ne peuvent pas servir d'ancre.
-   * NB : garanties et photo partagent le même handler goStep4 → un seul clic
-   * depuis les garanties saute la page photo et arrive aux bénéficiaires.
+   * L'étape Photo est traversed pour de bon : elle porte la photo de la carte
+   * d'assuré, on peut donc la passer sans fichier (elle est facultative).
    */
   async function finishAfterVerification(page: import('@playwright/test').Page) {
     await page.getByRole('button', { name: 'Continuer' }).click(); // sortie de l'étape acte → garanties
     await expect(page.getByText(/formule figée/)).toBeVisible();
-    await page.getByRole('button', { name: 'Continuer' }).click(); // garanties → bénéficiaires (photo sautée)
+    await page.getByRole('button', { name: 'Continuer' }).click(); // garanties → photo
+    await expect(page.getByText(/Photo pour votre carte/)).toBeVisible();
+    await page.getByRole('button', { name: 'Continuer' }).click(); // photo → bénéficiaires
     await expect(page.getByText(/Ajoutez vos ayants droit/)).toBeVisible();
     await page.getByRole('button', { name: 'Voir mon devis' }).click(); // → devis
     await expect(page.getByText('Récapitulatif')).toBeVisible();

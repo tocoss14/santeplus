@@ -212,10 +212,24 @@ export interface PublicPaymentMethod {
   available: boolean;
 }
 
+/**
+ * Un moyen de paiement n'est proposé que s'il peut MENER AU BOUT : le front
+ * n'affiche rien d'autre que cette liste, et le bouton « Payer » appelle le
+ * provider choisi. Le fournisseur de test (MOCK_MOMO) n'aboutit que si
+ * /payments/mock/confirm l'autorise — condition exactement celle du garde de
+ * POST payments/mock/confirm. Sans ce filtre, la prod annonçait « Mobile Money
+ * (simulation) » disponible alors que la confirmation répond 403 : l'utilisateur
+ * remplissait le formulaire pour tomber sur une impasse.
+ */
+export function isProviderUsable(p: PaymentProvider): boolean {
+  if (p.kind === 'TEST') return !config.isProd && config.mockPayments;
+  return p.available;
+}
+
 export function getProviders(enabledCodes: string[]): PublicPaymentMethod[] {
   return Object.values(REGISTRY)
     .filter(p => enabledCodes.includes(p.code))
-    .map(p => ({ code: p.code, label: p.label, kind: p.kind, available: p.available }));
+    .map(p => ({ code: p.code, label: p.label, kind: p.kind, available: isProviderUsable(p) }));
 }
 
 export function getProvider(code: string): PaymentProvider | null {

@@ -8,12 +8,19 @@ export interface DispatchInput {
   body: string;
   meta?: Record<string, any>;
   html?: string;
+  /**
+   * Ignore le filtrage par topics (NOTIFY_EMAIL_TOPICS / NOTIFY_SMS_TOPICS).
+   * Réservé aux envois de SÉCURITÉ qui ne doivent jamais être silencieusement
+   * supprimés par une configuration de topics — ex. le lien de réinitialisation
+   * de mot de passe, dont l'absence d'envoi rendrait le parcours inutilisable.
+   */
+  force?: boolean;
 }
 
 const DEFAULT_EMAIL_TOPICS = [
   'WELCOME', 'CONTRACT_ACTIVATED', 'PAYMENT_CONFIRMED', 'PAYMENT_REMINDER',
   'CLAIM_STATUS', 'CLAIM_RECEIVED', 'EXPIRY_REMINDER', 'CONTRACT_EXPIRED',
-  'CONTRACT_SUSPENDED',
+  'CONTRACT_SUSPENDED', 'PASSWORD_RESET',
 ];
 const DEFAULT_SMS_TOPICS = [
   'WELCOME', 'CONTRACT_ACTIVATED', 'PAYMENT_CONFIRMED', 'PAYMENT_REMINDER',
@@ -58,12 +65,14 @@ export class NotificationDispatchService {
 
     const emailTopics = topicList(config.notifyEmailTopics, DEFAULT_EMAIL_TOPICS);
     const smsTopics = topicList(config.notifySmsTopics, DEFAULT_SMS_TOPICS);
+    const emailEnabled = input.force || emailTopics.has(input.topic);
+    const smsEnabled = input.force ? false : smsTopics.has(input.topic);
 
     const jobs: Promise<unknown>[] = [];
-    if (emailTopics.has(input.topic) && user.email) {
+    if (emailEnabled && user.email) {
       jobs.push(this.sendEmail(user.email, input));
     }
-    if (smsTopics.has(input.topic) && user.phone) {
+    if (smsEnabled && user.phone) {
       jobs.push(this.sendSmsOrWhatsapp(user.phone, input));
     }
     await Promise.allSettled(jobs);

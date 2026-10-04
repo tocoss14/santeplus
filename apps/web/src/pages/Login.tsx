@@ -35,6 +35,9 @@ export default function Login() {
         <ErrorBanner message={error} />
         <Field label="Email"><input className="input" type="email" required value={email} onChange={e => setEmail(e.target.value)} autoFocus /></Field>
         <Field label="Mot de passe"><input className="input" type="password" required value={password} onChange={e => setPassword(e.target.value)} /></Field>
+        <div className="-mt-2 mb-3 text-right">
+          <Link to="/mot-de-passe-oublie" className="text-sm font-semibold text-brand-700 hover:underline">Mot de passe oublié ?</Link>
+        </div>
         <button className="btn-primary w-full" disabled={busy}>{busy ? 'Connexion…' : 'Se connecter'}</button>
         <p className="mt-4 text-center text-sm text-slate-500">
           Pas encore de compte ? <Link to="/register" className="font-semibold text-brand-700 hover:underline">Créer un compte</Link>

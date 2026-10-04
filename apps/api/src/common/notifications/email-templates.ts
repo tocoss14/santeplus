@@ -321,7 +321,35 @@ export function claimStatusEmail(
 }
 
 // ─────────────────────────────────────────────
-// 7. SMS templates (texte court)
+// 7. Réinitialisation de mot de passe
+// ─────────────────────────────────────────────
+export function passwordResetEmail(firstName: string, resetUrl: string): string {
+  return baseLayout('Réinitialisation de votre mot de passe', `
+    <h1 style="margin:0 0 16px;font-size:22px;color:${INK};">Réinitialisation de mot de passe</h1>
+    <p style="margin:0 0 12px;font-size:14px;color:${STONE};">
+      Bonjour ${firstName}, une réinitialisation de mot de passe a été demandée pour votre compte SantéPlus.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" style="padding:20px 0;">
+          <a href="${resetUrl}" style="background:${BRAND};color:${WHITE};padding:12px 32px;border-radius:24px;text-decoration:none;font-weight:bold;font-size:14px;">
+            Choisir un nouveau mot de passe →
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 8px;font-size:13px;color:${STONE};">
+      ⏱️ Ce lien est valable <strong>1 heure</strong> et ne fonctionne qu'une seule fois.
+    </p>
+    <p style="margin:0;font-size:13px;color:${STONE};">
+      Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message :
+      votre mot de passe actuel reste valable.
+    </p>
+  `);
+}
+
+// ─────────────────────────────────────────────
+// 8. SMS templates (texte court)
 // ─────────────────────────────────────────────
 export const smsTemplates = {
   welcome: (firstName: string) =>

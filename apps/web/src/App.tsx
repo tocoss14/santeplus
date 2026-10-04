@@ -9,6 +9,10 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import RegisterCompany from './pages/RegisterCompany';
 
+// Lazy — parcours « mot de passe oublié »
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+
 // Lazy — member
 const Offers = lazy(() => import('./pages/Offers'));
 const MemberDashboard = lazy(() => import('./pages/member/Dashboard'));
@@ -119,6 +123,8 @@ export default function App() {
         <Route path="/offres" element={<Lazy><Offers /></Lazy>} />
         <Route path="/simulateur" element={<Lazy><Simulateur /></Lazy>} />
         <Route path="/login" element={<Login />} />
+        <Route path="/mot-de-passe-oublie" element={<Lazy><ForgotPassword /></Lazy>} />
+        <Route path="/reinitialiser-mot-de-passe" element={<Lazy><ResetPassword /></Lazy>} />
         <Route path="/register" element={<Register />} />
         <Route path="/register-entreprise" element={<RegisterCompany />} />
         <Route path="/cga" element={<Lazy><CGA /></Lazy>} />

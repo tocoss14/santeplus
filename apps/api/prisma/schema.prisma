@@ -51,6 +51,7 @@ model User {
   deliveriesAsPatient  Delivery[]          @relation("DeliveryPatient")
   claimsDecided        Claim[]             @relation("ClaimDecider")
   refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
   careRecords          CareRecord[]        @relation("CareRecordPatient")
   distributorProfile   Distributor?        @relation("DistributorUser")
   consentGivenAt       DateTime?
@@ -974,6 +975,22 @@ model RefreshToken {
 
   @@index([userId])
   @@index([token])
+  @@index([expiresAt])
+}
+
+// Réinitialisation de mot de passe (« mot de passe oublié »).
+// On ne stocke JAMAIS le token en clair : seul son SHA-256 est persisté, donc
+// une fuite de la table ne permet pas de réinitialiser le mot de passe d'un tiers.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
   @@index([expiresAt])
 }
 

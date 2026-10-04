@@ -26,6 +26,27 @@ export const changePasswordSchema = z.object({
   newPassword: password,
 });
 
+/**
+ * « Mot de passe oublié » — demande de lien.
+ * La réponse HTTP est volontairement identique pour un email connu et inconnu
+ * (anti-énumération de comptes) : le service ne renvoie jamais « compte inconnu ».
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().email().toLowerCase(),
+});
+
+/**
+ * Vérification d'un lien avant l'affichage du formulaire.
+ * Schéma de CHAÎNE (et non d'objet) : `@Param('token', …)` transmet la valeur
+ * brute du paramètre d'URL, pas un objet `{ token }`.
+ */
+export const resetTokenParamSchema = z.string().min(20, 'Lien de réinitialisation invalide');
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20),
+  newPassword: password,
+});
+
 export const updateProfileSchema = z.object({
   firstName: z.string().min(2).max(60).optional(),
   lastName: z.string().min(2).max(60).optional(),

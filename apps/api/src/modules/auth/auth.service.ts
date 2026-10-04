@@ -1,17 +1,28 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma.module';
 import { JwtService } from '../../common/guards/jwt.service';
 import { memberNumber } from '../../common/utils';
 import { encryptField } from '../../common/crypto';
+import { config } from '../../config';
 import { changePasswordSchema, loginSchema, registerSchema } from './dto';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
-import { welcomeEmail, smsTemplates } from '../../common/notifications/email-templates';
+import { welcomeEmail, smsTemplates, passwordResetEmail } from '../../common/notifications/email-templates';
 
 interface LoginAttempt {
   count: number;
   lockedUntil?: number;
+}
+
+interface ResetRequestWindow {
+  count: number;
+  windowStart: number;
+}
+
+/** SHA-256 hex du token de réinitialisation : c'est la seule forme persistée. */
+function hashResetToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 @Injectable()
@@ -19,6 +30,14 @@ export class AuthService {
   private attempts = new Map<string, LoginAttempt>();
   private MAX_ATTEMPTS = 5;
   private LOCK_MS = 15 * 60 * 1000;
+
+  // Anti-abus « mot de passe oublié » : borne le nombre d'e-mails envoyés par
+  // adresse et par heure, pour qu'un attaquant ne puisse pas inonder une boîte
+  // ni utiliser l'endpoint comme oracle de bombardage.
+  private resetRequests = new Map<string, ResetRequestWindow>();
+  private MAX_RESET_REQUESTS = 3;
+  private RESET_WINDOW_MS = 60 * 60 * 1000;
+  private RESET_TTL_MS = 60 * 60 * 1000;
 
   constructor(
     private prisma: PrismaService,
@@ -175,6 +194,100 @@ export class AuthService {
 
   hashPassword(plain: string): Promise<string> {
     return bcrypt.hash(plain, 10);
+  }
+
+  /**
+   * Étape 1 — « mot de passe oublié ».
+   *
+   * Renvoie TOUJOURS `{ sent: true }`, que l'adresse existe ou non : une réponse
+   * conditionnelle permettrait d'énumérer les comptes insured. Le quota par adresse
+   * est lui aussi silencieux (même réponse), pour ne pas révéler l'existence
+   * d'un compte via le seul canal « vous avez atteint la limite ».
+   */
+  async requestPasswordReset(email: string) {
+    const now = Date.now();
+    const window = this.resetRequests.get(email);
+    const withinWindow = window && now - window.windowStart < this.RESET_WINDOW_MS;
+    if (withinWindow && window.count >= this.MAX_RESET_REQUESTS) return { sent: true };
+    this.resetRequests.set(
+      email,
+      withinWindow ? { count: window.count + 1, windowStart: window.windowStart } : { count: 1, windowStart: now },
+    );
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.status === 'SUSPENDED') return { sent: true };
+
+    // Un seul lien valide à la fois : toute demande précédente est neutralisée
+    // pour qu'un e-mail intercepté ne puisse pas être rejoué après une nouvelle demande.
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const token = randomBytes(32).toString('hex');
+    await this.prisma.passwordResetToken.create({
+      data: {
+        tokenHash: hashResetToken(token),
+        userId: user.id,
+        expiresAt: new Date(now + this.RESET_TTL_MS),
+      },
+    });
+
+    // Le token en clair n'existe que dans ce lien : il n'est jamais journalisé
+    // ni persisté, seule sa empreinte l'est.
+    const resetUrl = `${config.appUrl}/reinitialiser-mot-de-passe?token=${token}`;
+    await this.dispatch
+      .dispatchToUser(user.id, {
+        topic: 'PASSWORD_RESET',
+        title: 'Réinitialisation de votre mot de passe',
+        body: `Une réinitialisation a été demandée pour votre compte SantéPlus. Ce lien est valable 1 heure : ${resetUrl}`,
+        html: passwordResetEmail(user.firstName ?? '', resetUrl),
+        meta: { userId: user.id },
+        force: true,
+      })
+      .catch(() => {});
+
+    return { sent: true };
+  }
+
+  /** Étape 2 — le lien est-il encore exploitable ? (avant d'afficher le formulaire) */
+  async checkResetToken(token: string) {
+    const row = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash: hashResetToken(token) },
+    });
+    return { valid: Boolean(row && !row.usedAt && row.expiresAt > new Date()) };
+  }
+
+  /** Étape 3 — nouveau mot de passe : consommation du token et coupure des sessions. */
+  async resetPassword(token: string, newPassword: string) {
+    const row = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash: hashResetToken(token) },
+      include: { user: { select: { id: true, email: true } } },
+    });
+    if (!row || row.usedAt || row.expiresAt <= new Date()) {
+      throw new BadRequestException('Ce lien est invalide ou a expiré. Demandez-en un nouveau.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: row.userId },
+      data: { passwordHash: await bcrypt.hash(newPassword, 10) },
+    });
+    await this.prisma.passwordResetToken.update({ where: { id: row.id }, data: { usedAt: new Date() } });
+    // Les autres demandes encore ouvertes pour ce compte deviennent caduques.
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId: row.userId, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    // Un mot de passe réinitialisé doit déconnecter tous les appareils ouverts :
+    // une session volée ne doit pas survivre au changement de secret.
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: row.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    // Le verrou anti-bruit de login ne doit pas survivre à une réinitialisation réussie.
+    this.attempts.delete(row.user.email);
+
+    return { ok: true };
   }
 
   async logout(userId: string, refreshToken?: string) {

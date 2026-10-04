@@ -6,13 +6,21 @@ import { Public } from '../../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
+import { config } from '../../config';
 
 @Controller()
 export class HealthController {
   @Public()
   @Get('health')
   health() {
-    return { status: 'ok', service: 'santeplus-api', time: new Date().toISOString() };
+    // `storage` rend la persistance vérifiable de l'extérieur : « disk » signifie
+    // que les téléversements ne survivront pas au prochain redémarrage de l'instance.
+    return {
+      status: 'ok',
+      service: 'santeplus-api',
+      storage: config.storageRemote ? 'object' : 'disk',
+      time: new Date().toISOString(),
+    };
   }
 
   /**

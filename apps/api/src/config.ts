@@ -31,4 +31,12 @@ export const config = {
   s3Bucket: env('S3_BUCKET'),
   s3AccessKeyId: env('S3_ACCESS_KEY_ID'),
   s3SecretAccessKey: env('S3_SECRET_ACCESS_KEY'),
+  // Stockage objet (Cloudflare R2, API compatible S3) : c'est ce drapeau qui décide
+  // si les téléversements — actes de naissance, photos de profil, pièces de
+  // sinistre — survivent au redémarrage de l'API. Les 4 variables S3_* doivent
+  // être présentes ensemble ; sinon le module files écrit dans `uploadsDir`, un
+  // répertoire propre au conteneur, perdu à chaque redéploiement.
+  storageRemote: Boolean(
+    env('S3_ENDPOINT') && env('S3_BUCKET') && env('S3_ACCESS_KEY_ID') && env('S3_SECRET_ACCESS_KEY'),
+  ),
 };

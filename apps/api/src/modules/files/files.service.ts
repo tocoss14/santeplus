@@ -47,8 +47,15 @@ export class StorageService {
     }
   }
 
+  /**
+   * Vrai quand le stockage objet est configuré (Cloudflare R2 ou tout S3
+   * compatible). Source de vérité unique : `config.storageRemote`, calculé au
+   * démarrage à partir des 4 variables S3_*. Le reste du module (y compris
+   * main.ts et /api/health) lit le même drapeau, donc l'API ne peut pas
+   * « croire » R2 actif alors qu'elle écrit sur son disque éphémère.
+   */
   private s3Enabled(): boolean {
-    return Boolean(config.s3Endpoint && config.s3Bucket && config.s3AccessKeyId && config.s3SecretAccessKey);
+    return config.storageRemote;
   }
 
   private client(): S3Client {

@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Module, Post, Req, Res, UnauthorizedException, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Module, Param, Post, Req, Res, UnauthorizedException, UseInterceptors } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuditInterceptor } from '../../common/audit.interceptor';
 import { CurrentUser } from '../../common/decorators';
 import { AuthUser, JwtAuthGuard, Public } from '../../common/guards/jwt-auth.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
-import { changePasswordSchema, loginSchema, refreshSchema, registerSchema } from './dto';
+import { changePasswordSchema, forgotPasswordSchema, loginSchema, refreshSchema, registerSchema, resetPasswordSchema, resetTokenParamSchema } from './dto';
 import { AuthService } from './auth.service';
 import { REFRESH_COOKIE, clearAuthCookies, setAuthCookies } from './cookies';
 
@@ -80,6 +80,31 @@ export class AuthController {
   @Post('password')
   changePassword(@CurrentUser() user: AuthUser, @Body(new ZodPipe(changePasswordSchema)) dto: any) {
     return this.auth.changePassword(user.id, dto);
+  }
+
+  /**
+   * Mot de passe oublié — étape 1.
+   * Répond toujours 200 `{ sent: true }` : ni l'existence du compte, ni le quota
+   * d'envoi ne doivent être déductibles de la réponse (anti-énumération).
+   */
+  @Public()
+  @Post('forgot-password')
+  async forgotPassword(@Body(new ZodPipe(forgotPasswordSchema)) dto: any) {
+    return this.auth.requestPasswordReset(dto.email);
+  }
+
+  /** Étape 2 — le lien reçu par e-mail est-il encore valide ? */
+  @Public()
+  @Get('reset-password/:token')
+  async checkResetToken(@Param('token', new ZodPipe(resetTokenParamSchema)) token: string) {
+    return this.auth.checkResetToken(token);
+  }
+
+  /** Étape 3 — consommation du token, nouveau mot de passe, sessions révoquées. */
+  @Public()
+  @Post('reset-password')
+  async resetPassword(@Body(new ZodPipe(resetPasswordSchema)) dto: any) {
+    return this.auth.resetPassword(dto.token, dto.newPassword);
   }
 
   @Get('me')

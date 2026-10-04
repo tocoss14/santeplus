@@ -196,7 +196,18 @@ quel que soit l'hébergeur.
       déployé en secours (`santeplus-sigma.vercel.app`) — le plan Hobby y interdit
       l'usage commercial, à ne pas garder pour la production
 - [x] Comptes Supabase / Render / Cloudflare créés, sans carte bancaire
-- [ ] `APP_URL` + variables `S3_*` (R2) sur Render — restants, non bloquants pour /api/health
+- [ ] **Stockage persistant R2** — sans lui, les actes de naissance téléversés vivent dans le
+      disque du conteneur Render et disparaissent à chaque redémarrage. Sur
+      dashboard.render.com → *santeplus-api* → *Environment*, saisir les 5 variables
+      (`render.yaml` les déclare déjà en `sync: false`) :
+      `S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com` · `S3_REGION=auto` ·
+      `S3_BUCKET=<bucket R2>` · `S3_ACCESS_KEY_ID` · `S3_SECRET_ACCESS_KEY` (clé d'accès R2,
+      permission *Object Read & Write* sur ce seul bucket). Contrôle après redéploiement :
+      `curl https://santeplus-api-gzv4.onrender.com/api/health` doit renvoyer
+      `"storage":"object"`, et le log de démarrage la ligne
+      `File storage: object storage (bucket …)`. Les téléversements **déjà** écrits avant
+      la bascule restent perdus (ils n'ont jamais quitté le conteneur) : il faut les
+      téléverser à nouveau depuis l'espace assuré.
 - [x] `migrate deploy` sur Supabase (34 migrations, 55 tables)
 - [x] **API Render en ligne** : `https://santeplus-api-gzv4.onrender.com` — `/api/health` **200**
       (`{"status":"ok","service":"santeplus-api"}`), `/api/version` 200, `/api/products` 200

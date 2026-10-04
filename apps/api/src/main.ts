@@ -135,6 +135,10 @@ async function bootstrap(): Promise<void> {
     const e2eMultiplier = process.env.E2E === '1' ? 1000 : 1;
     const globalLimiter = rateLimit({ windowMs: 60_000, limit: 100 * e2eMultiplier, standardHeaders: true, legacyHeaders: false, keyGenerator: (r: Request) => r.ip ?? 'unknown', skip: (r: Request) => r.method === 'OPTIONS' });
     const loginLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 5 * e2eMultiplier, standardHeaders: true, legacyHeaders: false, message: { message: 'Trop de tentatives, réessayez dans 15 minutes' } });
+    // « Mot de passe oublié » : plafond strict par IP, l'endpoint déclenchant un
+    // e-mail. Le service plafonne déjà par adresse (3/h) ; ce second garde-fou
+    // arrête le bombardage depuis une IP unique.
+    const forgotLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 5 * e2eMultiplier, standardHeaders: true, legacyHeaders: false, message: { message: 'Trop de demandes de réinitialisation. Réessayez plus tard.' } });
     const registerLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 5 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
     const refreshLimiter = rateLimit({ windowMs: 60_000, limit: 30 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
     const paymentsLimiter = rateLimit({ windowMs: 60_000, limit: 20 * e2eMultiplier, standardHeaders: true, legacyHeaders: false });
@@ -143,6 +147,7 @@ async function bootstrap(): Promise<void> {
 
     app.use(globalLimiter);
     app.use('/api/auth/login', loginLimiter);
+    app.use('/api/auth/forgot-password', forgotLimiter);
     app.use('/api/auth/register', registerLimiter);
     app.use('/api/auth/refresh', refreshLimiter);
     app.use('/api/payments', paymentsLimiter);
@@ -160,6 +165,32 @@ async function bootstrap(): Promise<void> {
     await app.listen(config.port);
     console.log(`API ready on http://localhost:${config.port}/api`);
     console.log(`Environment: ${config.isProd ? 'production' : 'development'}`);
+
+    // Stockage des téléversements : sur une plateforme à conteneur jetable (Render,
+    // Fly.io, Docker sans volume) le disque local est EFFACÉ à chaque redémarrage —
+    // les actes de naissance téléversés disparaissent alors que la ligne FileObject
+    // reste en base, et les pièces deviennent illisibles (404). On annonce donc
+    // explicitement le backend actif, et en production les variables exactes qui
+    // manquent pour basculer sur un stockage objet persistant (Cloudflare R2).
+    console.log(
+      config.storageRemote
+        ? `File storage: object storage (bucket ${config.s3Bucket} @ ${config.s3Endpoint})`
+        : `File storage: local disk (${config.uploadsDir})`,
+    );
+    if (!config.storageRemote && config.isProd) {
+      const missing = [
+        ['S3_ENDPOINT', config.s3Endpoint],
+        ['S3_BUCKET', config.s3Bucket],
+        ['S3_ACCESS_KEY_ID', config.s3AccessKeyId],
+        ['S3_SECRET_ACCESS_KEY', config.s3SecretAccessKey],
+      ]
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
+      console.warn(
+        `WARNING: stockage fichiers NON PERSISTANT — les téléversements (actes de naissance, photos, pièces de sinistre) sont perdus à chaque redémarrage de l'instance. ` +
+          `Variable(s) manquante(s) : ${missing.join(', ')}. Cloudflare R2 : S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com, S3_REGION=auto, S3_BUCKET=<bucket>, puis la clé d'accès R2.`,
+      );
+    }
 
     // Auto-seed: si la table User est vide, lancer le seed.
     // JAMAIS en production : le seed est destructeur et crée des comptes de démo

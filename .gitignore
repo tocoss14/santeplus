@@ -25,3 +25,7 @@ docs/~$*
 
 # Cache de langue Tesseract (téléchargé à l'exécution par tesseract.js)
 *.traineddata
+
+# Déploiement (Vercel / Cloudflare)
+.vercel/
+.wrangler/

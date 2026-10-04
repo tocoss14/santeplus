@@ -31,15 +31,8 @@ npm run db:seed
 npm run dev
 ```
 
-> Les secrets locaux sont fournis par **Infisical** : `npm run dev` lance
-> `infisical run --env=dev -- …`. Avant le premier lancement : installer le CLI
-> (`npm install -g @infisical/cli`, ou `winget install infisical` sur Windows),
-> `infisical login`, puis `infisical init` à la racine du dépôt (écrit `.infisical.json`,
-> sans secret, à committer). `DATABASE_URL` pointe par défaut sur
-> `postgresql://santeplus:santeplus_dev@localhost:5432/santeplus`.
-> L'ancien fichier `apps/api/.env` peut rester comme secours (les variables déjà
-> présentes dans le processus ont toujours priorité) mais ne doit plus être la
-> source de vérité.
+> La configuration locale se fait dans `apps/api/.env` (`DATABASE_URL` pointe par défaut
+> sur `postgresql://santeplus:santeplus_dev@localhost:5432/santeplus`).
 > **Déploiement production** : voir [`DEPLOY-RUNSITE.md`](DEPLOY-RUNSITE.md) ou
 > [`DEPLOY-CLEVERCLOUD.md`](DEPLOY-CLEVERCLOUD.md).
 

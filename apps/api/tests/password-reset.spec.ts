@@ -3,6 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { resetTokenParamSchema } from '../src/modules/auth/dto';
+import { config } from '../src/config';
 import { ZodPipe } from '../src/common/pipes/zod.pipe';
 
 const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
@@ -108,6 +109,16 @@ describe('Mot de passe oublié — AuthService', () => {
       expect(stored.tokenHash).toMatch(/^[a-f0-9]{64}$/);
       expect(stored.tokenHash).not.toBe(plain);
       expect(prisma._tokens.some((t: any) => t.tokenHash === plain)).toBe(false);
+    });
+
+    it('le lien vise le FRONT (WEB_ORIGIN), jamais APP_URL qui pointe l\'API', async () => {
+      // Régression : sur Render le front est sur Cloudflare Pages et APP_URL est
+      // le domaine de l'API. Un lien bâti sur APP_URL menait « /reinitialiser-mot-de-passe »
+      // vers une route inexistante de l'API — 404 pour l'assuré.
+      (config as any).webPublicUrl = 'https://santeplus.pages.dev';
+      await service.requestPasswordReset('jean@demo.bj');
+      const html = dispatch.dispatchToUser.mock.calls[0][1].html as string;
+      expect(html).toContain('https://santeplus.pages.dev/reinitialiser-mot-de-passe?token=');
     });
 
     it('envoie l\'e-mail en mode forcé : NOTIFY_EMAIL_TOPICS ne peut pas le supprimer', async () => {

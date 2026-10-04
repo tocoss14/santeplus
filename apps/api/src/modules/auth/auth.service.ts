@@ -102,7 +102,7 @@ export class AuthService {
       topic: 'WELCOME',
       title: `Bienvenue sur SantéPlus, ${user.firstName} !`,
       body: `Votre compte a été créé. Souscrivez une formule pour activer votre couverture santé.`,
-      html: welcomeEmail(user.firstName, `${process.env.APP_URL ?? 'https://santeplus.bj'}/app/souscrire`),
+      html: welcomeEmail(user.firstName, `${config.webPublicUrl}/app/souscrire`),
       meta: { userId: user.id },
     }).catch(() => {});
 
@@ -235,7 +235,7 @@ export class AuthService {
 
     // Le token en clair n'existe que dans ce lien : il n'est jamais journalisé
     // ni persisté, seule sa empreinte l'est.
-    const resetUrl = `${config.appUrl}/reinitialiser-mot-de-passe?token=${token}`;
+    const resetUrl = `${config.webPublicUrl}/reinitialiser-mot-de-passe?token=${token}`;
     await this.dispatch
       .dispatchToUser(user.id, {
         topic: 'PASSWORD_RESET',

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.module';
 import { NotificationDispatchService } from '../common/notifications/dispatch.service';
 import { paymentReminderEmail, smsTemplates } from '../common/notifications/email-templates';
+import { config } from '../config';
 function fmtDate(d: Date | string): string {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
@@ -89,7 +90,7 @@ export class PaymentReminderJob {
       const daysUntil = Math.ceil((new Date(c.dueDate).getTime() - today.getTime()) / 86_400_000);
       const amount = new Intl.NumberFormat('fr-FR').format(c.amount);
       const dueDateStr = fmtDate(c.dueDate);
-      const payUrl = `${process.env.APP_URL ?? 'https://santeplus.bj'}/app/contrat`;
+      const payUrl = `${config.webPublicUrl}/app/contrat`;
 
       await this.dispatch.dispatchToUser(c.contract.principalUserId, {
         topic: 'PAYMENT_REMINDER',
@@ -144,7 +145,7 @@ export class PaymentReminderJob {
       if (existing) continue;
 
       const amountStr = new Intl.NumberFormat('fr-FR').format(c.amount);
-      const payUrl = `${process.env.APP_URL ?? 'https://santeplus.bj'}/app/contrat`;
+      const payUrl = `${config.webPublicUrl}/app/contrat`;
 
       if (stage === 'J3' || stage === 'J7') {
         await this.dispatch.dispatchToUser(c.contract.principalUserId, {

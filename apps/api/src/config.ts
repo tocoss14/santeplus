@@ -8,6 +8,14 @@ export const config = {
   fieldEncryptionKey: env('FIELD_ENCRYPTION_KEY', ''),
   webOrigin: env('WEB_ORIGIN', 'http://localhost:5173'),
   appUrl: env('APP_URL', env('WEB_ORIGIN', 'http://localhost:5173')),
+  // Origine PUBLIQUE DU FRONT, distincte d'appUrl (APP_URL = URL de l'API).
+  // Sur Render le front est hébergé sur Cloudflare Pages : un lien d'e-mail
+  // construit sur APP_URL (« /app/contrat », « /reinitialiser-mot-de-passe »)
+  // vise une route inexistante de l'API et finit en 404 pour l'assuré. Les
+  // callbacks PSP (/api/payments/webhook/…) restent, eux, sur appUrl.
+  webPublicUrl: (env('WEB_ORIGIN', 'http://localhost:5173').split(',')[0] || 'http://localhost:5173')
+    .trim()
+    .replace(/\/+$/, ''),
   mockPayments: env('MOCK_PAYMENTS', 'true') === 'true',
   payProviders: (env('PAY_PROVIDERS', 'MOCK_MOMO') || 'MOCK_MOMO').split(',').map(s => s.trim()),
   fedapaySecretKey: env('FEDAPAY_SECRET_KEY'),

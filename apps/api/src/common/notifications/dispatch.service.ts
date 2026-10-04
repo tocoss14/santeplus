@@ -75,7 +75,16 @@ export class NotificationDispatchService {
     if (smsEnabled && user.phone) {
       jobs.push(this.sendSmsOrWhatsapp(user.phone, input));
     }
-    await Promise.allSettled(jobs);
+    const results = await Promise.allSettled(jobs);
+    // allSettled ignore les rejets : un expéditeur mal configuré (clé invalide,
+    // domaine non vérifié, sandbox resend.dev vers un destinataire non autorisé
+    // → 403) faisait échouer l'envoi SANS AUCUNE TRACE. Un mot de passe oublié
+    // qui ne part jamais est alors indiscernable d'un e-mail perdu.
+    for (const outcome of results) {
+      if (outcome.status === 'rejected') {
+        console.error('[EMAIL/SMS] envoi echoue :', outcome.reason?.message ?? outcome.reason);
+      }
+    }
   }
 
   async dispatchToMany(userIds: string[], input: DispatchInput) {
@@ -87,11 +96,17 @@ export class NotificationDispatchService {
       console.log(`[EMAIL -> ${to}] ${input.title}`);
       return;
     }
+    // Format de la charge utile : Resend (POST https://api.resend.com/emails,
+    // Authorization: Bearer). Vérifié sur leur référence d'API — `from` (et non
+    // `sender`) et `to` AU TABLEAU. Brevo et SendGrid attendent d'autres clés et
+    // d'autres en-têtes : changer EMAIL_API_URL seul ne suffit pas, il faudrait
+    // adapter ce charge utile. EMAIL_FROM doit être un expéditeur vérifié chez
+    // Resend, sinon l'API refuse l'envoi (422).
     const payload: Record<string, unknown> = {
-      to,
+      from: config.emailFrom,
+      to: [to],
       subject: input.title,
       text: input.body,
-      sender: config.emailFrom,
     };
     // Support HTML emails via templates
     if (input.html) {

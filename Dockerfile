@@ -47,4 +47,9 @@ WORKDIR /app
 # `migrate deploy` une fois puis démarrait l'API quoi qu'il arrive — crash
 # immédiat du conteneur (« Container failed to start ») et service marqué
 # offline. L'API attend désormais que la base réponde avant de démarrer.
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate resolve --rolled-back 20260826120000_emergency_override 2>/dev/null; until ./node_modules/.bin/prisma migrate deploy; do echo 'Waiting for database to be ready...'; sleep 3; done; echo 'Migrations applied.'; node dist/main.js"]
+#
+# Garde préalable : une variable d'environnement manquante est une erreur de
+# configuration, pas une base indisponible — elle doit être signalée en une
+# seconde (message explicite) au lieu de faire boucler le conteneur jusqu'au
+# timeout de la plateforme, qui ne donnait aucune cause exploitable.
+CMD ["sh", "-c", "if [ -z \"$DATABASE_URL\" ]; then echo 'FATAL: DATABASE_URL absente — variable non définie dans la plateforme (Secret non saisi ?). Rien à retenter, le service ne peut pas démarrer.'; exit 1; fi; ./node_modules/.bin/prisma migrate resolve --rolled-back 20260826120000_emergency_override 2>/dev/null; until ./node_modules/.bin/prisma migrate deploy; do echo 'Waiting for database to be ready...'; sleep 3; done; echo 'Migrations applied.'; node dist/main.js"]

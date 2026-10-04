@@ -52,6 +52,7 @@ git push -u origin main
 |---|---|
 | `DATABASE_URL` | la connection string de l'Ã©tape 2 |
 | `JWT_SECRET` | chaÃ®ne alÃ©atoire â‰¥ 64 caractÃ¨res (`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`) |
+| `FIELD_ENCRYPTION_KEY` | 64 caractères hex — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` — **obligatoire en production** : démarrage refusé sinon (FATAL) |
 | `PORT` | `4000` |
 | `NODE_ENV` | `production` |
 | `WEB_ORIGIN` | `https://VOTRE-FRONT.runsite.app` (URL de l'Ã©tape 5) |
@@ -158,9 +159,58 @@ figée au build Vite, pas modifiable au runtime. Sans variable, seul un front
 `*.runsite.site` bénéficie du repli automatique vers le service jumeau
 `*.runsite.app`.
 
-## 11. Checklist de mise en production
+## 11. Dépannage — « Container failed to start » au démarrage
+
+Le build Docker est vert mais le conteneur meurt au boot : en production
+(`NODE_ENV=production` est codé dans le Dockerfile), `apps/api/src/main.ts`
+refuse de démarrer (`process.exit(1)`) dans trois cas — reproduits localement
+avec l'image construite depuis la racine du dépôt (mêmes gardes que la plateforme) :
+
+| Message FATAL dans les logs du conteneur | Cause | Correctif |
+|---|---|---|
+| `FATAL: JWT_SECRET doit faire au moins 32 caractères en production` | `JWT_SECRET` absente ou trop courte dans les variables du service | Définir `JWT_SECRET` (≥ 32 caractères, 64 recommandés) dans les settings Runsite puis redéployer |
+| `FATAL: FIELD_ENCRYPTION_KEY doit être définie en production…` | `FIELD_ENCRYPTION_KEY` absente/invalide (64 hex requis) | Définir `FIELD_ENCRYPTION_KEY` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) — la régénérer rendrait les données déjà chiffrées illisibles |
+| `FATAL: N compte(s) utilisent encore le mot de passe de démonstration connu (Demo1234!)` | La base contient des comptes seedés de démo (`*@demo.bj`, `prestataire@santeplus.bj`, …) | Supprimer ces comptes ou changer leur mot de passe ; en urgence uniquement, `ALLOW_DEMO_ACCOUNTS_IN_PROD=true` |
+
+**Cause confirmée le 03/10 — instance PostgreSQL suspendue :** quand le service
+PostgreSQL Runsite est suspendu/expiré, le conteneur crashait au boot
+(`prisma migrate deploy` échoue, l'API ne peut pas ouvrir ses connexions Prisma
+→ « Container failed to start ») et le service web passait offline
+("This app is offline — start it again from the dashboard"). Le CMD attend
+désormais que la base réponde (`until prisma migrate deploy`) au lieu de
+crasher — dès que l'instance PostgreSQL est reprise, le conteneur se rétablit
+seul. Remède : dashboard Runsite → reprendre le service PostgreSQL
+(facturation/plan), puis Start sur le service API.
+Autres causes possibles (sans message FATAL) :
+
+- **Health check** : le conteneur tourne mais la plateforme sonde le mauvais
+  chemin/port — Health check path `/api/health`, port `4000` (le Dockerfile
+  `EXPOSE 4000` ; la variable `PORT` est lue par l'API).
+- **`DATABASE_URL` absente ou injoignable** : sans la boucle d'attente du CMD,
+  `prisma migrate deploy` échoue puis l'API plante à la connexion Prisma.
+  Vérifier la connection string du service PostgreSQL managé (`?sslmode=require`
+  si requis) et son état sur le dashboard.
+
+**Reproduction locale (validée) :**
+
+```bash
+docker build -t santeplus-api .
+docker run --rm -p 4000:4000 \
+  -e DATABASE_URL="postgresql://user:pass@host:5432/db" \
+  -e JWT_SECRET="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")" \
+  -e FIELD_ENCRYPTION_KEY="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")" \
+  santeplus-api
+# → « Migrations applied. », « API ready on http://localhost:4000/api », GET /api/health → 200
+```
+
+Sans `JWT_SECRET`/`FIELD_ENCRYPTION_KEY`, la même commande reproduit le FATAL et
+la mort immédiate du conteneur — c'est exactement le scénario « Container failed
+to start » alors que le build est vert.
+
+## 12. Checklist de mise en production
 
 - [ ] `JWT_SECRET` fort et unique
+- [ ] `FIELD_ENCRYPTION_KEY` définie (64 hex) — sans elle, le démarrage en production est refusé
 - [ ] `MOCK_PAYMENTS=false`, clÃ©s live FedaPay/CinetPay
 - [ ] Comptes de dÃ©mo supprimÃ©s, mots de passe admin changÃ©s
 - [ ] Webhooks fournisseurs pointent vers l'URL de prod

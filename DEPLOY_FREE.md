@@ -2,11 +2,11 @@
 
 **Architecture retenue (décision du 04/10/2026)** : l'API NestJS reste intacte (27 modules,
 OCR, PDF, cron, webhooks de paiement) et tourne sur **Render free** ; la base passe sur
-**Supabase Postgres** ; le front part sur **Vercel** ; les fichiers sur **Cloudflare R2**
+**Supabase Postgres** ; le front part sur **Cloudflare Pages** ; les fichiers sur **Cloudflare R2**
 (S3-compatible, le module `files` utilise déjà `@aws-sdk/client-s3`).
 
 ```
- Vercel (front SPA)  ──►  Render (API NestJS, Dockerfile racine)  ──►  Supabase (PostgreSQL)
+ Cloudflare Pages (front SPA)  ──►  Render (API NestJS, Dockerfile racine)  ──►  Supabase (PostgreSQL)
                                     │
                                     └──►  Cloudflare R2 (fichiers, S3-compatible)
 ```
@@ -53,13 +53,13 @@ en production réelle (un ping anti-veille règle ça, cf. §5).
 > exit 0) et l'API complète démarrée en `NODE_ENV=production` contre cette base répond
 > **HTTP 200** sur `/api/health` et `/api/products`. Le `Dockerfile` racine suffit — reste à
 > créer le service (le fichier [`render.yaml`](render.yaml) décrit tout : image, port, health
-> check et les 14 variables, les 10 secrets restant à saisir).
+> check et les 14 variables, les 9 secrets restant à saisir).
 
 1. [dashboard.render.com](https://dashboard.render.com) → **New → Blueprint** → connecte GitHub
    puis choisis le repo `tocoss14/santeplus` (Render lit `render.yaml` et pré-remplit le service).
-2. Renseigne les **10 secrets** marqués `sync: false` dans l'écran de création :
+2. Renseigne les **9 secrets** marqués `sync: false` dans l'écran de création :
    `DATABASE_URL` (§1), `JWT_SECRET` et `FIELD_ENCRYPTION_KEY` (générés, voir §2.3),
-   `WEB_ORIGIN=https://santeplus-one.vercel.app`, `APP_URL`, et les 5 variables `S3_*` (§3).
+   `WEB_ORIGIN=https://santeplus.pages.dev` (ou l'URL Vercel si §4 bis), `APP_URL`, et les 5 variables `S3_*` (§3).
 3. **Ports** : `PORT=4000` (le Dockerfile fait `EXPOSE 4000`). **Health check** : `GET /api/health` (déjà dans le blueprint).
 4. Variables d'environnement (rappel) :
    | Variable | Valeur |
@@ -67,13 +67,41 @@ en production réelle (un ping anti-veille règle ça, cf. §5).
    | `DATABASE_URL` | connection string Supabase (§1) + `?sslmode=require` (chiffré — testé OK ; sans ce suffixe Prisma n'ouvre pas la session TLS) |
    | `JWT_SECRET` | ≥ 32 caractères — `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
    | `FIELD_ENCRYPTION_KEY` | 64 hex — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` (⚠️ figée : la changer rend les données chiffrées illisibles) |
-   | `WEB_ORIGIN` | URL Vercel exacte (`https://santeplus-one.vercel.app`) — CORS **et** CSRF |
+   | `WEB_ORIGIN` | URL exacte du front (`https://santeplus.pages.dev`) — CORS **et** CSRF. Doit aussi englober l'origine de l'app mobile (Capacitor) si ajoutée |
    | `APP_URL` | URL publique de l'API (callbacks de paiement `{APP_URL}/api/payments/webhook/...`) |
    | `MOCK_PAYMENTS` | `false` en prod (+ `PAY_PROVIDERS`, clés PSP) |
    | `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_REGION=auto` | R2 (§3) |
-4. Le CMD du conteneur attend que la base réponde puis applique `prisma migrate deploy`
+
+5. Le CMD du conteneur attend que la base réponde puis applique `prisma migrate deploy`
    avant de démarrer — pas de crash si Supabase redémarre (ou pendant la veille Render).
-5. Les **crons** (`node-cron`) tournent dans le process : garder **1 seule instance**.
+6. Les **crons** (`node-cron`) tournent dans le process : garder **1 seule instance**.
+> 🟢 **Raccourci pour déverrouiller `/api/health` tout de suite** : seules les **3** premières
+> lignes du tableau sont **obligatoires** pour que le conteneur démarre. Les 6 autres
+> (`WEB_ORIGIN`, `APP_URL`, `S3_*`) peuvent rester vides au premier déploiement :
+> `WEB_ORIGIN` retombe sur `http://localhost:5173` (sans effet sur `/api/health`, qui est
+> un GET donc hors CSRF) et le module `files` bascule sur le disque local si `S3_ENDPOINT`
+> est absent. On les ajoute une fois le front déployé et le bucket R2 créé.
+>
+> Valeurs prêtes dans [.env.prod](.env.prod) :
+> ```bash
+> node .freebuff/render-secrets.mjs        # affiche les 3 secrets minimaux
+> MASK=1 node .freebuff/render-secrets.mjs # même liste sans les valeurs (captures)
+> ```
+
+> ⚠️ **Collision de nom sur Render (constaté le 04/10/2026)** : `santeplus-api.onrender.com`
+> est **déjà occupé par un ancien build** — le sien expose `/health` (200) alors que le
+> nôtre n’a pas cette route (préfixe global `api`), et son `/api/health` renvoie 401 alors
+> que le nôtre est `@Public()`. Render refuse un nom déjà pris : le blueprint ne peut donc
+> pas le récupérer. **Renommer l’ancien service** (réversible) plutôt que le supprimer :
+> ```bash
+> export RENDER_API_KEY=rnd_...
+> node .freebuff/render-migrate.mjs list
+> node .freebuff/render-migrate.mjs rename santeplus-api santeplus-api-legacy
+> node .freebuff/render-migrate.mjs verify santeplus-api   # le nom est-il enfin libre ?
+> ```
+> Retour arrière : `node .freebuff/render-migrate.mjs rename santeplus-api-legacy santeplus-api`.
+> Si Render ne libère pas le sous-domaine automatiquement, renommer depuis le dashboard
+> (Service → Settings → Name) — le script le signale plutôt que de le masquer.
 
 ## 3️⃣ Cloudflare R2 — fichiers (10 min)
 
@@ -85,22 +113,66 @@ en production réelle (un ping anti-veille règle ça, cf. §5).
    (le disque Render est éphémère → R2 obligatoire pour les uploads persistants).
 4. Free : **10 GB**, opérations incluses.
 
-## 4️⃣ Vercel — front (10 min)
+## 4️⃣ Cloudflare Pages — front (10 min)
 
-1. [vercel.com](https://vercel.com) → **Add New Project → GitHub** → **Root Directory : `apps/web`**
-   (le [`apps/web/vercel.json`](apps/web/vercel.json) gère rewrites SPA + en-têtes de sécurité + service worker).
-2. **Environment Variables** : `VITE_API_URL=https://<url-koyeb>` (le proxy `/api` des
-   rewrites pointe vers l'API — remplacer le placeholder `VOTRE-URL-API` dans `vercel.json`).
-3. Déployer, puis **reporter l'URL finale dans `WEB_ORIGIN` côté Render** (sinon le middleware
-   CSRF renvoie 403 sur les mutations avec cookies).
+> **Pourquoi Cloudflare Pages et pas Vercel ?** Le plan **Vercel Hobby est réservé à l'usage
+> personnel et non commercial** — « *Hobby teams are restricted to non-commercial personal use
+> only* » ([Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines)) et
+> « *You shall only use the Services under a Hobby plan for your personal or non-commercial
+> use* » ([Conditions](https://vercel.com/legal/terms)). SantéPlus est une mutuelle
+> **commerciale** : Pro coûte 20 $/mois/siège. Cloudflare Pages autorise l'usage commercial
+> et est le seul hébergeur gratuit **sans plafond de bande passante** (Netlify et Vercel
+> plafonnent à ~100 Go/mois). En prime, aucun App GitHub n'est requis — ce qui contourne le
+> blocage de vérification téléphone sur `tocoss14`. Voir §4 bis pour l'alternative Vercel.
+
+1. Cloudflare → **Workers & Pages → Create → Pages** (projet `santeplus`, domaine `santeplus.pages.dev`).
+   Déploiement **par CLI**, sans connexion Git :
+   ```bash
+   npx wrangler login    # OAuth dans le navigateur — le plus simple, aucun secret à gérer
+   node .freebuff/deploy-cf-pages.mjs https://santeplus-api-gzv4.onrender.com
+   ```
+   Pour la CI (non interactif), un **API Token** est indispensable : dashboard →
+   *My Profile → API Tokens → Create Token*, permission **Account → Cloudflare Pages → Edit**
+   (la doc Cloudflare : « *make sure to add the Cloudflare Pages permission with Edit access* »),
+   puis `export CLOUDFLARE_API_TOKEN=...` et `export CLOUDFLARE_ACCOUNT_ID=...`.
+   Le **Account ID** se trouve dans le dashboard → *Workers & Pages → Account Details*,
+   ou en pressant `Ctrl/Cmd + K` puis « Copy account ID ».
+   ⚠️ **Ne pas utiliser la Global API Key** : Cloudflare la qualifie de « *not recommended for
+   new customers* » — elle accorde les pleins pouvoirs sur le compte, zones comprises.
+   Le script rebuild le front avec `VITE_API_URL`, écrit `_headers` (cache immuable sur
+   `/assets/*`, `sw.js` revalidable) puis appelle `wrangler pages deploy`.
+
+2. ⚠️ **Cloudflare Pages ne sait pas proxifier vers un domaine externe** : la doc officielle
+   est explicite — « *Proxying will only support relative URLs on your site. You cannot proxy
+   external domains* ». Donc **pas de proxy `/api`** ici : l'API est appelée **en cross-origine**
+   via `VITE_API_URL`, ce qui impose `SameSite=None; Secure` sur les cookies de session
+   (déjà le cas : [`cookies.ts`](apps/api/src/modules/auth/cookies.ts) pose
+   `sameSite: 'none'` + `secure` dès que `NODE_ENV=production`, couvert par
+   `apps/api/tests/cookies.spec.ts`). Le repli SPA `/* → /index.html 200`
+   est fourni par [`apps/web/public/_redirects`](apps/web/public/_redirects).
+
+3. **Reporter l'URL du front dans `WEB_ORIGIN` côté Render** (`https://santeplus.pages.dev`) :
+   sans ça, CORS **et** le middleware CSRF renvoient 403 sur toutes les mutations.
+   Si plusieurs origines sont nécessaires (Pages + Vercel), `WEB_ORIGIN` doit les lister
+   toutes — voir le parsing dans `main.ts`.
+
+## 4️⃣ bis · Vercel (alternative conservée)
+
+Si tu préfères rester sur Vercel malgré la restriction commerciale du plan Hobby
+(ou pour tester) : le front est déjà déployé et fonctionnel sur
+**`https://santeplus-sigma.vercel.app`** via le CLI, sans Git :
+[`apps/web/vercel.json`](apps/web/vercel.json) gère rewrites SPA + en-têtes + service worker.
+Le proxy `/api` **fonctionne** ici (contrairement à Pages) — rebasculer l'URL de l'API avec
+`node .freebuff/relink-api.mjs <url-api>`, puis reporter `https://santeplus-sigma.vercel.app`
+dans `WEB_ORIGIN`.
 
 ## 5️⃣ Ordre de branchement
 
 1. Supabase : projet + `migrate deploy` ✔
 2. Render : service (blueprint `render.yaml`) + secrets + health check vert ✔
 3. R2 : bucket + variables S3_* ✔
-4. Vercel : front + `VITE_API_URL` ✔
-5. Recoller `WEB_ORIGIN` (Render) sur l'URL Vercel finale, redeploy API ✔
+4. Front (Pages ou Vercel) + `VITE_API_URL` ✔
+5. Recoller `WEB_ORIGIN` (Render) sur l'URL du front, redeploy API ✔
 6. Smoke tests : `GET /api/health` (200) · login démo · création sinistre · webhook PSP sandbox.
 
 ---
@@ -108,7 +180,8 @@ en production réelle (un ping anti-veille règle ça, cf. §5).
 ## 🔐 Secrets — jamais dans le repo
 
 `DATABASE_URL` · `JWT_SECRET` · `FIELD_ENCRYPTION_KEY` · clés PSP · clés R2 —
-uniquement via les dashboards (Render Environment, Vercel Env). Les 3 gardes FATA au boot
+uniquement via les dashboards (Render Environment, Cloudflare Pages/Workers). Plus les
+tokens de déploiement : `VERCEL_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. Les 3 gardes FATA au boot
 (`JWT_SECRET` < 32, `FIELD_ENCRYPTION_KEY` invalide, comptes démo en prod) et leur
 dépannage sont détaillés dans [DEPLOY-RUNSITE.md](DEPLOY-RUNSITE.md) §11 — identiques
 quel que soit l'hébergeur.
@@ -117,8 +190,18 @@ quel que soit l'hébergeur.
 
 - [x] Repo réparé (package.json/tsconfig/vite restaurés — 646 tests API + 70 web verts)
 - [x] Prototype edge honnête isolé hors build ([edge/worker.ts](edge/worker.ts))
-- [x] `vercel.json` + `.env.example` + guides à jour
-- [ ] Comptes Supabase / Render / Vercel / Cloudflare créés (sans CB)
+- [x] `vercel.json` + `_redirects` + `.env.example` + guides à jour
+- [x] Cookies de session `SameSite=None; Secure` en prod **testés** (mutation test : 2 tests tombent si régression)
+- [x] Front migré de Vercel vers **Cloudflare Pages** (`santeplus.pages.dev`). Vercel reste
+      déployé en secours (`santeplus-sigma.vercel.app`) — le plan Hobby y interdit
+      l'usage commercial, à ne pas garder pour la production
+- [x] Comptes Supabase / Render / Cloudflare créés, sans carte bancaire
+- [ ] `APP_URL` + variables `S3_*` (R2) sur Render — restants, non bloquants pour /api/health
 - [x] `migrate deploy` sur Supabase (34 migrations, 55 tables)
-- [ ] Service Render vert (`/api/health` 200 en public), front Vercel branché à l'API
-- [ ] DNS domaine personnalisé (optionnel)
+- [x] **API Render en ligne** : `https://santeplus-api-gzv4.onrender.com` — `/api/health` **200**
+      (`{"status":"ok","service":"santeplus-api"}`), `/api/version` 200, `/api/products` 200
+      (⚠️ le suffixe `gzv4` est généré par Render : le nom `santeplus-api` simple était
+      déjà occupé par un ancien build — voir la note de collision au §2)
+- [x] Front Cloudflare Pages déployé et vérifié (`https://santeplus.pages.dev`)
+- [x] `WEB_ORIGIN=https://santeplus.pages.dev` sur Render — CORS vérifié :
+      `access-control-allow-origin` rendu pour cette origine, refusée pour une origine inconnue

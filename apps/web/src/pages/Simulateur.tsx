@@ -121,7 +121,7 @@ export default function Simulateur() {
             </select>
           </Field>
           <Field label="Dépense simulée (FCFA)">
-            <input className="input" type="number" min={1} step={500} value={care.amount} onChange={e => setCare(c => ({ ...c, amount: e.target.value }))} />
+            <input className="input" type="number" min={1} value={care.amount} onChange={e => setCare(c => ({ ...c, amount: e.target.value }))} />
           </Field>
         </div>
         <button className="btn-primary w-full" disabled={busy || !effectiveProductId}>

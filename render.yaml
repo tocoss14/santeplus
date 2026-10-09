@@ -26,7 +26,7 @@ services:
       - key: FIELD_ENCRYPTION_KEY
         sync: false      # 64 hex — ne JAMAIS changer (sinon données chiffrées illisibles)
       - key: WEB_ORIGIN
-        sync: false      # https://santeplus-one.vercel.app (CORS + CSRF)
+        sync: false      # https://santeplus.pages.dev (CORS + CSRF)
       - key: APP_URL
         sync: false      # URL publique de l'API (callbacks de paiement)
       # --- Fichiers : R2 est S3-compatible, le module files bascule dessus ---

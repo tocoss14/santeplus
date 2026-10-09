@@ -129,7 +129,7 @@ en production réelle (un ping anti-veille règle ça, cf. §5).
    Déploiement **par CLI**, sans connexion Git :
    ```bash
    npx wrangler login    # OAuth dans le navigateur — le plus simple, aucun secret à gérer
-   node .freebuff/deploy-cf-pages.mjs https://santeplus-api-gzv4.onrender.com
+   node .freebuff/deploy-cf-pages.mjs https://santeplus-api-kp5t.onrender.com
    ```
    Pour la CI (non interactif), un **API Token** est indispensable : dashboard →
    *My Profile → API Tokens → Create Token*, permission **Account → Cloudflare Pages → Edit**
@@ -203,16 +203,18 @@ quel que soit l'hébergeur.
       `S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com` · `S3_REGION=auto` ·
       `S3_BUCKET=<bucket R2>` · `S3_ACCESS_KEY_ID` · `S3_SECRET_ACCESS_KEY` (clé d'accès R2,
       permission *Object Read & Write* sur ce seul bucket). Contrôle après redéploiement :
-      `curl https://santeplus-api-gzv4.onrender.com/api/health` doit renvoyer
+      `curl https://santeplus-api-kp5t.onrender.com/api/health` doit renvoyer
       `"storage":"object"`, et le log de démarrage la ligne
       `File storage: object storage (bucket …)`. Les téléversements **déjà** écrits avant
       la bascule restent perdus (ils n'ont jamais quitté le conteneur) : il faut les
       téléverser à nouveau depuis l'espace assuré.
 - [x] `migrate deploy` sur Supabase (34 migrations, 55 tables)
-- [x] **API Render en ligne** : `https://santeplus-api-gzv4.onrender.com` — `/api/health` **200**
+- [x] **API Render en ligne** : `https://santeplus-api-kp5t.onrender.com` — `/api/health` **200**
       (`{"status":"ok","service":"santeplus-api"}`), `/api/version` 200, `/api/products` 200
-      (⚠️ le suffixe `gzv4` est généré par Render : le nom `santeplus-api` simple était
-      déjà occupé par un ancien build — voir la note de collision au §2)
+      (⚠️ le suffixe `kp5t` est généré par Render : le nom `santeplus-api` simple était
+      déjà occupé par un ancien build — voir la note de collision au §2. L'ancienne API
+      `santeplus-api-gzv4.onrender.com`, qui écrivait sur **disque**, est **suspendue** depuis
+      le 07/10/2026 : elle ne doit plus être référencée nulle part — voir §4.2)
 - [x] Front Cloudflare Pages déployé et vérifié (`https://santeplus.pages.dev`)
 - [x] `WEB_ORIGIN=https://santeplus.pages.dev` sur Render — CORS vérifié :
       `access-control-allow-origin` rendu pour cette origine, refusée pour une origine inconnue

@@ -1,6 +1,9 @@
 # Points à corriger ou améliorer maintenant — SantéPlus
 
-Dernière actualisation : 2026-10-07 (session de revue, snapshot
+Dernière actualisation : 2026-10-09 (migrations prod confirmées 35/35 à jour ;
+la « divergence de base » s'est révélée être un **faux résultat** de
+`.freebuff/db-compare.cjs` — détail dans `docs/RUNBOOK-CONTINUITE.md` §3).
+Avant : 2026-10-07 (session de revue, snapshot
 qa-santeplus-context.md). Ce document est un compromis vivant:
 priorités, état réel, et raison du choix.
 
@@ -10,6 +13,27 @@ priorités, état réel, et raison du choix.
   levier de production.
 - P3 : clarté opérationnelle, documentation, réduction du contexte.
 - P4 : dépendances, petits écarts techniques, propreté progressive.
+
+---
+
+## État vérifié le 2026-10-09 (preuves, pas d'opinions)
+
+- **Migrations de prod : 35/35 à jour → rien à déployer.**
+  `prisma migrate status` lancé contre la base de prod (secret `DATABASE_URL`
+  lu dans le dashboard Render, jamais affiché) → `35 migrations found in
+  prisma/migrations` + `Database schema is up to date!`, **exit 0**. 0 en
+  attente, 0 divergente. Commande exacte : `docs/RUNBOOK-CONTINUITE.md` §3/§7.
+- **La « divergence de base » était un faux résultat** de
+  `.freebuff/db-compare.cjs`, pas une double prod : `PrismaClient` était
+  instancié **sans `datasource` explicite** (Prisma auto-chargait le `.env`
+  dev → le script lisait `127.0.0.1:15432` en croyant lire Supabase) et le
+  parsing `split('=')[1]` tronquait l'URL à `?sslmode`. Script corrigé ;
+  `.env.prod` local et secret Render ont la **même empreinte SHA-256
+  normalisée** → même base, même projet. Les comptes `r2test…`/`r2cross…`
+  et le `fileObject` annoncés « ABSENT » sont retrouvés sur la vraie base.
+  Détail et tableau avant/après : `docs/RUNBOOK-CONTINUITE.md` §3.
+- **Comptes de test en prod purgés** : 4/4 passés `SUSPENDED` le 2026-10-09
+  (dry-run puis `--execute`, relecture post-écriture) — voir P1-2.
 
 ---
 
@@ -40,6 +64,16 @@ priorités, état réel, et raison du choix.
   - si non : documenter la preuve (liste des comptes concernés, résultat de
     la vérification, date).
 - **Fichiers concernés** : `main.ts`, `COMPTES_DEMO.md`.
+- **État au 2026-10-09** : la base prod ne contient que **4 comptes `@demo.bj`**
+  — les 4 comptes de test (`r2test-…-jkcl5`, `r2test-…-yp6na`,
+  `r2test-…-xqf34`, `r2cross-…-uok38`), tous **`SUSPENDED`** depuis le
+  2026-10-09 (`.freebuff/cleanup-r2-test-accounts.cjs`, dry-run + `--execute`,
+  4/4 revérifiés). Les comptes `fatou@demo.bj` / `jean@demo.bj` du seed ne
+  sont **pas** en prod → plus aucun compte de démo connu actif.
+  **Reste à faire** : vérifier le hash des comptes privilégiés qui ne sont
+  **pas** `@demo.bj` (admin/support) contre le mot de passe connu de
+  `COMPTES_DEMO.md`, puis documenter la preuve — vérification de hash, pas de
+  mot de passe en clair.
 
 ### P1-3. Notifications silencieuses si fournisseur mal configuré
 - **Ce qui se passe** : `dispatch.service.ts` utilise `Promise.allSettled` et
@@ -123,6 +157,10 @@ priorités, état réel, et raison du choix.
 - **Ce qu'il faut faire** : un runbook court, opérationnel, avec les étapes
   réelles (pas des généralités). Voir aussi `docs/BACKUP.md` pour la partie
   sauvegarde/reprise.
+- **État au 2026-10-09 : LIVRÉ** — `docs/RUNBOOK-CONTINUITE.md` existe et
+  couvre secrets, R2, veille/rollback, état du site et commandes de
+  vérification ; actualisé le 2026-10-09 (résolution de la « divergence » §3 +
+  état des migrations prod 35/35).
 
 ### P3-3. Aligner le guide d'interfaces avec la réalité prod
 - Il y a plusieurs versions de docs interfaces dans `docs/`, dont un `.docx`

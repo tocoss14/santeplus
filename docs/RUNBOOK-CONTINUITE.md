@@ -1,7 +1,7 @@
 # Runbook de continuité — SantéPlus Bénin
 
-**Daté :** 2026-10-07 (session de validation R2 + étatprod)
-**Dernière mise à jour :** 2026-10-08 (§3 : conclusion sur la provenance DB)
+**Daté :** 2026-10-07 (session de validation R2 + état prod)
+**Dernière mise à jour :** 2026-10-09 (§3 : la « divergence confirmée » du 08 était un **faux résultat** de `db-compare.cjs` — provenance DB tranchée, migrations prod **35/35 à jour**, purge des 4 comptes de test ; §6 : mesures prod réelles vs dev)
 **À jour sur :** ce fichier + `docs/BUG_WHAT_TO_FIX_NEXT.md`
 **Où trouver les credentials :** Render dashboard (secrets `sync: false`) + Supabase dashboard (DB) + Cloudflare dashboard (R2 + DNS). Jamais dans le repo.
 
@@ -18,7 +18,7 @@ Cloudflare R2 (fichiers, S3-compatible)     │
       │                          Render (API NestJS, Docker, free)
       │                          ┌─────────────────────────────────┐
       └────── S3-compatible ────►│  DB : PostgreSQL (Supabase)     │
-                                  │  (⚠ voir §3 — provenance DB)    │
+                                  │  (provenance confirmée — §3)    │
                                   └─────────────────────────────────┘
 ```
 
@@ -71,12 +71,18 @@ End-to-end réel sur l'API prod :
 
 ---
 
-## 3. Point critique — provenance de la base de données (à clarifier avant tout déploiement de données)
+## 3. Provenance de la base de données — tranchée le 2026-10-09 (résolution en fin de section)
+
+> **Lecture de cette section :** le récit du 07/08 ci-dessous est conservé pour
+> l'historique, mais ses conclusions (« projet différent », « outils locaux
+> aveugles », « étape bloquante ») ont été **annulées le 2026-10-09** : c'était
+> un faux résultat du script `db-compare.cjs`. **Faire foi : les sous-sections
+> ✅ « Résolution » et ✅ « État des migrations » en fin de section.**
 
 **Ce qui a été vérifié ce jour (2026-10-07) :**
 
 - L'API prod (`santeplus-api-kp5t.onrender.com`) écrit bien dans une base PostgreSQL (health `200`, création de compte + fileObject confirmées par l'API elle-même : `GET /api/subscription/birth-certificate/status` renvoie le `fileId` créé).
-- **MAIS** la base lue par le `.env.prod` local (`postgresql://postgres.aqiidtdhfapginefvwgd:…@aws-0-eu-west-1.pooler.supabase.com:5432/postgres`) **ne contient pas** les données que l'API vient d'écrire : 297 `fileObject`, dernière écriture le 2026-10-03 ; 0 utilisateur `r2test`/`r2cross` (alors que l'API en a créé).
+- **MAIS** la base lue par le `.env.prod` local (`postgresql://postgres.aqiidtdhfapginefvwgd:…@aws-0-eu-west-1.pooler.supabase.com:5432/postgres`) **ne contient pas** les données que l'API vient d'écrire : 297 `fileObject`, dernière écriture le 2026-10-03 ; 0 utilisateur `r2test`/`r2cross` (alors que l'API en a créé). *(Chiffres mesurés en réalité sur la base **dev** — le script lisait le mauvais schéma : cf. ✅ « Résolution » plus bas.)*
 
 **Interprétation la plus probable :** le secret `DATABASE_URL` déployé chez Render pointe vers un projet/base **différent** de celui du `.env.prod` local (ex. projet de staging vs projet de prod, ou connexion pooler différente).
 
@@ -89,7 +95,12 @@ End-to-end réel sur l'API prod :
 - Comparer le `DATABASE_URL` du dashboard Render (secrets) avec le `.env.prod` local. S'ils diffèrent : soit mettre à jour `.env.prod` local pour pointer vers la vraie base (si on veut auditer/ purger depuis local), soit documenter que les outils locaux utilisent une base de repli.
 - **Ne pas lancer de purge/modify sur `.env.prod` local en présumant que c'est la base prod.**
 
-### État au 2026-10-08 — divergence CONFIRMÉE, comparaison complète en attente
+### (PÉRIMÉ — annulé le 2026-10-09) État au 2026-10-08 — « divergence CONFIRMÉE »
+
+> **Annulé le 2026-10-09.** Cette conclusion reposait sur `.freebuff/db-compare.cjs`,
+> qui ne se connectait **jamais** à la base annoncée (voir « Résolution » ci-dessous).
+> Tous les chiffres de cette sous-section (297 `fileObject`, « r2cross ABSENT »,
+> « fileObject prod ABSENT ») proviennent de la base **dev** locale, pas de la prod.
 
 **Preuve relancée ce jour** (script `.freebuff/db-compare.cjs`, exécution identique → conclusion déterministe) :
 
@@ -110,6 +121,49 @@ End-to-end réel sur l'API prod :
 - **Identiques** → la divergence vient d'ailleurs (rollback ? autre instance ?) : re-tester immédiatement après un nouvel upload via l'API.
 - **Différents** → sauvegarder `.env.prod` (`.env.prod.bak`), y écrire la vraie chaîne, relancer `node .freebuff/db-compare.cjs` : les comptes `r2cross…`/`r2test…` et les `fileObject` récents doivent devenir visibles. Puis purger les comptes de test (`.freebuff/cleanup-r2-test-accounts.cjs`).
 - **Ne jamais modifier le secret Render** sur la foi du `.env.prod` local (on corrige le local, pas la prod, tant que l'écart n'est pas tranché).
+
+### ✅ Résolution au 2026-10-09 — la « divergence » était un FAUX RÉSULTAT de db-compare
+
+**Cause (deux bugs cumulés dans `.freebuff/db-compare.cjs`) :**
+
+1. `new PrismaClient({ log: ['error'] })` **sans `datasources` explicite** → Prisma auto-chargeait le `.env` local au `require` → le script interrogeait la base **dev** (`127.0.0.1:15432`) tout en affichant « connexion OK — le serveur .env.prod répond » ;
+2. `prismaUrlLine.split('=')[1]` tronquait l'URL au premier `=` → `…?sslmode` (paramètre coupé, `ssl` affiché « n/a »).
+
+**Corrections appliquées** (datasource explicite `datasources: { db: { url: prismaUrl } }` + parsing par `slice('DATABASE_URL='.length)`) puis re-exécution le 2026-10-09 :
+
+| Vérification | Avant (faux — base dev lue) | Après (vraie base prod) |
+|---|---|---|
+| `ssl` affiché | `n/a` (URL tronquée) | `require` |
+| `fileObject` | 325 | **5**, dernière écriture 2026-10-07T22:08Z |
+| Comptes `@demo.bj` | 9 | **4** (les seuls comptes de test) |
+| `r2cross-1791410910938-uok38@demo.bj` | ABSENT | **EXISTE**, `status=SUSPENDED` |
+| `fileObject cmuynt2nl003l7qggp4moekxd` | ABSENT | **EXISTE** (`1791410917160-p8rzjt2b.pdf`) |
+
+**Preuve que `.env.prod` local == secret Render** (2026-10-09) : empreinte SHA-256 normalisée (sans `?sslmode=…`, sans espaces) **identique des deux côtés** → `a1c09f6c97ae90958981ba37fd1d8b5e9a8dfeda1e7d8b384a0e66c9ced1c824` (109 octets). La comparaison « ref projet + mot de passe » exigée ci-dessus est donc réglée : **mêmes identifiants, même base, même projet Supabase**. Le secret a été lu dans le dashboard Render sans jamais être affiché (transfert direct navigateur → fichier local gitignoré, SHA-256 vérifié de part et d'autre), puis **supprimé** et le récepteur local arrêté.
+
+**Conclusion corrigée :** il n'y a jamais eu deux projets Supabase. Il y a deux bases **légitimement distinctes** : la base **dev** locale (Docker — 325 `fileObject`, 9 comptes `@demo.bj` dont `fatou@demo.bj`) et la base **prod** Supabase (5 `fileObject`, 4 comptes `@demo.bj` = uniquement les comptes de test). **Règle à garder** : tout outil local doit passer par une **datasource Prisma explicite** avec la bonne URL — sinon Prisma lit silencieusement le `.env` dev et le résultat est faux sans erreur visible.
+
+---
+
+### ✅ État des migrations de prod — CONFIRMÉ À JOUR au 2026-10-09 (35/35)
+
+Commande exécutée contre la base de prod (URL lue dans le dashboard Render, jamais affichée ni committée) :
+
+```bash
+DATABASE_URL="<secret Render>" node apps/api/node_modules/prisma/build/index.js migrate status --schema apps/api/prisma/schema.prisma
+```
+
+Résultat (code de sortie **0**) :
+
+```
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-0-eu-west-1.pooler.supabase.com:5432"
+35 migrations found in prisma/migrations
+Database schema is up to date!
+```
+
+- **35 dossiers** dans `apps/api/prisma/migrations/` (dont `20261004_password_reset_tokens`) = **35 appliquées, 0 en attente, 0 divergente → rien à déployer**.
+- Convergent avec les preuves indirectes : `GET /api/auth/reset-password/<token inconnu>` → `200 {"valid":false}` (la table `PasswordResetToken` est interrogée sans erreur) et `prisma migrate deploy` exécuté par le `CMD` du conteneur à chaque boot.
+- **Anomalie connue (cosmétique)** : la valeur de `DATABASE_URL` stockée dans Render contient un **saut de ligne parasite** au milieu de `sslmode=re\nquire`. Prisma l'accepte (migrations et purge du 2026-10-09 réussies), mais la chaîne gagnerait à être ressaisie proprement via Environment → Edit.
 
 ---
 
@@ -132,25 +186,41 @@ End-to-end réel sur l'API prod :
 
 ---
 
-## 6. État du site (résumé, 2026-10-08)
+## 6. État du site (résumé, 2026-10-09)
 
 ### ✅ Fonctionnel / vérifié
+- **Migrations prod : 35/35 à jour** — `prisma migrate status` contre la base de prod (2026-10-09) → « Database schema is up to date! », exit 0. Rien à déployer.
 - **Front redéployé le 2026-10-08 (~22:40 UTC)** via `node .freebuff/deploy-cf-pages.mjs <url-api>` (wrangler OAuth, projet `santeplus`/branche `master`, exit 0) : correctif du validateur du simulateur (champ « Dépense simulée » rejetait sa propre valeur par défaut 10 000 — `step={500}` parasites retiré de `Simulateur.tsx`). Bundle : `index-C2SkEbl9.js` + `Simulateur-DKWfj9eZ.js`. **E2E vérifié en prod** : clic « Simuler » sur les valeurs par défaut → `POST /api/cts/simulate` 201 + `POST /api/quote/estimate` 201 → estimation cohérente (remboursé 6 000 = 60 % de 10 000).
 - Health API prod : 200, `storage: object` (R2 actif), builtAt 2026-10-06.
 - Front : `santeplus.pages.dev` (200), preview `c50e2163.santeplus.pages.dev` (200).
 - CORS : origine `https://santeplus.pages.dev` acceptée, credentials `true`.
 - R2 : upload + relecture octet-à-octet + persistance après cycle froid → **validé**.
 - Auth : register/login/refresh fonctionnels (compte jetable créé + upload + relecture).
-- Notifications : 749 en base, 100% IN_APP, 100% non-lues, 0 e-mail/SMS envoyés (pas de credentials EMAIL/SMS/WA configurés en prod → console-only, silencieux — voir BUG P1-3).
+- Notifications : **19 en base prod** (comptage réel du 2026-10-09, lecture seule sur la vraie base). ⚠ Les qualificatifs qui précédaient ici (« 749 en base, 100% IN_APP, 100% non-lues, 0 e-mail/SMS envoyés ») venaient de la mesure du 08/10 passée par le chemin bugué → base **dev** (qui en avait 859 au 09/10) : à re-vérifier en prod avant d'en faire état. L'absence de credentials EMAIL/SMS/WA reste plausible (relevé Environment Render sans clé visible), mais la liste y est tronquée par « Show more » — voir BUG P1-3.
+
+### 📊 Mesures prod vs dev — 2026-10-09 (lecture seule, `.freebuff/db-stats.cjs`)
+
+| | **Prod** (Supabase, `aws-0-eu-west-1.pooler.supabase.com`) | **Dev** (Docker `127.0.0.1:15432`) |
+|---|---|---|
+| Users | **6** (4 comptes test `SUSPENDED` + 2 actifs) | 288 (dont **279** générés en `@test.bj`) |
+| FileObjects | **5** (4 `BIRTH_CERTIFICATE` + 1 photo de profil) | 325 (275 actes, 48 sans type — photos/divers —, 2 factures) |
+| Contrats | **2** (tous du 2026-10-04) | 183 |
+| Sinistres / consultations | 0 / 0 | 49 / 1 |
+| Notifications | **19** | 859 |
+| Sessions (refresh tokens) | 33 | 1 827 |
+| Premier utilisateur | **2026-10-04** | 2026-09-20 |
+| Dernier upload | 2026-10-07T22:08Z | 2026-10-08T23:45Z |
+
+**Les 5 fichiers de prod sont tous expliqués :** 150 415 o + 155 320 o d'actes de naissance et une photo de 583 232 o (dépôts réels du 04/10, chaque acte déposé **avant** la souscription : 15:44→15:50 et 19:06→19:09), plus 2 PDF de 305 o de la session de validation R2 du 07/10. **Les 325 du dev** sont l'accumulation seeds + Playwright : les tests n'écrivent jamais en prod (`npm run dev`/`e2e` → `127.0.0.1:15432`) et, en dev, `S3_BUCKET`/`S3_ENDPOINT` sont **vides** → `storageRemote=false` → fichiers sur disque local (`apps/api/uploads/`, 936 fichiers/28 Mo), **jamais dans le bucket R2**.
+
+**Conséquences :** (1) le « 5 » mesure l'absence de trafic, pas une panne — le pipeline prod est prouvé (aller-retour octet-à-octet + survie au redémarrage froid, §1) ; (2) **ne jamais restaurer la base dev en prod** (279 comptes / 183 contrats / 49 sinistres de test) ; (3) restant à prouver : comptage objets du bucket R2 vs table `FileObject` (clés S3 non lues — volontairement) pour exclure des orphelins côté prod.
+
+---
 
 ### ⚠️ À clarifier / point d'attention
-- **Provenance DB (§3)** : divergence **confirmée le 2026-10-08** (`.env.prod` local ≠ base de l'API prod, preuve relancée) → outils locaux aveugles sur la vraie base. **Bloqué** : lecture du secret `DATABASE_URL` sur le dashboard Render (utilisateur). À régler avant purge/audit local.
+- **Provenance DB (§3) : RÉSOLUE le 2026-10-09** — la « divergence confirmée » du 08 était un **faux résultat** de `.freebuff/db-compare.cjs` (il lisait la base dev sans s'en rendre compte). `.env.prod` local et secret Render = **même base** (empreinte SHA-256 normalisée identique). Les outils locaux doivent utiliser une datasource Prisma explicite. **Migrations prod : 35/35 à jour** (`migrate status`, exit 0).
 - **Domaine `santeplus.bj`** : **NXDOMAIN confirmé le 2026-10-08** jusque chez les serveurs autoritatifs .bj (`ns1.nic.bj`, `pch.nic.bj`) → domaine non enregistré/non délégué, aucun DNS publicable. Configuration exacte prête dans [`docs/DNS-SANTEPLUS-BJ.md`](DNS-SANTEPLUS-BJ.md) (zone Cloudflare + Custom domains Pages + SSL Full(strict) + `WEB_ORIGIN` Render). Le domaine `santeplus.pages.dev` fonctionne.
-- **Comptes jetables créés en prod** (base de l'API, pas dans `.env.prod` local, donc non purgables depuis local) :
-  - `r2test-1791410288973-xqf34@demo.bj` (créé lors de la validation R2 réussie — possède le fichier test R2 `1791410295893-01hc4jn1.pdf`)
-  - Plus tôt dans la session : comptes `r2test-1791410077072-…` et `r2test-1791410201992-…` (créés lors des tentatives précédentes — non trouvés dans l'API lors des vérifications ultérieures, possible rollback/cleanup automatique ou base différente).
-  - `r2cross-1791410910938-uok38@demo.bj` (créé lors du cross-check DB — confirmé présent dans la base de l'API via `/api/subscription/birth-certificate/status`).
-  - **Ces comptes sont inoffensifs (MEMBER, pas de données sensibles) mais polluent la base.** À nettoyer via le dashboard Supabase direct ou une route d'administration si disponible.
+- **Comptes jetables créés en prod : PURGÉS le 2026-10-09** — les 4 comptes (`r2test-1791410077072-jkcl5`, `r2test-1791410201992-yp6na`, `r2test-1791410288973-xqf34`, `r2cross-1791410910938-uok38`, tous `@demo.bj`, rôle `MEMBER`) sont passés **`ACTIVE` → `SUSPENDED`** via `.freebuff/cleanup-r2-test-accounts.cjs` : dry-run `EXIT_0` (4/4 présents), `--execute` `EXIT_0` (4/4 relus `SUSPENDED` après écriture). Effet réel : `auth.service.ts` refuse la connexion (« Compte suspendu ») et `jwt-auth.guard.ts` rejette les jetons déjà émis. La base prod **ne contient plus aucun autre compte `@demo.bj`**. Le fichier test R2 reste conservé comme preuve (voir ci-dessous).
 - **Fichier test R2 conservé volontairement** (`1791410295893-01hc4jn1.pdf`, 305 octets) dans le bucket `santeplus-files` comme preuve valide — inoffensif, peut être supprimé depuis le dashboard Cloudflare R2.
 
 ### ❌ Non encore livré / connu
@@ -179,6 +249,10 @@ curl -sS -I -H "Origin: https://santeplus.pages.dev" https://santeplus-api-kp5t.
 
 # Domaine (voir docs/DNS-SANTEPLUS-BJ.md — attendu NXDOMAIN tant que non enregistré)
 nslookup santeplus.bj 8.8.8.8
+
+# État des migrations de prod (secret Render — ne jamais coller la valeur dans un fichier versionné)
+DATABASE_URL="<secret Render>" node apps/api/node_modules/prisma/build/index.js migrate status --schema apps/api/prisma/schema.prisma
+# Attendu : "35 migrations found" + "Database schema is up to date!" (exit 0)
 
 # Réveil (si veinard)
 curl -sS -m 45 https://santeplus-api-kp5t.onrender.com/api/health

@@ -26,7 +26,14 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,woff,ttf,svg,png}'],
-        navigateFallback: 'index.html',
+        // Pas de navigateFallback (vite-plugin-pwa le vaut "index.html" par
+        // défaut) : workbox servirait alors le index.html du precache à toute
+        // navigation, donc l'ancien bundle jusqu'à la fin d'installation du
+        // nouveau SW — il fallait 2 rechargements pour basculer. Les
+        // navigations sont prises en charge par public/sw-network-first.js
+        // (réseau d'abord, repli offline sur le shell precaché), importé ici.
+        navigateFallback: null,
+        importScripts: ['sw-network-first.js'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

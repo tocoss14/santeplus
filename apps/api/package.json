@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm run build && node --watch dist/main.js",
+    "dev": "npm run build && node --watch --watch-path=dist dist/main.js",
     "build": "npx prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "postinstall": "node -e \"try{require('child_process').execSync('npx prisma generate',{stdio:'inherit'})}catch{}\"",

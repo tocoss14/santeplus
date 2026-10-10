@@ -3,11 +3,15 @@ FROM node:20-alpine AS build
 RUN apk add --no-cache openssl
 WORKDIR /app
 
-# Sonde de version (GET /api/version) : la CI passe le SHA du commit via
-# --build-arg APP_VERSION. Runsite (qui reconstruit l'image lui-même) ne le
-# passe pas — la version reste alors vide et seule la date de build permet de
-# distinguer une image reconstruite d'une image recyclée.
+# Sonde de version (GET /api/version) — deux sources de SHA :
+# - APP_VERSION : passée par la CI GitHub (docker/build-push-action).
+# - RENDER_GIT_COMMIT : injectée par Render au build ET à l'exécution, à
+#   chaque deploy — c'est elle qui rend la sonde fiable en prod : le SHA est
+#   rafraîchi même quand les couches Docker sont en cache (un push docs-only
+#   ne change aucun des fichiers copiés plus bas, mais change
+#   RENDER_GIT_COMMIT, ce qui rejoue la couche de tampon ci-dessous).
 ARG APP_VERSION=""
+ARG RENDER_GIT_COMMIT=""
 
 COPY apps/api/package.json apps/api/package-lock.json* ./
 RUN npm install --ignore-scripts --no-audit --no-fund
@@ -19,10 +23,13 @@ COPY apps/api/src ./src
 RUN npx prisma generate
 RUN npm run build
 
-# Tampon de version lu par GET /api/version. Place après le build pour que
-# tout nouveau commit produise un horodatage frais ; un re-build sans cache
-# d'un même commit rafraîchit aussi builtAt (détecte une image reconstruite).
-RUN printf '{"version":"%s","builtAt":"%s"}\n' "$APP_VERSION" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > dist/build-info.json
+# Tampon de version lu par GET /api/version. ${APP_VERSION:-$RENDER_GIT_COMMIT}
+# : CI d'abord, SHA du deploy Render ensuite, sinon vide (build local).
+# La commande référence $RENDER_GIT_COMMIT : BuildKit inclut sa valeur dans la
+# clé de cache de cette couche — tout nouveau commit re-exécute le RUN
+# (builtAt frais + SHA juste), tandis qu'un re-déploiement à SHA identique
+# reste en cache (stamp inchangé, ce qui est exact).
+RUN printf '{"version":"%s","builtAt":"%s"}\n' "${APP_VERSION:-$RENDER_GIT_COMMIT}" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > dist/build-info.json
 
 # ── Runtime ────────────────────────────────────────────────────────────────
 FROM node:20-alpine

@@ -15,6 +15,7 @@ describe('GET /api/version — sonde de version pour deploy.yml', () => {
   beforeEach(() => {
     delete process.env.APP_VERSION;
     delete process.env.BUILT_AT;
+    delete process.env.RENDER_GIT_COMMIT;
     fsMock.existsSync.mockReturnValue(false);
     fsMock.readFileSync.mockReturnValue('{}');
   });
@@ -22,6 +23,7 @@ describe('GET /api/version — sonde de version pour deploy.yml', () => {
   afterEach(() => {
     delete process.env.APP_VERSION;
     delete process.env.BUILT_AT;
+    delete process.env.RENDER_GIT_COMMIT;
   });
 
   it('dist/build-info.json absent (dev hors Docker) → valeurs nulles, jamais d’erreur', () => {
@@ -48,6 +50,23 @@ describe('GET /api/version — sonde de version pour deploy.yml', () => {
     const res = controller.version();
     expect(res.version).toBe('sha-du-runtime');
     expect(res.builtAt).toBe('2026-09-27T09:00:00Z');
+  });
+
+  it('image bâtie sans tampon (ancien build) sur Render → RENDER_GIT_COMMIT runtime referme la chaîne', () => {
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.readFileSync.mockReturnValue('{"version":"","builtAt":""}');
+    process.env.RENDER_GIT_COMMIT = 'sha-du-deploy-render';
+    const res = controller.version();
+    expect(res.version).toBe('sha-du-deploy-render');
+    expect(res.builtAt).toBeNull();
+  });
+
+  it('tampon image présent → RENDER_GIT_COMMIT runtime ne l’écrase pas', () => {
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.readFileSync.mockReturnValue('{"version":"sha-dans-l-image","builtAt":"2026-10-09T00:17:58Z"}');
+    process.env.RENDER_GIT_COMMIT = 'sha-du-deploy-render';
+    const res = controller.version();
+    expect(res.version).toBe('sha-dans-l-image');
   });
 
   it('build-info.json corrompu → dégradation gracieuse en valeurs nulles', () => {

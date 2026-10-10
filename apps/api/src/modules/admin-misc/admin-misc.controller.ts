@@ -28,9 +28,12 @@ export class HealthController {
    * cette réponse au SHA publié pour détecter immédiatement un déploiement
    * périmé (image non reconstruite ou instance non recyclée). Les valeurs
    * viennent de dist/build-info.json, tamponné par le Dockerfile au build
-   * (ARG APP_VERSION fourni par la CI, builtAt horodaté à chaque construction) ;
-   * les variables d'environnement APP_VERSION/BUILT_AT restent prioritaires
-   * comme échappatoire pour un runtime qui ne peut pas reconstruire l'image.
+   * (APP_VERSION fourni par la CI, sinon RENDER_GIT_COMMIT — le SHA du deploy,
+   * qui fait rejouer la couche de tampon à chaque commit même en cache ;
+   * builtAt horodaté à chaque exécution du tampon). APP_VERSION/BUILT_AT
+   * restent prioritaires comme échappatoire runtime, puis RENDER_GIT_COMMIT
+   * (SHA du deploy en cours, injecté par Render) referme la chaîne : la sonde
+   * reste juste même sur une image bâtie avant l'existence du tampon.
    */
   @Public()
   @Get('version')
@@ -38,7 +41,7 @@ export class HealthController {
     const info = readBuildInfo();
     return {
       service: 'santeplus-api',
-      version: process.env.APP_VERSION || info.version || null,
+      version: process.env.APP_VERSION || info.version || process.env.RENDER_GIT_COMMIT || null,
       builtAt: process.env.BUILT_AT || info.builtAt || null,
       time: new Date().toISOString(),
     };

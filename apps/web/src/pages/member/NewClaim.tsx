@@ -122,7 +122,7 @@ export default function NewClaim() {
           <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center hover:border-brand-400 hover:bg-brand-50/40 transition">
             <span className="text-3xl">📸</span>
             <span className="mt-2 text-sm font-medium text-slate-600">Photographier ou importer la facture</span>
-            <span className="text-xs text-slate-400">JPEG, PNG ou PDF · 8 Mo max</span>
+            <span className="text-xs text-slate-500">JPEG, PNG ou PDF · 8 Mo max</span>
             <input
               type="file"
               multiple

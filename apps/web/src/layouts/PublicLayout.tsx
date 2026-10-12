@@ -15,7 +15,10 @@ export default function PublicLayout() {
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white text-sm">SP</span>
             SantéPlus <span className="text-slate-600 hidden sm:inline text-sm font-medium">Bénin</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600">
+          {/* Palier md (768–1023) : les 5 liens + Connexion + Souscrire font 835 px
+              de contenu pour 768 de vue → scroll horizontal. Le menu desktop ne
+              s'ouvre donc qu'à lg ; entre les deux, le panneau Menu prend le relais. */}
+          <nav className="hidden lg:flex items-center gap-1 text-sm font-medium text-slate-600">
             <NavLink to="/offres" className="rounded-lg px-3 py-2 hover:bg-slate-100">Nos formules</NavLink>
             <a href="/#fonctionnement" className="rounded-lg px-3 py-2 hover:bg-slate-100">Fonctionnement</a>
             <NavLink to="/reseau" className="rounded-lg px-3 py-2 hover:bg-slate-100">Réseau de soins</NavLink>
@@ -25,7 +28,7 @@ export default function PublicLayout() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="btn-outline btn-sm md:hidden"
+              className="btn-outline btn-sm min-h-[44px] lg:hidden"
               aria-expanded={menuOpen}
               aria-controls="public-navigation"
               onClick={() => setMenuOpen(open => !open)}
@@ -33,17 +36,20 @@ export default function PublicLayout() {
               Menu
             </button>
             {me ? (
-              <Link to={homeFor(me.role)} className="btn-primary btn-sm">Mon espace</Link>
+              <Link to={homeFor(me.role)} className="btn-primary btn-sm min-h-[44px] lg:min-h-0">Mon espace</Link>
             ) : (
               <>
-                <Link to="/login" className="btn-outline btn-sm">Connexion</Link>
-                <Link to="/offres" className="btn-primary btn-sm">Souscrire</Link>
+                {/* En mobile, « Connexion » vit dans le panneau Menu : avec les trois
+                    boutons, la barre débordait de 43 px en 360 px (scroll horizontal
+                    sur toute la page publique). */}
+                <Link to="/login" className="btn-outline btn-sm hidden min-h-[44px] sm:inline-flex lg:min-h-0">Connexion</Link>
+                <Link to="/offres" className="btn-primary btn-sm min-h-[44px] lg:min-h-0">Souscrire</Link>
               </>
             )}
           </div>
         </div>
         {menuOpen && (
-          <nav id="public-navigation" className="border-t border-slate-200 bg-white px-4 py-2 md:hidden">
+          <nav id="public-navigation" className="border-t border-slate-200 bg-white px-4 py-2 lg:hidden">
             {[
               { to: '/offres', label: 'Nos formules' },
               { to: '/reseau', label: 'Réseau de soins' },
@@ -54,11 +60,20 @@ export default function PublicLayout() {
                 key={item.to}
                 to={item.to}
                 onClick={() => setMenuOpen(false)}
-                className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                className="flex min-h-[44px] items-center rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
               >
                 {item.label}
               </NavLink>
             ))}
+            {!me && (
+              <NavLink
+                to="/login"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-[44px] items-center rounded-lg px-3 py-2 text-sm font-bold text-brand-700 hover:bg-slate-100"
+              >
+                Connexion
+              </NavLink>
+            )}
           </nav>
         )}
       </header>

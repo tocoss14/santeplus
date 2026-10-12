@@ -99,7 +99,7 @@ export default function AdminUsers() {
                       <PhotoImg src={u.photoFileId ? fileUrl(u.photoFileId) : null} alt="" className="h-8 w-8 rounded-full object-cover" />
                       <div>
                         <p className="font-medium">{u.lastName} {u.firstName}</p>
-                        <p className="text-xs text-slate-400">{u.email}{u.company ? ` · ${u.company.name}` : ''}</p>
+                        <p className="text-xs text-slate-500">{u.email}{u.company ? ` · ${u.company.name}` : ''}</p>
                       </div>
                     </div>
                   </td>
@@ -115,7 +115,7 @@ export default function AdminUsers() {
               ))}
             </tbody>
           </table>
-          {data.items.length === 0 && <p className="py-8 text-center text-sm text-slate-400">Aucun utilisateur trouvé</p>}
+          {data.items.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Aucun utilisateur trouvé</p>}
         </div>
       )}
 
@@ -128,7 +128,7 @@ export default function AdminUsers() {
               <PhotoImg src={detail.photoFileId ? fileUrl(detail.photoFileId) : null} alt="Photo" className="h-16 w-16 rounded-full object-cover border-2 border-slate-200" />
               <div>
                 <p className="font-semibold text-base">{detail.lastName} {detail.firstName}</p>
-                <p className="text-xs text-slate-400">{ROLE_LABELS[detail.role] ?? detail.role}</p>
+                <p className="text-xs text-slate-500">{ROLE_LABELS[detail.role] ?? detail.role}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">

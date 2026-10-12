@@ -122,7 +122,7 @@ export default function CollectiveContract() {
             <button className="btn-primary w-full" disabled={!productId || busy} onClick={subscribe}>
               {busy ? 'Création…' : 'Créer le contrat collectif'}
             </button>
-            <p className="text-xs text-slate-400">Le contrat sera créé en attente de paiement. Vous pourrez ensuite importer vos salariés.</p>
+            <p className="text-xs text-slate-500">Le contrat sera créé en attente de paiement. Vous pourrez ensuite importer vos salariés.</p>
           </>
         )}
       </div>
@@ -143,7 +143,7 @@ export default function CollectiveContract() {
         <div className="flex flex-wrap items-center gap-3">
           <StatusBadge status={contract.status} />
           <span className="font-semibold">{contract.product.name}</span>
-          <span className="text-sm text-slate-400">{contract.number}</span>
+          <span className="text-sm text-slate-500">{contract.number}</span>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div><p className="label">Validité</p>{fmtDate(contract.startDate)} → {fmtDate(contract.endDate)}</div>

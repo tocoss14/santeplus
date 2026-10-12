@@ -54,7 +54,7 @@ export default function AdminAudit() {
                   <td className="td font-medium">{a.entity}</td>
                   <td className="td"><span className="badge bg-slate-100 text-slate-700">{a.action}</span></td>
                   <td className="td font-mono text-xs">{a.entityId}</td>
-                  <td className="td text-xs text-slate-400">{a.ip ?? '—'}</td>
+                  <td className="td text-xs text-slate-500">{a.ip ?? '—'}</td>
                   <td className="td max-w-xs">
                     <pre className="text-[11px] text-slate-500 overflow-hidden whitespace-nowrap text-ellipsis">{JSON.stringify(a.details)}</pre>
                   </td>

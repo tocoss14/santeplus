@@ -82,7 +82,7 @@ export default function AdminFinancialModels() {
                 <tr key={v.id}>
                   <td className="td">
                     <span className="font-medium">{v.code}</span>
-                    <span className="block text-xs text-slate-400">{v.label}</span>
+                    <span className="block text-xs text-slate-500">{v.label}</span>
                   </td>
                   <td className="td text-xs">{v.engineVersion}</td>
                   <td className="td"><VersionBadge status={v.status} /></td>
@@ -116,7 +116,7 @@ export default function AdminFinancialModels() {
 
       <h2 className="pt-2 text-lg font-semibold">Migrations de contrats (V1 → V2)</h2>
       {!migrations.length ? (
-        <p className="text-sm text-slate-400">Aucune migration enregistrée — les contrats V1 restent sur leur modèle d'origine.</p>
+        <p className="text-sm text-slate-500">Aucune migration enregistrée — les contrats V1 restent sur leur modèle d'origine.</p>
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[720px]">

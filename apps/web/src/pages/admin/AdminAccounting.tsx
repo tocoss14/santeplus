@@ -63,13 +63,13 @@ export default function AdminAccounting() {
       <div className="grid gap-3 sm:grid-cols-3">
         {summary.map((s: any) => (
           <div key={s.account.code} className="card-p">
-            <p className="text-xs font-mono text-slate-400">{s.account.code}</p>
+            <p className="text-xs font-mono text-slate-500">{s.account.code}</p>
             <p className="font-semibold text-sm">{s.account.name}</p>
             <p className="mt-2 text-sm">Débit {fcfa(s.debit)} · Crédit {fcfa(s.credit)}</p>
             <p className={`text-sm font-bold ${s.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Solde {fcfa(s.balance)}</p>
           </div>
         ))}
-        {summary.length === 0 && <p className="text-sm text-slate-400">Aucune écriture sur la période</p>}
+        {summary.length === 0 && <p className="text-sm text-slate-500">Aucune écriture sur la période</p>}
       </div>
 
       {!entries ? <SkeletonTable bare rows={6} cols={7} /> : (
@@ -88,7 +88,7 @@ export default function AdminAccounting() {
                   <td className="td text-xs">{e.period}</td>
                 </tr>
               ))}
-              {entries.items.length === 0 && <tr><td colSpan={7} className="td py-8 text-center text-slate-400">Aucune écriture</td></tr>}
+              {entries.items.length === 0 && <tr><td colSpan={7} className="td py-8 text-center text-slate-500">Aucune écriture</td></tr>}
             </tbody>
           </table>
         </div>

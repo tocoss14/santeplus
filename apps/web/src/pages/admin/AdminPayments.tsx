@@ -94,7 +94,7 @@ export default function AdminPayments() {
                   <td className="td"><span className={`badge ${statusStyle(p.status)}`}>{statusLabel(p.status)}</span></td>
                 </tr>
               ))}
-              {data.items.length === 0 && <tr><td colSpan={7} className="td py-8 text-center text-slate-400">Aucun paiement</td></tr>}
+              {data.items.length === 0 && <tr><td colSpan={7} className="td py-8 text-center text-slate-500">Aucun paiement</td></tr>}
             </tbody>
           </table>
         </div>

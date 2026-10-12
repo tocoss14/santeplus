@@ -117,7 +117,7 @@ export default function AdminContracts() {
                   <td className="td font-medium">{c.number}</td>
                   <td className="td text-sm">
                     {c.principalUser ? `${c.principalUser.firstName} ${c.principalUser.lastName}` : ''}
-                    {c.company && <span className="block text-xs text-slate-400">{c.company.name}</span>}
+                    {c.company && <span className="block text-xs text-slate-500">{c.company.name}</span>}
                   </td>
                   <td className="td text-xs">{c.product.name}</td>
                   <td className="td whitespace-nowrap">
@@ -153,7 +153,7 @@ export default function AdminContracts() {
               ))}
             </tbody>
           </table>
-          {data.items.length === 0 && <p className="py-8 text-center text-sm text-slate-400">Aucun contrat</p>}
+          {data.items.length === 0 && <p className="py-8 text-center text-sm text-slate-500">Aucun contrat</p>}
         </div>
       )}
 

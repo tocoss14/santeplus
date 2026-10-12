@@ -86,7 +86,7 @@ export default function Beneficiaries() {
                 <p className="text-xs text-slate-500">
                   {RELATION_LABELS[b.relation]} · né(e) le {fmtDate(b.birthDate)}
                 </p>
-                <p className="text-[11px] text-slate-400">{b.memberNumber}</p>
+                <p className="text-[11px] text-slate-500">{b.memberNumber}</p>
               </div>
               <div className="flex flex-col items-end gap-1.5">
                 <StatusBadge status={b.status} />

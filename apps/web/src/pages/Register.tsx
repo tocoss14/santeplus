@@ -121,7 +121,7 @@ export default function Register() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-sm text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+              className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500 hover:border-brand-400 hover:bg-brand-50 transition"
             >
               {photoPreview ? (
                 <img src={photoPreview} alt="Aperçu" className="h-full w-full rounded-full object-cover" />
@@ -130,7 +130,7 @@ export default function Register() {
               )}
             </button>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhoto} />
-            <div className="text-xs text-slate-400 space-y-1">
+            <div className="text-xs text-slate-500 space-y-1">
               <p>Photo carrée recommandée (format carte).</p>
               <p>JPG, PNG ou WebP — max 5 Mo.</p>
               {photoPreview && (
@@ -157,7 +157,7 @@ export default function Register() {
           Entreprise ? <Link to="/register-entreprise" className="font-semibold text-ink hover:underline">Créer mon espace entreprise</Link>
         </p>
       </form>
-      <p className="mt-4 text-center text-xs text-slate-400">
+      <p className="mt-4 text-center text-xs text-slate-500">
         En créant un compte, vous acceptez le traitement de vos données conformément à la réglementation applicable.
       </p>
     </div>

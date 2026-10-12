@@ -205,7 +205,7 @@ export default function BulkProviderImport({ onClose, onDone }: Props) {
         <p className="mt-2 text-sm text-slate-600">
           Sélectionnez un fichier <strong>Excel (.xlsx)</strong> ou <strong>CSV séparé par tabulations</strong>
         </p>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-slate-500">
           Colonnes attendues : Nom | Type | Ville | Adresse | Téléphone | Email | Spécialités | Prénom contact | Nom contact | Tél. contact
         </p>
         <input
@@ -248,7 +248,7 @@ export default function BulkProviderImport({ onClose, onDone }: Props) {
                     <td className="p-2">{r.contactFirstName} {r.contactLastName}</td>
                   </tr>
                 ))}
-                {data.length > 20 && <tr><td colSpan={5} className="p-2 text-center text-slate-400">… et {data.length - 20} autres</td></tr>}
+                {data.length > 20 && <tr><td colSpan={5} className="p-2 text-center text-slate-500">… et {data.length - 20} autres</td></tr>}
               </tbody>
             </table>
           </div>

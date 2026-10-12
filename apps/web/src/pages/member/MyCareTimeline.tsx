@@ -130,12 +130,12 @@ export default function MyCareTimeline() {
         <div className="card-p text-center text-sm text-slate-500 py-12">
           <p className="text-3xl mb-2">🩺</p>
           <p>Aucun soin enregistré pour le moment.</p>
-          <p className="text-xs text-slate-400 mt-1">Vos consultations et ordonnances apparaîtront ici.</p>
+          <p className="text-xs text-slate-500 mt-1">Vos consultations et ordonnances apparaîtront ici.</p>
         </div>
       ) : (
         Array.from(grouped.entries()).map(([month, items]) => (
           <div key={month}>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 sticky top-0 bg-slate-50 py-1 z-10">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 sticky top-0 bg-slate-50 py-1 z-10">
               {month}
             </h2>
             <div className="relative ml-4 border-l-2 border-slate-200 space-y-4 pb-2">
@@ -150,12 +150,12 @@ export default function MyCareTimeline() {
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.bg} ${cfg.color}`}>
                           {cfg.icon} {ev.type === 'consultation' ? 'Consultation' : ev.type === 'prescription' ? 'Ordonnance' : ev.type === 'delivery' ? 'Délivrance' : 'Dossier'}
                         </span>
-                        <span className="text-xs text-slate-400">{fmtDateTime(ev.date)}</span>
+                        <span className="text-xs text-slate-500">{fmtDateTime(ev.date)}</span>
                         {ev.status && <StatusBadge status={ev.status} />}
                       </div>
                       <p className="mt-1.5 font-semibold text-sm">{ev.title}</p>
                       <p className="text-xs text-slate-500">{ev.subtitle}</p>
-                      {ev.detail && <p className="mt-1 text-xs text-slate-400 truncate">{ev.detail}</p>}
+                      {ev.detail && <p className="mt-1 text-xs text-slate-500 truncate">{ev.detail}</p>}
                       <p className="mt-1 text-[10px] font-mono text-slate-300">{ev.reference}</p>
                     </div>
                   </div>

@@ -168,7 +168,7 @@ export default function AdminCommissions() {
                 <p className="text-sm">{TYPE_LABELS[t.type] ?? t.type}</p>
                 <div className="text-right">
                   <p className="font-mono text-sm font-bold">{fcfa(t.amount)}</p>
-                  <p className="text-xs text-slate-400">{t.count} commission(s)</p>
+                  <p className="text-xs text-slate-500">{t.count} commission(s)</p>
                 </div>
               </div>
             ))}
@@ -182,20 +182,20 @@ export default function AdminCommissions() {
           {!items ? (
             <SkeletonTable bare rows={6} cols={6} />
           ) : (items?.length ?? 0) === 0 ? (
-            <div className="card-p text-center py-8 text-slate-400">Aucune commission trouvée</div>
+            <div className="card-p text-center py-8 text-slate-500">Aucune commission trouvée</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Distributeur</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Type</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Contrat</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Base</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Taux</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Commission</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Statut</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Date</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Distributeur</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Type</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Contrat</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Base</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Taux</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Commission</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Statut</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Date</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -204,7 +204,7 @@ export default function AdminCommissions() {
                     <tr key={c.id} className="hover:bg-slate-50">
                       <td className="px-3 py-2.5">
                         <p className="font-medium text-xs">{c.distributor?.user?.firstName} {c.distributor?.user?.lastName}</p>
-                        <p className="font-mono text-[10px] text-slate-400">{c.distributor?.referralCode}</p>
+                        <p className="font-mono text-[10px] text-slate-500">{c.distributor?.referralCode}</p>
                       </td>
                       <td className="px-3 py-2.5 text-xs">{TYPE_LABELS[c.type] ?? c.type}</td>
                       <td className="px-3 py-2.5 font-mono text-xs">{c.contract?.number ?? '—'}</td>

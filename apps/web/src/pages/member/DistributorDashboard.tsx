@@ -216,13 +216,13 @@ export default function DistributorDashboard() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Type</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Contrat</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Base</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Taux</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Commission</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Statut</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Date</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Type</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Contrat</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Base</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Taux</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Commission</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Statut</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-mist">

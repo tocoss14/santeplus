@@ -65,7 +65,7 @@ export default function ProviderDashboard() {
               <tr key={c.id} className="cursor-pointer hover:bg-slate-50">
                 <td className="td">
                   <Link to={`/prestataire/prises/${c.id}`} className="font-medium text-brand-700 hover:underline">{c.reference}</Link>
-                  <p className="text-[11px] text-slate-400">{fmtDateTime(c.createdAt)}</p>
+                  <p className="text-[11px] text-slate-500">{fmtDateTime(c.createdAt)}</p>
                 </td>
                 <td className="td text-sm">{c.patient}</td>
                 <td className="td text-xs">{c.memberNumber}</td>
@@ -76,7 +76,7 @@ export default function ProviderDashboard() {
               </tr>
             ))}
             {data.recent.length === 0 && (
-              <tr><td colSpan={7} className="td py-8 text-center text-slate-400">Aucune prise en charge — commencez par vérifier un assuré</td></tr>
+              <tr><td colSpan={7} className="td py-8 text-center text-slate-500">Aucune prise en charge — commencez par vérifier un assuré</td></tr>
             )}
           </tbody>
         </table>

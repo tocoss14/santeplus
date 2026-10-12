@@ -186,13 +186,13 @@ function ContractTab({ detail }: { detail: any }) {
             <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={detail.status} />
               <h2 className="font-bold">{detail.product.name}</h2>
-              <span className="text-sm text-slate-400">{detail.number}</span>
+              <span className="text-sm text-slate-500">{detail.number}</span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-              <div><p className="text-xs text-slate-400">Validité</p>{fmtDate(detail.startDate)} → {fmtDate(detail.endDate)}</div>
-              <div><p className="text-xs text-slate-400">Cotisation</p>{fcfa(detail.premiumAnnual)}/an</div>
-              <div><p className="text-xs text-slate-400">Fréquence</p>{FREQUENCY_LABELS[detail.frequency]}</div>
-              <div><p className="text-xs text-slate-400">Porté par</p>{detail.product.insurerPartner?.name ?? '—'}</div>
+              <div><p className="text-xs text-slate-500">Validité</p>{fmtDate(detail.startDate)} → {fmtDate(detail.endDate)}</div>
+              <div><p className="text-xs text-slate-500">Cotisation</p>{fcfa(detail.premiumAnnual)}/an</div>
+              <div><p className="text-xs text-slate-500">Fréquence</p>{FREQUENCY_LABELS[detail.frequency]}</div>
+              <div><p className="text-xs text-slate-500">Porté par</p>{detail.product.insurerPartner?.name ?? '—'}</div>
             </div>
             <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
               <span className={`badge ${riskModel === 'MUTUALITE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
@@ -262,7 +262,7 @@ function ContractTab({ detail }: { detail: any }) {
                 {detail.beneficiaries.map((b: any) => (
                   <li key={b.id} className="flex items-center justify-between py-2 text-sm">
                     <span>{b.firstName} {b.lastName}</span>
-                    <span className="text-xs text-slate-400">{b.memberNumber}</span>
+                    <span className="text-xs text-slate-500">{b.memberNumber}</span>
                   </li>
                 ))}
               </ul>
@@ -321,11 +321,11 @@ function PaymentsTab({ detail, payments }: { detail: any; payments: any[] }) {
               <li key={p.id} className="flex items-center justify-between py-2 text-sm">
                 <div>
                   <span className="font-medium">{fcfa(p.amount)}</span>
-                  <span className="text-xs text-slate-400 ml-2">{p.method}</span>
+                  <span className="text-xs text-slate-500 ml-2">{p.method}</span>
                 </div>
                 <div className="text-right">
                   <span className={`badge ${statusStyle(p.status)}`}>{statusLabel(p.status)}</span>
-                  {p.contract && <p className="text-[10px] text-slate-400">{p.contract.number}</p>}
+                  {p.contract && <p className="text-[10px] text-slate-500">{p.contract.number}</p>}
                 </div>
               </li>
             ))}
@@ -347,14 +347,14 @@ function CardTab({ detail }: { detail: any }) {
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-2xl mb-3">🪪</div>
         <h2 className="text-lg font-bold">Carte d'assuré numérique</h2>
         <p className="text-sm text-slate-300 mt-1">{detail.product.name}</p>
-        <p className="text-xs text-slate-400 mt-0.5">{detail.number}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{detail.number}</p>
       </div>
 
       <div className="card-p text-center">
         <div className="flex justify-center">
           <QRCodeSVG value={cardQrPayload(detail.cardToken)} size={180} />
         </div>
-        <p className="mt-2 text-xs font-semibold text-slate-400">
+        <p className="mt-2 text-xs font-semibold text-slate-500">
           Présentez ce QR chez un prestataire partenaire
         </p>
       </div>

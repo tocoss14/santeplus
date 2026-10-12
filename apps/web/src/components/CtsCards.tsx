@@ -7,7 +7,7 @@ export function BandBadge({ band }: { band: string }) {
 
 /** Grille PRIME / FRAIS / BUDGET / CONSOMMÉ / ENGAGÉ / DISPONIBLE / RATIO / RÉSULTAT (§29). */
 export function CtsSummary({ account, band }: { account: any; band: string }) {
-  if (!account) return <p className="text-sm text-slate-400">Compte technique en cours d'initialisation…</p>;
+  if (!account) return <p className="text-sm text-slate-500">Compte technique en cours d'initialisation…</p>;
   const cells: [string, string][] = [
     ['Prime encaissée', fcfa(account.primeCollected)],
     ['Frais de gestion', fcfa(account.managementFees)],
@@ -27,7 +27,7 @@ export function CtsSummary({ account, band }: { account: any; band: string }) {
       <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         {cells.map(([label, value]) => (
           <div key={label}>
-            <p className="text-xs text-slate-400">{label}</p>
+            <p className="text-xs text-slate-500">{label}</p>
             <p className="font-semibold">{value}</p>
           </div>
         ))}
@@ -38,7 +38,7 @@ export function CtsSummary({ account, band }: { account: any; band: string }) {
       {account.renewalCredit > 0 && (
         <p className="mt-1 text-sm text-slate-500">Crédit de renouvellement acquis : {fcfa(account.renewalCredit)} (bonus contractuel, non retirable)</p>
       )}
-      <p className="mt-2 text-xs text-slate-400">Le résultat technique est un indicateur de pilotage, pas un résultat comptable définitif.</p>
+      <p className="mt-2 text-xs text-slate-500">Le résultat technique est un indicateur de pilotage, pas un résultat comptable définitif.</p>
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function FundCallList({ items }: { items: any[] }) {
             <span className="font-mono text-xs text-slate-500">{f.invoiceNumber ?? '—'}</span>
             <span className="font-semibold">{fcfa(f.chosenAmount)}</span>
             <span className="badge bg-amber-100 text-amber-800">{statusLabel(f.status)}</span>
-            {f.dueDate && <span className="ml-auto text-xs text-slate-400">Échéance : {fmtDate(f.dueDate)}</span>}
+            {f.dueDate && <span className="ml-auto text-xs text-slate-500">Échéance : {fmtDate(f.dueDate)}</span>}
           </li>
         ))}
       </ul>
@@ -75,7 +75,7 @@ export function CtsAlertList({ items }: { items: any[] }) {
             <span className={`badge ${a.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' : a.severity === 'WARNING' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600'}`}>
               {a.type}
             </span>
-            <span className="text-xs text-slate-400">{fmtDate(a.createdAt)}</span>
+            <span className="text-xs text-slate-500">{fmtDate(a.createdAt)}</span>
           </li>
         ))}
       </ul>

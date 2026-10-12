@@ -40,7 +40,7 @@ export default function MemberPrescriptions() {
               <div className="flex flex-wrap items-center gap-2" onClick={() => setDetail(p)}>
                 <span className="font-semibold">{p.number}</span>
                 <StatusBadge status={p.status} label={prescriptionStatusLabel(p.status)} />
-                <span className="ml-auto text-xs text-slate-400">{fmtDate(p.validFrom)} → {fmtDate(p.validUntil)}</span>
+                <span className="ml-auto text-xs text-slate-500">{fmtDate(p.validFrom)} → {fmtDate(p.validUntil)}</span>
               </div>
               <p className="text-xs text-slate-500">{p.prescriberName} · {p.provider?.name ?? ''}</p>
               <p className="text-sm mt-1">{p.lines.length} produit(s) — {p.lines.map((l: any) => l.name).join(', ').slice(0, 60)}</p>
@@ -63,7 +63,7 @@ export default function MemberPrescriptions() {
             </div>
             <div className="grid place-items-center rounded-xl bg-white p-3 border border-slate-200">
               <QRCodeSVG value={JSON.stringify({ prescription: detail.qrToken })} size={130} />
-              <p className="mt-1 text-[10px] font-semibold text-slate-400">À présenter en pharmacie / laboratoire</p>
+              <p className="mt-1 text-[10px] font-semibold text-slate-500">À présenter en pharmacie / laboratoire</p>
             </div>
             <table className="w-full">
               <thead><tr><th className="th">Produit</th><th className="th">Qté</th><th className="th">Prix</th><th className="th">Délivré</th></tr></thead>

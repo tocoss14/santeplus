@@ -114,7 +114,7 @@ function VerifyResult({ r, scannedToken, onNew }: { r: any; scannedToken: string
         <div>
           <p className="text-lg font-bold">{r.contract.holder}</p>
           <p className="text-sm text-slate-500">{r.contract.productName} · contrat {r.contract.number}</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             N° assuré {r.contract.memberNumber} · validité {fmtDate(r.contract.startDate)} → {fmtDate(r.contract.endDate)}
           </p>
         </div>
@@ -261,7 +261,7 @@ function ThirdPartyFlow({ contractToken, beneficiaries, caps, onClose }: { contr
               {receipt.items.map((i: any) => (
                 <tr key={i.label}>
                   <td className="py-1">{CATEGORY_LABELS[i.label] ?? i.label}</td>
-                  <td className="py-1 text-right text-xs text-slate-400">{fcfa(i.requested)}</td>
+                  <td className="py-1 text-right text-xs text-slate-500">{fcfa(i.requested)}</td>
                   <td className="py-1 text-right font-medium">−{fcfa(i.covered)}</td>
                 </tr>
               ))}

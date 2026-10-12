@@ -52,12 +52,12 @@ export default function ProviderPayments() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-400">Aucune facture — confirmez et facturez des prises en charge</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-500">Aucune facture — confirmez et facturez des prises en charge</td></tr>}
           </tbody>
         </table>
       </div>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         Les règlements de l'assureur/mutuelle partenaire sont enregistrés par la plateforme.
         Un dossier passe en « Payée » dès confirmation du règlement (référence de virement visible).
       </p>

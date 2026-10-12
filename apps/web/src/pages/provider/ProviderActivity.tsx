@@ -63,7 +63,7 @@ function ConsultationsTab() {
               <td className="td text-xs">{fmtDateTime(c.careDate)}</td>
             </tr>
           ))}
-          {items.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-400">Aucune consultation</td></tr>}
+          {items.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-500">Aucune consultation</td></tr>}
         </tbody>
       </table>
     </div>
@@ -92,7 +92,7 @@ function PrescriptionsTab() {
               <td className="td"><StatusBadge status={p.status} /></td>
             </tr>
           ))}
-          {items.length === 0 && <tr><td colSpan={5} className="td py-8 text-center text-slate-400">Aucune ordonnance</td></tr>}
+          {items.length === 0 && <tr><td colSpan={5} className="td py-8 text-center text-slate-500">Aucune ordonnance</td></tr>}
         </tbody>
       </table>
     </div>
@@ -122,7 +122,7 @@ function DeliveriesTab() {
               <td className="td text-xs">{fmtDateTime(d.createdAt)}</td>
             </tr>
           ))}
-          {items.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-400">Aucune délivrance</td></tr>}
+          {items.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-500">Aucune délivrance</td></tr>}
         </tbody>
       </table>
     </div>

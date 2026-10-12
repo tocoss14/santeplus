@@ -34,7 +34,7 @@ export default function Claims() {
                     {c.reference}
                     {c.kind === 'THIRDPARTY' && <span className="ml-2 badge bg-brand-100 text-brand-700">Tiers payant</span>}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Soins du {fmtDate(c.careDate)} · soumise {fmtDateTime(c.submittedAt)}
                     {c.beneficiary ? ` · ${c.beneficiary.firstName} ${c.beneficiary.lastName}` : ''}
                   </p>

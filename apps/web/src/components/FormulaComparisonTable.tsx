@@ -137,7 +137,7 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
                   <td key={p.id} className="p-3 text-center text-slate-600">
                     <div>{p.waitingPeriodDays} jours (soins)</div>
                     {matDays && <div className="text-xs text-amber-600 mt-0.5">Maternité : {Math.round(matDays / 30)} mois</div>}
-                    {matDays === null && <div className="text-xs text-slate-400 mt-0.5">Maternité : non couverte</div>}
+                    {matDays === null && <div className="text-xs text-slate-500 mt-0.5">Maternité : non couverte</div>}
                   </td>
                 );
               })}
@@ -257,11 +257,11 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-lg bg-slate-50 p-2">
-                  <span className="text-slate-400">Copay</span>
+                  <span className="text-slate-500">Copay</span>
                   <span className="ml-1 font-bold text-slate-700">{elig.copayRate ?? 15}%</span>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-2">
-                  <span className="text-slate-400">Plafond</span>
+                  <span className="text-slate-500">Plafond</span>
                   <span className="ml-1 font-bold text-slate-700">
                     {p.globalAnnualCap ? fcfa(p.globalAnnualCap) : '—'}
                   </span>
@@ -274,7 +274,7 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
                 </div>
                 {p.guarantees.map((g: any) => (
                   <div key={g.guarantee.category} className="rounded-lg bg-slate-50 p-2">
-                    <span className="text-slate-400">{CATEGORY_LABELS[g.guarantee.category]?.split(' ')[0] ?? g.guarantee.category}</span>
+                    <span className="text-slate-500">{CATEGORY_LABELS[g.guarantee.category]?.split(' ')[0] ?? g.guarantee.category}</span>
                     <span className="ml-1 font-bold text-slate-700">{g.rate ?? 100}% brut</span>
                     <span className="ml-1 font-semibold text-emerald-700">· ticket {ticketModerateurLabel(g.rate ?? 100)}</span>
                   </div>

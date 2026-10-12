@@ -153,7 +153,7 @@ export function StatCard({ label, value, sub, accent }: { label: string; value: 
     <div className={`card-p transition-transform duration-200 motion-safe:hover:-translate-y-0.5 ${accent ? 'bg-brand-600 border-brand-600 text-white' : ''}`}>
       <p className={`text-xs font-semibold uppercase tracking-wide ${accent ? 'text-brand-100' : 'text-slate-500'}`}>{label}</p>
       <p className={`mt-1.5 text-2xl font-bold ${accent ? '' : 'text-slate-900'}`}>{animatedValue}</p>
-      {sub && <p className={`mt-0.5 text-xs ${accent ? 'text-brand-100' : 'text-slate-400'}`}>{sub}</p>}
+      {sub && <p className={`mt-0.5 text-xs ${accent ? 'text-brand-100' : 'text-slate-500'}`}>{sub}</p>}
     </div>
   );
 }
@@ -168,7 +168,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
       >
         <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3.5">
           <h3 className="font-semibold text-slate-900">{title}</h3>
-          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Fermer">✕</button>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Fermer">✕</button>
         </div>
         <div className="px-5 py-4">{children}</div>
       </div>
@@ -232,7 +232,7 @@ export function Field({ label, children, error, hint, below }: { label: string; 
       <label className="label" htmlFor={controlId}>{label}</label>
       {control}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      {!error && hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {!error && hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
       {below}
     </div>
   );
@@ -248,7 +248,7 @@ export function PasswordChecklist({ password, className }: { password: string; c
   return (
     <ul className={`mt-2 space-y-1 ${className ?? ''}`}>
       {criteria.map(c => (
-        <li key={c.key} className={`flex items-center gap-1.5 text-xs ${c.met ? 'text-emerald-600' : 'text-slate-400'}`}>
+        <li key={c.key} className={`flex items-center gap-1.5 text-xs ${c.met ? 'text-emerald-600' : 'text-slate-500'}`}>
           <span aria-hidden>{c.met ? '✓' : '○'}</span>
           <span>{c.label}</span>
         </li>

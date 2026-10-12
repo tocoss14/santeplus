@@ -256,7 +256,7 @@ export default function AdminAnalytics() {
             <tbody className="divide-y divide-slate-100">
               {data.products.map((row: any) => (
                 <tr key={row.productId}>
-                  <td className="td">{row.productName} <span className="text-xs text-slate-400">({row.productCode})</span></td>
+                  <td className="td">{row.productName} <span className="text-xs text-slate-500">({row.productCode})</span></td>
                   <td className="td text-right">{row.contractsCount}</td>
                   <td className="td text-right">{fcfa(row.premiums)}</td>
                   <td className="td text-right">{fcfa(row.claims)}</td>

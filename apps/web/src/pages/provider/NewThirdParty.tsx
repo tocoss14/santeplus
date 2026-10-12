@@ -199,7 +199,7 @@ export default function NewThirdParty() {
               <span className="badge bg-red-100 text-red-700">CONTRAT INACTIF ❌ — {verified.contract.status}</span>
             )}
             <span className="font-bold">{verified.contract.holder}</span>
-            <span className="text-xs text-slate-400">{verified.contract.memberNumber}</span>
+            <span className="text-xs text-slate-500">{verified.contract.memberNumber}</span>
           </div>
           <p className="mt-1 text-sm text-slate-500">
             {verified.contract.productName}
@@ -251,10 +251,10 @@ export default function NewThirdParty() {
                   {filteredActs.map(a => (
                     <button key={a.id} onClick={() => addAct(a)} className="w-full text-left px-3 py-2 hover:bg-brand-50 flex justify-between gap-3">
                       <span><b className="font-mono text-xs text-brand-700">{a.code}</b> {a.name}</span>
-                      <span className="text-xs text-slate-400 whitespace-nowrap">{fcfa(a.referencePrice)}</span>
+                      <span className="text-xs text-slate-500 whitespace-nowrap">{fcfa(a.referencePrice)}</span>
                     </button>
                   ))}
-                  {filteredActs.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">Aucun acte — saisissez une ligne libre ci-dessous</p>}
+                  {filteredActs.length === 0 && <p className="px-3 py-2 text-sm text-slate-500">Aucun acte — saisissez une ligne libre ci-dessous</p>}
                 </div>
               )}
             </div>

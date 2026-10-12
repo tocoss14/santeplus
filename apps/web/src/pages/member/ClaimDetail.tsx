@@ -95,7 +95,7 @@ export default function ClaimDetail() {
       {estimation?.totals && (
         <div className="card-p">
           <p className="label">Estimation automatique</p>
-          <p className="text-xs text-slate-400">Indicative tant qu’un gestionnaire n’a pas validé la demande.</p>
+          <p className="text-xs text-slate-500">Indicative tant qu’un gestionnaire n’a pas validé la demande.</p>
           <dl className="mt-3 space-y-1.5 text-sm">
             <Row label="Montant demandé" value={fcfa(estimation.totals.requested)} />
             <Row label="Montant éligible" value={fcfa(estimation.totals.eligible)} />
@@ -128,7 +128,7 @@ export default function ClaimDetail() {
               return (
                 <li key={s} className="flex flex-1 items-center last:flex-none">
                   <div className="flex flex-col items-center gap-1">
-                    <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${done ? 'bg-emerald-500 text-white' : reached ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                    <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${done ? 'bg-emerald-500 text-white' : reached ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                       {done ? '✓' : i + 1}
                     </span>
                     <span className="hidden sm:block text-[10px] font-medium text-slate-500">{shortLabel(s)}</span>
@@ -139,7 +139,7 @@ export default function ClaimDetail() {
             })}
           </ol>
           {claim.decidedAt && (
-            <p className="mt-3 text-xs text-slate-400">Décision rendue le {fmtDateTime(claim.decidedAt)}</p>
+            <p className="mt-3 text-xs text-slate-500">Décision rendue le {fmtDateTime(claim.decidedAt)}</p>
           )}
         </div>
       )}
@@ -151,7 +151,7 @@ export default function ClaimDetail() {
             {claim.items.map((it: any) => (
               <tr key={it.id}>
                 <td className="td">{it.categoryLabel}</td>
-                <td className="td text-right text-xs text-slate-400">
+                <td className="td text-right text-xs text-slate-500">
                   {it.rateApplied != null && `taux ${it.rateApplied}%`}
                 </td>
                 <td className="td w-28 text-right font-medium">{fcfa(it.amountApproved ?? it.amountRequested)}</td>

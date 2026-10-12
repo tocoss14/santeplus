@@ -48,7 +48,7 @@ export default function Notifications() {
                 <div className={n.readAt ? '' : 'pl-0'}>
                   <p className={`text-sm ${!n.readAt ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>
                   <p className="mt-0.5 text-xs text-slate-500">{n.body}</p>
-                  <p className="mt-1 text-[10px] text-slate-400">{fmtDateTime(n.createdAt)}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">{fmtDateTime(n.createdAt)}</p>
                 </div>
               </button>
             </li>

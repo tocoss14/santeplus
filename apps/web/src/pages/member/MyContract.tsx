@@ -63,7 +63,7 @@ function ContractSummary({ detail }: { detail: any }) {
       <div className="flex flex-wrap items-center gap-3">
         <span className={`badge ${statusStyle(detail.status)}`}>{statusLabel(detail.status)}</span>
         <h2 className="font-bold">{detail.product.name}</h2>
-        <span className="text-sm text-slate-400">{detail.number}</span>
+        <span className="text-sm text-slate-500">{detail.number}</span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <div><p className="label">Validité</p>{fmtDate(detail.startDate)} → {fmtDate(detail.endDate)}</div>
@@ -87,7 +87,7 @@ function CapsList({ caps }: { caps: any[] }) {
   return (
     <div className="card-p">
       <h2 className="font-semibold mb-1">Plafonds & garanties</h2>
-      <p className="text-xs text-slate-400">Consommation depuis la date d’anniversaire du contrat.</p>
+      <p className="text-xs text-slate-500">Consommation depuis la date d’anniversaire du contrat.</p>
       <ul className="mt-3 space-y-3">
         {caps.map(c => {
           const pct = c.annualLimit ? Math.min(100, Math.round((c.used / c.annualLimit) * 100)) : 0;

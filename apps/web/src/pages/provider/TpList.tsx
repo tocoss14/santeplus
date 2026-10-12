@@ -62,11 +62,11 @@ export default function TpList() {
                   <tr key={c.id} className="cursor-pointer hover:bg-slate-50">
                     <td className="td">
                       <Link to={`/prestataire/prises/${c.id}`} className="font-medium text-brand-700 hover:underline">{c.reference}</Link>
-                      <p className="text-[11px] text-slate-400">{fmtDateTime(c.createdAt)}</p>
+                      <p className="text-[11px] text-slate-500">{fmtDateTime(c.createdAt)}</p>
                     </td>
                     <td className="td text-sm">
                       {c.patient}
-                      <p className="text-[11px] text-slate-400">{c.memberNumber}</p>
+                      <p className="text-[11px] text-slate-500">{c.memberNumber}</p>
                     </td>
                     <td className="td text-xs">{c.actLabel}</td>
                     <td className="td text-sm">{fcfa(c.totalRequested)}</td>
@@ -79,13 +79,13 @@ export default function TpList() {
                     <td className="td"><span className={`badge ${statusStyle(c.status)}`}>{statusLabel(c.status)}</span></td>
                   </tr>
                 ))}
-                {data.items.length === 0 && <tr><td colSpan={7} className="td py-8 text-center text-slate-400">Aucun dossier</td></tr>}
+                {data.items.length === 0 && <tr><td colSpan={7} className="td py-8 text-center text-slate-500">Aucun dossier</td></tr>}
               </tbody>
             </table>
           </div>
           {data.pages > 1 && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">Page {data.page} / {data.pages}</span>
+              <span className="text-slate-500">Page {data.page} / {data.pages}</span>
               <div className="flex gap-2">
                 <button className="btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Précédent</button>
                 <button className="btn-outline btn-sm" disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}>Suivant</button>

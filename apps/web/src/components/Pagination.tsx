@@ -52,7 +52,7 @@ export default function Pagination({ page, pages, total, onChange, perPage = 20 
 
         {pageNumbers.map((p, i) =>
           p === '...' ? (
-            <span key={`dots-${i}`} className="px-1 text-slate-400 text-sm">…</span>
+            <span key={`dots-${i}`} className="px-1 text-slate-500 text-sm">…</span>
           ) : (
             <button
               key={p}

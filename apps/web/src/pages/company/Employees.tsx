@@ -110,7 +110,7 @@ export default function Employees() {
                 <tr key={e.id}>
                   <td className="td">
                     <p className="font-medium">{e.lastName} {e.firstName}</p>
-                    <p className="text-xs text-slate-400">{e.email}</p>
+                    <p className="text-xs text-slate-500">{e.email}</p>
                   </td>
                   <td className="td text-xs">{e.memberNumber}</td>
                   <td className="td text-xs">{e.contractsAsPrincipal[0]?.number ?? '—'}</td>
@@ -123,7 +123,7 @@ export default function Employees() {
                           <button onClick={() => setExitTarget(e)} className="text-xs text-red-600 hover:underline">Sortie</button>
                         </>
                       )}
-                      {e.status !== 'ACTIVE' && <span className="text-xs text-slate-400">Radié</span>}
+                      {e.status !== 'ACTIVE' && <span className="text-xs text-slate-500">Radié</span>}
                     </div>
                   </td>
                 </tr>

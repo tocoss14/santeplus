@@ -73,7 +73,7 @@ export default function ProvidersDirectory() {
         <EmptyState icon="🏥" title="Aucun établissement trouvé" hint="Essayez d’élargir votre recherche." />
       ) : (
         <>
-          {coords && nearOnly && <p className="text-xs text-slate-400">Triés par distance depuis votre position.</p>}
+          {coords && nearOnly && <p className="text-xs text-slate-500">Triés par distance depuis votre position.</p>}
           <ul className="grid gap-3 sm:grid-cols-2">
             {items.map(p => (
               <li key={p.id} className="card-p overflow-hidden p-0">
@@ -86,7 +86,7 @@ export default function ProvidersDirectory() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold">{p.name}</p>
-                      <p className="text-xs text-slate-400">{PROVIDER_TYPES[p.type]} · {p.city}</p>
+                      <p className="text-xs text-slate-500">{PROVIDER_TYPES[p.type]} · {p.city}</p>
                       <p className="mt-1 text-xs text-slate-500 truncate">{p.address}</p>
                       {p.specialties && <p className="text-xs text-slate-500 truncate">🩺 {p.specialties}</p>}
                       <p className="text-xs text-slate-500">🕒 {p.openingHours ?? '—'}</p>

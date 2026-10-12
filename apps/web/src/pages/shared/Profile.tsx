@@ -130,7 +130,7 @@ export default function Profile() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+            className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-brand-400 hover:bg-brand-50 transition"
           >
             {photoPreview ? (
               <PhotoImg src={photoPreview} alt="Photo" className="h-full w-full rounded-full object-cover" />
@@ -141,7 +141,7 @@ export default function Profile() {
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhoto} />
           <div>
             <p className="text-sm font-medium text-slate-700">Photo d'identité</p>
-            <p className="text-xs text-slate-400">Apparaît sur votre carte d'assuré</p>
+            <p className="text-xs text-slate-500">Apparaît sur votre carte d'assuré</p>
             {photoFile && (
               <button
                 className="mt-1 text-xs text-brand-600 hover:underline"
@@ -222,7 +222,7 @@ export default function Profile() {
         ) : (
           <div className="mt-3 space-y-3">
             {(acteDiff.acte.documentNumber || acteDiff.acte.birthPlace) && (
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 {acteDiff.acte.documentNumber && <>N° acte {acteDiff.acte.documentNumber}</>}
                 {acteDiff.acte.documentNumber && acteDiff.acte.birthPlace && ' — '}
                 {acteDiff.acte.birthPlace && <>né(e) à {acteDiff.acte.birthPlace}</>}
@@ -230,7 +230,7 @@ export default function Profile() {
             )}
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-slate-400">
+                <tr className="text-left text-xs text-slate-500">
                   <th className="py-1 font-medium">Champ</th>
                   <th className="font-medium">Acte de naissance</th>
                   <th className="font-medium">Mon compte</th>

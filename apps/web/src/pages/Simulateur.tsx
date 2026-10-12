@@ -137,12 +137,12 @@ export default function Simulateur() {
             <span className="ml-auto"><BandBadge band={result.band} /></span>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-            <div><p className="text-xs text-slate-400">Prime annuelle</p><p className="font-semibold">{fcfa(result.prime)}</p></div>
-            <div><p className="text-xs text-slate-400">Frais de gestion</p><p className="font-semibold">{fcfa(result.fees)}</p></div>
-            <div><p className="text-xs text-slate-400">Budget prestations</p><p className="font-semibold">{fcfa(result.budget)}</p></div>
-            <div><p className="text-xs text-slate-400">Résultat projeté</p><p className="font-semibold">{fcfa(result.projectedResult)}</p></div>
-            <div><p className="text-xs text-slate-400">Ratio projeté</p><p className="font-semibold">{ratioPct(result.projectedRatio)}</p></div>
-            <div><p className="text-xs text-slate-400">Crédit renouvellement potentiel</p><p className="font-semibold">{fcfa(result.potentialCredit)}</p></div>
+            <div><p className="text-xs text-slate-500">Prime annuelle</p><p className="font-semibold">{fcfa(result.prime)}</p></div>
+            <div><p className="text-xs text-slate-500">Frais de gestion</p><p className="font-semibold">{fcfa(result.fees)}</p></div>
+            <div><p className="text-xs text-slate-500">Budget prestations</p><p className="font-semibold">{fcfa(result.budget)}</p></div>
+            <div><p className="text-xs text-slate-500">Résultat projeté</p><p className="font-semibold">{fcfa(result.projectedResult)}</p></div>
+            <div><p className="text-xs text-slate-500">Ratio projeté</p><p className="font-semibold">{ratioPct(result.projectedRatio)}</p></div>
+            <div><p className="text-xs text-slate-500">Crédit renouvellement potentiel</p><p className="font-semibold">{fcfa(result.potentialCredit)}</p></div>
           </div>
           {result.exhaustionDay != null ? (
             <p className="text-sm font-medium text-red-700">⚠️ À ce rythme, épuisement potentiel vers le jour {result.exhaustionDay} — projection indicative, pas une certitude.</p>
@@ -162,7 +162,7 @@ export default function Simulateur() {
               </p>
             </div>
           )}
-          <p className="text-xs text-slate-400">{result.disclaimer}</p>
+          <p className="text-xs text-slate-500">{result.disclaimer}</p>
         </div>
       )}
     </div>

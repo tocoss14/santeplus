@@ -52,7 +52,7 @@ export default function HospitalEntente() {
             {list?.items?.map((c: any) => (
               <tr key={c.id}><td className="td font-mono text-xs">{c.reference}</td><td className="td text-xs">{c.contract?.number ?? c.contractId.slice(0,8)}</td><td className="td">{c.totalRequested} FCFA</td><td className="td"><span className="badge bg-slate-100">{c.status}</span></td><td className="td text-xs">{fmtDate(c.createdAt)}</td></tr>
             ))}
-            {(!list || list.items.length===0) && <tr><td colSpan={5} className="td text-center py-6 text-slate-400">Aucune demande</td></tr>}
+            {(!list || list.items.length===0) && <tr><td colSpan={5} className="td text-center py-6 text-slate-500">Aucune demande</td></tr>}
           </tbody>
         </table>
       </div>

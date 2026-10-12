@@ -197,7 +197,7 @@ export default function ProviderDeliveries() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold">{prescription.number}</span>
               <StatusBadge status={prescription.computedStatus ?? prescription.status} />
-              <span className="text-xs text-slate-400">{prescription.patientUser.firstName} {prescription.patientUser.lastName} · {fmtDate(prescription.validFrom)} → {fmtDate(prescription.validUntil)}</span>
+              <span className="text-xs text-slate-500">{prescription.patientUser.firstName} {prescription.patientUser.lastName} · {fmtDate(prescription.validFrom)} → {fmtDate(prescription.validUntil)}</span>
             </div>
             {prescription.isExpired && <p className="text-sm text-red-600">Ordonnance expirée — délivrance bloquée.</p>}
             {prescription.remainingLines.filter((r: any) => r.remaining > 0).length === 0 ? (

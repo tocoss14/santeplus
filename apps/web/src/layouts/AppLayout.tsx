@@ -105,7 +105,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
         </nav>
         <div className="border-t border-slate-200 p-4">
           <p className="truncate text-sm font-semibold text-slate-700">{me?.firstName} {me?.lastName}</p>
-          <p className="truncate text-xs text-slate-400">{me?.email}</p>
+          <p className="truncate text-xs text-slate-500">{me?.email}</p>
           <button onClick={doLogout} className="mt-3 text-xs font-semibold text-red-600 hover:text-red-700">Se déconnecter</button>
         </div>
       </aside>
@@ -144,7 +144,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
               end={item.end}
               className={({ isActive }) =>
                 `flex min-w-[72px] flex-none flex-col items-center gap-0.5 px-2 py-2 text-[10px] font-medium transition-colors ${
-                  isActive ? 'text-brand-700' : 'text-slate-400'
+                  isActive ? 'text-brand-700' : 'text-slate-500'
                 }`
               }
             >

@@ -103,7 +103,7 @@ export default function AdminActs() {
                 </tr>
               ))}
               {items.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-400">Aucun acte</td></tr>
+                <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">Aucun acte</td></tr>
               )}
             </tbody>
           </table>

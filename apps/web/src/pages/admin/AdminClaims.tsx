@@ -102,7 +102,7 @@ export default function AdminClaims() {
                   </td>
                   <td className="td text-sm">
                     {c.claimantUser?.firstName} {c.claimantUser?.lastName}
-                    {c.beneficiary && <span className="block text-xs text-slate-400">→ {c.beneficiary.firstName} {c.beneficiary.lastName}</span>}
+                    {c.beneficiary && <span className="block text-xs text-slate-500">→ {c.beneficiary.firstName} {c.beneficiary.lastName}</span>}
                   </td>
                   <td className="td text-xs">{new Date(c.careDate).toLocaleDateString('fr-FR')}</td>
                   <td className="td">{c.totalRequested.toLocaleString('fr-FR')}</td>
@@ -111,7 +111,7 @@ export default function AdminClaims() {
                 </tr>
               ))}
               {items.length === 0 && (
-                <tr><td colSpan={6} className="td text-center text-slate-400 py-8">Aucune demande</td></tr>
+                <tr><td colSpan={6} className="td text-center text-slate-500 py-8">Aucune demande</td></tr>
               )}
             </tbody>
           </table>
@@ -310,7 +310,7 @@ function ReviewModal({ claimId, onClose, onChanged }: { claimId: string; onClose
             </div>
           </div>
         ) : (
-          <p className="mt-4 text-center text-xs text-slate-400">Dossier tiers payant — statut : {statusLabel(claim.status)}</p>
+          <p className="mt-4 text-center text-xs text-slate-500">Dossier tiers payant — statut : {statusLabel(claim.status)}</p>
         )
       ) : editable ? (
                     <input
@@ -363,7 +363,7 @@ function ReviewModal({ claimId, onClose, onChanged }: { claimId: string; onClose
           </button>
         </div>
       ) : (
-        <p className="text-center text-xs text-slate-400">Dossier clos — décision le {fmtDate(claim.decidedAt)}{claim.paidRef && ` · paiement ${claim.paidRef}`}</p>
+        <p className="text-center text-xs text-slate-500">Dossier clos — décision le {fmtDate(claim.decidedAt)}{claim.paidRef && ` · paiement ${claim.paidRef}`}</p>
       )}
     </Modal>
   );

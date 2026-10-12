@@ -60,9 +60,9 @@ export default function MobileFactureDetailPage() {
           {fmtDate(invoice.periodStart)} → {fmtDate(invoice.periodEnd)}
         </p>
         <div className="grid grid-cols-3 gap-2 pt-2 text-sm">
-          <div><p className="text-xs text-slate-400">Demandé</p><p className="font-semibold">{fcfa(invoice.totalAmount)}</p></div>
-          <div><p className="text-xs text-slate-400">Approuvé</p><p className="font-semibold">{fcfa(invoice.totalApproved)}</p></div>
-          <div><p className="text-xs text-slate-400">Rejeté</p><p className="font-semibold">{fcfa(invoice.totalRejected)}</p></div>
+          <div><p className="text-xs text-slate-500">Demandé</p><p className="font-semibold">{fcfa(invoice.totalAmount)}</p></div>
+          <div><p className="text-xs text-slate-500">Approuvé</p><p className="font-semibold">{fcfa(invoice.totalApproved)}</p></div>
+          <div><p className="text-xs text-slate-500">Rejeté</p><p className="font-semibold">{fcfa(invoice.totalRejected)}</p></div>
         </div>
         {invoice.status === 'DRAFT' && (
           <button className="btn-primary w-full" disabled={busy} onClick={submit}>

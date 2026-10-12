@@ -111,7 +111,7 @@ export default function MemberDashboard() {
                   <Link to={`/app/remboursements/${c.id}`} className="flex items-center gap-3 py-2.5 hover:bg-slate-50 rounded-lg px-1 -mx-1">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{c.reference}</p>
-                      <p className="text-xs text-slate-400">{fmtDate(c.careDate)} · {fcfa(c.totalRequested)}</p>
+                      <p className="text-xs text-slate-500">{fmtDate(c.careDate)} · {fcfa(c.totalRequested)}</p>
                     </div>
                     <StatusBadge status={c.status} />
                   </Link>
@@ -132,7 +132,7 @@ export default function MemberDashboard() {
                 <span className="text-xl">🏥</span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{p.name}</p>
-                  <p className="text-xs text-slate-400">{p.city}{p.distanceKm != null ? ` · ${p.distanceKm} km` : ''}</p>
+                  <p className="text-xs text-slate-500">{p.city}{p.distanceKm != null ? ` · ${p.distanceKm} km` : ''}</p>
                 </div>
                 {p.thirdPartyPayer && <Badge tone="bg-emerald-100 text-emerald-700">Tiers payant</Badge>}
               </li>

@@ -16,7 +16,7 @@ export default function DateRangeFilter({ from, to, onChange, label = 'Période'
         onChange={e => onChange(e.target.value, to)}
         title="Date de début"
       />
-      <span className="text-xs text-slate-400">→</span>
+      <span className="text-xs text-slate-500">→</span>
       <input
         type="date"
         className="input py-1 text-xs w-[130px]"
@@ -26,7 +26,7 @@ export default function DateRangeFilter({ from, to, onChange, label = 'Période'
       />
       {(from || to) && (
         <button
-          className="text-xs text-slate-400 hover:text-red-500 ml-0.5"
+          className="text-xs text-slate-500 hover:text-red-500 ml-0.5"
           onClick={() => onChange('', '')}
           title="Effacer les filtres"
         >

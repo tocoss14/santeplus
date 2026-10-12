@@ -78,7 +78,7 @@ export default function AdminFraud() {
                     <td className="td">{item.kind}</td>
                     <td className="td text-xs">
                       <p className="font-medium">{item.contract?.number ?? item.provider?.name ?? '—'}</p>
-                      <p className="text-slate-400">{item.contract?.holder ?? ''}</p>
+                      <p className="text-slate-500">{item.contract?.holder ?? ''}</p>
                     </td>
                     <td className="td"><StatusBadge status={item.status} /></td>
                     <td className="td text-xs text-slate-500">{fmtDate(item.createdAt)}</td>

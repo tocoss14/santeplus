@@ -7,7 +7,9 @@ export default function CookieBanner() {
   }, []);
   if (!visible) return null;
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur p-4">
+    // <aside> et non <div> : le contenu doit être dans un landmark (règle axe
+    // `region` — « All page content should be contained by landmarks »).
+    <aside aria-label="Consentement aux cookies" className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur p-4">
       <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs leading-relaxed text-slate-600">
           Nous utilisons des cookies essentiels et des mesures d’audience anonymes pour améliorer SantéPlus. Aucune donnée médicale n’est partagée. <a href="/cga" className="font-semibold text-brand-700 hover:underline">En savoir plus</a>
@@ -17,6 +19,6 @@ export default function CookieBanner() {
           <button onClick={() => { localStorage.setItem('cookie-consent', 'accepted'); setVisible(false); }} className="btn-primary btn-sm">Accepter</button>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }

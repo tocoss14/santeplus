@@ -26,7 +26,7 @@ export default function ProviderCareRecords() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{d.reference}</span>
                   <StatusBadge status={d.status} />
-                  <span className="ml-auto text-xs text-slate-400">{fmtDateTime(d.createdAt)}</span>
+                  <span className="ml-auto text-xs text-slate-500">{fmtDateTime(d.createdAt)}</span>
                 </div>
                 <p className="text-sm">
                   {d.patientUser.firstName} {d.patientUser.lastName}

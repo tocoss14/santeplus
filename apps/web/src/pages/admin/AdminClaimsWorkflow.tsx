@@ -327,7 +327,7 @@ export default function AdminClaimsWorkflow() {
                                       <span className="mr-1" aria-hidden>{careEventIcon(ev.type)}</span>
                                       <span className="font-medium">{ev.title}</span>
                                       {ev.detail && <span className="text-slate-500"> — {ev.detail}</span>}
-                                      <span className="ml-2 text-xs text-slate-400">
+                                      <span className="ml-2 text-xs text-slate-500">
                                         {fmtDate(ev.createdAt)}
                                         {ev.actorRole ? ` · ${ev.actorRole.toLowerCase()}` : ''}
                                       </span>
@@ -371,7 +371,7 @@ export default function AdminClaimsWorkflow() {
                           <span>
                             <span className="font-mono text-xs font-semibold">{d.reference}</span>
                             {' '}· {d.provider?.name ?? '—'} · {fmtDate(d.createdAt)}
-                            {d.claimId && <span className="ml-2 text-xs text-slate-400">déjà lié</span>}
+                            {d.claimId && <span className="ml-2 text-xs text-slate-500">déjà lié</span>}
                           </span>
                           {!d.claimId && (
                             <button className="btn-outline btn-sm" disabled={dosBusy} onClick={() => attachDossier({ careRecordId: d.id })}>
@@ -414,7 +414,7 @@ export default function AdminClaimsWorkflow() {
                         <a href={fileUrl(doc.fileId)} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">
                           {doc.fileName}
                         </a>
-                        <span className="text-xs text-slate-400">({doc.docType})</span>
+                        <span className="text-xs text-slate-500">({doc.docType})</span>
                       </li>
                     ))}
                   </ul>

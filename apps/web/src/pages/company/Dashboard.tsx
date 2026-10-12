@@ -34,7 +34,7 @@ export default function CompanyDashboard() {
           <div className="card-p flex flex-wrap items-center gap-3">
             <span className={`badge ${statusStyle(data.groupContract.status)}`}>{statusLabel(data.groupContract.status)}</span>
             <span className="font-semibold">{data.groupContract.product.name}</span>
-            <span className="text-sm text-slate-400">{data.groupContract.number}</span>
+            <span className="text-sm text-slate-500">{data.groupContract.number}</span>
             <span className="ml-auto text-sm text-slate-500">
               Validité : {fmtDate(data.groupContract.startDate)} → {fmtDate(data.groupContract.endDate)}
             </span>
@@ -68,10 +68,10 @@ export default function CompanyDashboard() {
         <div className="card-p space-y-4">
           <h2 className="font-semibold">Compte technique du collectif</h2>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <div><p className="text-xs text-slate-400">Budget prestations</p><p className="font-semibold">{fcfa(cts.totals.budget)}</p></div>
-            <div><p className="text-xs text-slate-400">Consommé</p><p className="font-semibold">{fcfa(cts.totals.consumed)}</p></div>
-            <div><p className="text-xs text-slate-400">Disponible</p><p className="font-semibold">{fcfa(cts.totals.available)}</p></div>
-            <div><p className="text-xs text-slate-400">Résultat provisoire</p><p className="font-semibold">{fcfa(cts.totals.result)}</p></div>
+            <div><p className="text-xs text-slate-500">Budget prestations</p><p className="font-semibold">{fcfa(cts.totals.budget)}</p></div>
+            <div><p className="text-xs text-slate-500">Consommé</p><p className="font-semibold">{fcfa(cts.totals.consumed)}</p></div>
+            <div><p className="text-xs text-slate-500">Disponible</p><p className="font-semibold">{fcfa(cts.totals.available)}</p></div>
+            <div><p className="text-xs text-slate-500">Résultat provisoire</p><p className="font-semibold">{fcfa(cts.totals.result)}</p></div>
           </div>
           {cts.contracts?.length > 0 && (
             <div className="overflow-x-auto">
@@ -93,13 +93,13 @@ export default function CompanyDashboard() {
           )}
           {cts.topGuarantees?.length > 0 && (
             <div>
-              <p className="text-xs text-slate-400 mb-1">Top garanties consommées</p>
+              <p className="text-xs text-slate-500 mb-1">Top garanties consommées</p>
               <p className="text-sm">{cts.topGuarantees.map((g: any) => `${g.category} (${fcfa(g.amount)})`).join(' · ')}</p>
             </div>
           )}
           <CtsAlertList items={cts.alerts} />
           <FundCallList items={cts.fundCalls} />
-          <p className="text-xs text-slate-400">Données agrégées, sans détail médical. Effectif : {cts.headcount.active}/{cts.headcount.total} actifs, {cts.headcount.beneficiaries} ayants droit.</p>
+          <p className="text-xs text-slate-500">Données agrégées, sans détail médical. Effectif : {cts.headcount.active}/{cts.headcount.total} actifs, {cts.headcount.beneficiaries} ayants droit.</p>
         </div>
       )}
 

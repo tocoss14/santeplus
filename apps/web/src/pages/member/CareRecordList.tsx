@@ -31,13 +31,13 @@ export default function CareRecordList() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{d.reference}</span>
                   <StatusBadge status={d.status} />
-                  <span className="ml-auto text-xs text-slate-400">{fmtDateTime(d.createdAt)}</span>
+                  <span className="ml-auto text-xs text-slate-500">{fmtDateTime(d.createdAt)}</span>
                 </div>
                 <p className="text-sm">
                   {d.consultation ? `${d.consultation.motif}` : d.prescription ? `Ordonnance ${d.prescription.number}` : d.type}
                   {d.prescription ? ` — ${d.prescription.lines.length} produit(s)` : ''}
                 </p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   {d.delivery ? `Délivrance ${d.delivery.reference} — couvert ${d.claim ? d.claim.totalApproved : ''} FCFA` : 'En attente de délivrance'}
                 </p>
               </Link>

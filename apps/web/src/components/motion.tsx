@@ -17,13 +17,18 @@ export function Reveal({
   children,
   className = '',
   delay = 0,
+  as = 'div',
 }: {
   children: React.ReactNode;
   className?: string;
   /** Décalage en ms — pratique pour décaler les cartes d'une même ligne. */
   delay?: number;
+  /** Élément rendu — passer "li" dans une <ul>/<ol> pour garder une liste
+      sémantique (un div entre ul et li viole les règles axe `list`/`listitem`). */
+  as?: 'div' | 'li';
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLElement>(null);
+  const Tag = as as React.ElementType;
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
@@ -47,7 +52,7 @@ export function Reveal({
   }, [shown]);
 
   return (
-    <div
+    <Tag
       ref={ref}
       style={{ transitionDelay: `${delay}ms` }}
       className={`transition-all duration-700 ease-out will-change-transform ${
@@ -55,7 +60,7 @@ export function Reveal({
       } ${className}`}
     >
       {children}
-    </div>
+    </Tag>
   );
 }
 

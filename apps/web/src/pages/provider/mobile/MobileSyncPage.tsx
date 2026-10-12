@@ -85,7 +85,7 @@ export default function MobileSyncPage() {
                     <StatusBadge status={item.payload?.retries > 0 ? 'RETRY' : 'PENDING'} />
                   </div>
                   <p className="text-slate-500 mt-0.5 truncate">{JSON.stringify(item.payload).slice(0, 80)}</p>
-                  <p className="text-slate-400">Tentatives : {item.payload?.retries ?? 0} · {fmtDate(new Date(item.timestamp))}</p>
+                  <p className="text-slate-500">Tentatives : {item.payload?.retries ?? 0} · {fmtDate(new Date(item.timestamp))}</p>
                 </div>
               ))}
             </div>

@@ -61,7 +61,7 @@ export default function AdminDashboard() {
               />
             ))}
           </div>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-slate-500">
             Compteurs séparés par modèle — aucune somme V1+V2 (règles de consolidation requises pour tout agrégat).
           </p>
         </div>
@@ -71,7 +71,7 @@ export default function AdminDashboard() {
         <div className="card-p">
           <h2 className="mb-3 font-semibold">Évolution des adhésions</h2>
           {adhesions.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">Pas encore de données</p>
+            <p className="py-8 text-center text-sm text-slate-500">Pas encore de données</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={adhesions}>
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
         <div className="card-p">
           <h2 className="mb-3 font-semibold">Cotisations encaissées</h2>
           {cotisations.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">Pas encore de données</p>
+            <p className="py-8 text-center text-sm text-slate-500">Pas encore de données</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={cotisations}>
@@ -147,11 +147,11 @@ export default function AdminDashboard() {
       <div className="card-p">
         <h2 className="mb-3 font-semibold">Anomalies</h2>
         {anomaliesError ? (
-          <p className="text-sm text-slate-400">Alertes indisponibles.</p>
+          <p className="text-sm text-slate-500">Alertes indisponibles.</p>
         ) : anomalies === null ? (
-          <p className="text-sm text-slate-400">Chargement…</p>
+          <p className="text-sm text-slate-500">Chargement…</p>
         ) : anomalies.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucune anomalie détectée sur les 30 derniers jours.</p>
+          <p className="text-sm text-slate-500">Aucune anomalie détectée sur les 30 derniers jours.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

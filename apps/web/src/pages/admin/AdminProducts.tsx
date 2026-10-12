@@ -45,8 +45,8 @@ export default function AdminProducts() {
             <li key={p.id} className="card-p">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-bold">{p.name} <span className="ml-1 text-xs font-normal text-slate-400">{p.code}</span></p>
-                  <p className="text-xs text-slate-400">{p.clientType === 'COMPANY' ? 'Collectif entreprise' : 'Individuel'} · {p.insurerPartner?.name ?? 'sans partenaire'}</p>
+                  <p className="font-bold">{p.name} <span className="ml-1 text-xs font-normal text-slate-500">{p.code}</span></p>
+                  <p className="text-xs text-slate-500">{p.clientType === 'COMPANY' ? 'Collectif entreprise' : 'Individuel'} · {p.insurerPartner?.name ?? 'sans partenaire'}</p>
                 </div>
                 <StatusBadge status={p.status} />
               </div>
@@ -249,11 +249,11 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
                 <input placeholder="Plafond (vide=illimité)" className="input py-1.5 col-span-2" value={g.annualLimit ?? ''} onChange={e => setForm((f: any) => ({ ...f, guarantees: f.guarantees.map((x: any, j: number) => j === i ? { ...x, annualLimit: e.target.value === '' ? null : e.target.value } : x) }))} />
                 <div className="relative">
                   <input type="number" className="input py-1.5 pr-7" value={g.rate} onChange={e => setForm((f: any) => ({ ...f, guarantees: f.guarantees.map((x: any, j: number) => j === i ? { ...x, rate: e.target.value } : x) }))} />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">%</span>
                 </div>
                 <div className="relative">
                   <input type="number" className="input py-1.5 pr-12" placeholder="Copay" value={g.copayRate ?? 15} onChange={e => setForm((f: any) => ({ ...f, guarantees: f.guarantees.map((x: any, j: number) => j === i ? { ...x, copayRate: e.target.value } : x) }))} />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">% copay</span>
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">% copay</span>
                 </div>
               </div>
             )}

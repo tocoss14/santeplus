@@ -120,7 +120,7 @@ export default function AdminPositionV2() {
         <div className="card-p">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-semibold">Évolution de la solvabilité V2 (flux cumulés)</h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               {data.solvencySeries.months.length > 0 &&
                 `${data.solvencySeries.months[0].label} → ${data.solvencySeries.months[data.solvencySeries.months.length - 1].label}`}
               {' · '}
@@ -230,7 +230,7 @@ export default function AdminPositionV2() {
           </tbody>
         </table>
         {data.contracts.length === 0 && (
-          <p className="py-8 text-center text-sm text-slate-400">Aucun contrat V2 sur la période sélectionnée</p>
+          <p className="py-8 text-center text-sm text-slate-500">Aucun contrat V2 sur la période sélectionnée</p>
         )}
       </div>
     </div>

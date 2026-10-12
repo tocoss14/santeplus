@@ -46,7 +46,7 @@ export default function AdminDiseases() {
               <thead><tr><th className="th">Code</th><th className="th">Nom</th><th className="th">Catégorie</th></tr></thead>
               <tbody className="divide-y">
                 {data.items.map((d: any) => <tr key={d.id}><td className="td font-mono">{d.code}</td><td className="td">{d.name}</td><td className="td text-sm">{d.category ?? '—'}</td></tr>)}
-                {data.items.length === 0 && <tr><td colSpan={3} className="td text-center text-slate-400 py-6">Aucune maladie</td></tr>}
+                {data.items.length === 0 && <tr><td colSpan={3} className="td text-center text-slate-500 py-6">Aucune maladie</td></tr>}
               </tbody>
             </table>
           </div>

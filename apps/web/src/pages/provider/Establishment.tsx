@@ -67,7 +67,7 @@ export default function Establishment() {
               {e.thirdPartyPayer && <span className="badge bg-emerald-100 text-emerald-700">Tiers payant</span>}
             </div>
             <p className="mt-1 text-sm text-slate-500">{e.city} · {e.address}</p>
-            <p className="mt-1 text-xs text-slate-400">Photo visible sur le réseau public — JPG/PNG/WebP, max 8 Mo</p>
+            <p className="mt-1 text-xs text-slate-500">Photo visible sur le réseau public — JPG/PNG/WebP, max 8 Mo</p>
           </div>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function Establishment() {
         >
           Enregistrer
         </button>
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-3 text-xs text-slate-500">
           Le nom, le type et le statut de l'établissement sont gérés par la plateforme (validation requise).
         </p>
       </div>

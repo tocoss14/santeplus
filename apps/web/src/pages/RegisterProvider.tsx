@@ -139,7 +139,7 @@ export default function RegisterProvider() {
           </button>
         </div>
 
-        <p className="text-xs text-center text-slate-400">
+        <p className="text-xs text-center text-slate-500">
           En soumettant ce formulaire, vous acceptez les conditions d'utilisation de SantéPlus Bénin.
           Votre compte sera validé par notre équipe avant activation.
         </p>

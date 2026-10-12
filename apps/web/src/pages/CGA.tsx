@@ -254,11 +254,15 @@ export default function CGA() {
               <div className="flex items-center gap-4 text-sm">
                 <div className="text-center">
                   <div className="text-2xl font-extrabold text-white">{f.monthlyPrice}<span className="text-sm font-normal"> F</span></div>
-                  <div className="text-xs text-slate-600">Adhérent/mois</div>
+                  {/* text-slate-300 et non slate-600 : sur la bande slate-800→900,
+                      slate-600 ne donnait que 1,9:1 de contraste (WCAG AA exige
+                      4,5:1) — axe ne le signalait pas, le dégradé l'empêchant de
+                      calculer la couleur de fond. */}
+                  <div className="text-xs text-slate-300">Adhérent/mois</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-extrabold text-amber-300">{f.copay}</div>
-                  <div className="text-xs text-slate-600">Copay</div>
+                  <div className="text-xs text-slate-300">Copay</div>
                 </div>
               </div>
             </div>

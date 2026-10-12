@@ -27,7 +27,7 @@ export default function AdminPartners() {
           <li key={p.id} className="card-p flex flex-wrap items-center gap-3">
             <div className="mr-auto">
               <p className="font-semibold">{p.name}</p>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 {p.kind === 'INSURER' ? 'Assurance' : 'Mutuelle'}{p.agreementNumber ? ` · convention ${p.agreementNumber}` : ''}
                 {p.contactEmail ? ` · ${p.contactEmail}` : ''}
               </p>

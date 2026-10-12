@@ -186,20 +186,20 @@ export default function AdminDistributors() {
           {!items ? (
             <SkeletonTable bare rows={6} cols={6} />
           ) : items.length === 0 ? (
-            <div className="card-p text-center py-8 text-slate-400">Aucun distributeur trouvé</div>
+            <div className="card-p text-center py-8 text-slate-500">Aucun distributeur trouvé</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Nom</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Code</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Niveau</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Territoire</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Commission</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Recrutés</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400 text-right">Premium</th>
-                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-400">Statut</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Nom</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Code</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Niveau</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Territoire</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Commission</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Recrutés</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500 text-right">Premium</th>
+                    <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">Statut</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -208,7 +208,7 @@ export default function AdminDistributors() {
                     <tr key={d.id} className="hover:bg-slate-50">
                       <td className="px-3 py-2.5">
                         <p className="font-medium">{d.user?.firstName} {d.user?.lastName}</p>
-                        <p className="text-xs text-slate-400">{d.user?.email}</p>
+                        <p className="text-xs text-slate-500">{d.user?.email}</p>
                       </td>
                       <td className="px-3 py-2.5 font-mono text-xs font-bold">{d.referralCode}</td>
                       <td className="px-3 py-2.5"><Badge tone={LEVEL_BADGES[d.level]}>{LEVEL_LABELS[d.level] ?? d.level}</Badge></td>

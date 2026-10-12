@@ -128,7 +128,7 @@ export default function RegisterCompany() {
           Particulier ? <Link to="/register" className="font-semibold text-ink hover:underline">Créer un compte personnel</Link>
         </p>
       </form>
-      <p className="mt-4 text-center text-xs text-slate-400">
+      <p className="mt-4 text-center text-xs text-slate-500">
         En créant un compte entreprise, vous pourrez importer vos salariés par Excel/CSV et souscrire un contrat collectif.
       </p>
     </div>

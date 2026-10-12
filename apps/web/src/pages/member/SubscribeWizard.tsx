@@ -650,7 +650,7 @@ export default function SubscribeWizard() {
             >
               {i + 1}
             </span>
-            <span className={`hidden sm:block text-xs font-medium ${i <= step ? 'text-brand-700' : 'text-slate-400'}`}>{s}</span>
+            <span className={`hidden sm:block text-xs font-medium ${i <= step ? 'text-brand-700' : 'text-slate-500'}`}>{s}</span>
             {i < STEPS.length - 1 && <span className={`h-0.5 flex-1 ${i < step ? 'bg-brand-500' : 'bg-slate-200'}`} />}
           </div>
         ))}
@@ -786,7 +786,7 @@ export default function SubscribeWizard() {
             <button
               type="button"
               onClick={() => birthCertRef.current?.click()}
-              className="relative flex h-36 w-36 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+              className="relative flex h-36 w-36 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-brand-400 hover:bg-brand-50 transition"
             >
               {birthCertPreview ? (
                 <div className="h-full w-full rounded-xl bg-slate-100 flex items-center justify-center">
@@ -825,7 +825,7 @@ export default function SubscribeWizard() {
                 Retirer le fichier
               </button>
             )}
-            <p className="text-xs text-slate-400">PDF, JPG, PNG ou WebP — max 10 Mo</p>
+            <p className="text-xs text-slate-500">PDF, JPG, PNG ou WebP — max 10 Mo</p>
           </div>
 
           {birthCertFile && !birthCertVerified && (
@@ -977,7 +977,7 @@ export default function SubscribeWizard() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold">{CATEGORY_LABELS[option.categoryId] ?? option.categoryName}</p>
-                  <p className="text-xs text-slate-400">Coût de base : {fcfa(option.basePrice)}/an</p>
+                  <p className="text-xs text-slate-500">Coût de base : {fcfa(option.basePrice)}/an</p>
                 </div>
                 <span className="badge bg-slate-100 text-slate-600">Formule figée</span>
               </div>
@@ -1091,7 +1091,7 @@ export default function SubscribeWizard() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="relative flex h-36 w-36 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:border-brand-400 hover:bg-brand-50 transition"
+              className="relative flex h-36 w-36 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-brand-400 hover:bg-brand-50 transition"
             >
               {photoPreview ? (
                 <PhotoImg src={photoPreview} alt="Photo d'identité" className="h-full w-full rounded-full object-cover" />
@@ -1105,7 +1105,7 @@ export default function SubscribeWizard() {
                 Retirer la photo
               </button>
             )}
-            <p className="text-xs text-slate-400">JPG, PNG ou WebP — max 5 Mo</p>
+            <p className="text-xs text-slate-500">JPG, PNG ou WebP — max 5 Mo</p>
           </div>
           <div className="flex gap-2">
             <button className="btn-outline flex-1" onClick={() => setStep(3)}>Retour</button>
@@ -1260,7 +1260,7 @@ export default function SubscribeWizard() {
                   <label key={m.code} className={`flex items-center gap-3 rounded-lg border p-3 text-sm ${method === m.code ? 'border-brand-600 ring-1 ring-brand-600 bg-brand-50/50' : 'border-slate-200'} ${m.available ? 'cursor-pointer' : 'opacity-60'}`}>
                     <input type="radio" name="method" checked={method === m.code} disabled={!m.available} onChange={() => setMethod(m.code)} />
                     <span className="font-medium">{m.label}</span>
-                    {!m.available && <span className="ml-auto badge bg-slate-100 text-slate-400">Bientôt</span>}
+                    {!m.available && <span className="ml-auto badge bg-slate-100 text-slate-500">Bientôt</span>}
                   </label>
                 ))}
               </div>

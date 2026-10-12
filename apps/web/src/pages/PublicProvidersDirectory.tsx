@@ -77,7 +77,9 @@ export default function PublicProvidersDirectory() {
             <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-stone">
               {stats.total} établissements partenaires
             </p>
-            <span className="text-mist">·</span>
+            {/* Séparateur entre deux blocs de contenu : slate-500 pour atteindre
+                4,8:1 sur blanc (text-mist ne donnait que 1,3:1, quasi invisible). */}
+            <span aria-hidden className="text-slate-500">·</span>
             <div className="flex flex-wrap gap-2">
               {Object.entries(stats.byType).map(([t, n]) => (
                 <span key={t} className="rounded-full bg-sand px-3 py-1 font-mono text-[10px] font-bold text-ink">

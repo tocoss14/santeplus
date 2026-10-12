@@ -83,7 +83,7 @@ export default function DigitalCard() {
           <div className="mt-4 flex justify-end">
             <div className="rounded-xl bg-white p-2.5 shadow">
               <QRCodeSVG value={cardQrPayload(card.cardToken)} size={104} level="M" />
-              <p className="mt-1 text-center text-[8px] font-semibold text-slate-400">VÉRIFICATION OFFICIELLE</p>
+              <p className="mt-1 text-center text-[8px] font-semibold text-slate-500">VÉRIFICATION OFFICIELLE</p>
             </div>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function DigitalCard() {
 
       <div className="card-p text-sm text-slate-600 space-y-2">
         <p><b>Chez un prestataire partenaire :</b> présentez ce QR code. Le prestataire vérifie en temps réel votre contrat, vos garanties et vos plafonds restants.</p>
-        <p className="text-xs text-slate-400">🔒 Le QR code ne contient aucune donnée personnelle — uniquement un jeton sécurisé à usage de vérification.</p>
+        <p className="text-xs text-slate-500">🔒 Le QR code ne contient aucune donnée personnelle — uniquement un jeton sécurisé à usage de vérification.</p>
       </div>
 
       {contractId && (

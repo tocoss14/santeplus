@@ -100,7 +100,7 @@ export default function ProviderPrescriptions() {
                   <td className="td"><StatusBadge status={p.status} label={prescriptionStatusLabel(p.status)} /></td>
                 </tr>
               ))}
-              {items.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-400">Aucune ordonnance</td></tr>}
+              {items.length === 0 && <tr><td colSpan={6} className="td py-8 text-center text-slate-500">Aucune ordonnance</td></tr>}
             </tbody>
           </table>
         </div>
@@ -118,7 +118,7 @@ export default function ProviderPrescriptions() {
             {detail.isExpired && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">Ordonnance expirée</div>}
             <div className="grid place-items-center rounded-xl bg-white p-3 border border-slate-200">
               <QRCodeSVG value={JSON.stringify({ prescription: detail.qrToken })} size={130} />
-              <p className="mt-1 text-[10px] font-semibold text-slate-400">QR ordonnance — à présenter en pharmacie</p>
+              <p className="mt-1 text-[10px] font-semibold text-slate-500">QR ordonnance — à présenter en pharmacie</p>
             </div>
             <table className="w-full">
               <thead><tr><th className="th">Produit</th><th className="th">Qté</th><th className="th">Prix</th><th className="th">Posologie</th><th className="th">Délivré</th><th className="th">Restant</th></tr></thead>

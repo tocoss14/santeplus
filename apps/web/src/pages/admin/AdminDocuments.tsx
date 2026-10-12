@@ -48,7 +48,7 @@ export default function AdminDocuments() {
                   <td className="td text-xs">{(() => { try { const t = JSON.parse(f.tags ?? '[]'); return t.join(', ') || '—'; } catch { return f.tags ?? '—'; }})()}</td>
                 </tr>
               ))}
-              {data.items.length === 0 && <tr><td colSpan={7} className="td text-center py-8 text-slate-400">Aucun document</td></tr>}
+              {data.items.length === 0 && <tr><td colSpan={7} className="td text-center py-8 text-slate-500">Aucun document</td></tr>}
             </tbody>
           </table>
         </div>

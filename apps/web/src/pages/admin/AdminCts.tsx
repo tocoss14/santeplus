@@ -55,7 +55,7 @@ export default function AdminCts() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cards.map(([label, value]) => (
           <div key={label} className="card-p">
-            <p className="text-xs text-slate-400">{label}</p>
+            <p className="text-xs text-slate-500">{label}</p>
             <p className="font-semibold">{value}</p>
           </div>
         ))}
@@ -74,10 +74,10 @@ export default function AdminCts() {
             {fund.replenishing && <span className="ml-2 badge bg-orange-100 text-orange-800">Reconstitution en cours</span>}
           </h2>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <div><p className="text-xs text-slate-400">Solde du fonds</p><p className="font-bold text-emerald-700">{fcfa(fund.balance)}</p></div>
-            <div><p className="text-xs text-slate-400">Ratio de solidarité</p><p className="font-semibold">{ratioPct(fund.solidarityRatio)}</p></div>
-            <div><p className="text-xs text-slate-400">Total couvert</p><p className="font-semibold">{fcfa(fund.totalCovered)}</p></div>
-            <div><p className="text-xs text-slate-400">Total contribué</p><p className="font-semibold">{fcfa(fund.totalContributed ?? 0)}</p></div>
+            <div><p className="text-xs text-slate-500">Solde du fonds</p><p className="font-bold text-emerald-700">{fcfa(fund.balance)}</p></div>
+            <div><p className="text-xs text-slate-500">Ratio de solidarité</p><p className="font-semibold">{ratioPct(fund.solidarityRatio)}</p></div>
+            <div><p className="text-xs text-slate-500">Total couvert</p><p className="font-semibold">{fcfa(fund.totalCovered)}</p></div>
+            <div><p className="text-xs text-slate-500">Total contribué</p><p className="font-semibold">{fcfa(fund.totalContributed ?? 0)}</p></div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg bg-emerald-50 p-2">
@@ -117,7 +117,7 @@ export default function AdminCts() {
       <div className="card-p">
         <h2 className="font-semibold mb-2">Contrats critiques ({data.critical.length})</h2>
         {data.critical.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucun contrat en bande critique ou épuisée.</p>
+          <p className="text-sm text-slate-500">Aucun contrat en bande critique ou épuisée.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -154,7 +154,7 @@ export default function AdminCts() {
         <div className="card-p">
           <h2 className="font-semibold mb-2">Appels de fonds ouverts ({data.openFundCalls.length})</h2>
           {data.openFundCalls.length === 0 ? (
-            <p className="text-sm text-slate-400">Aucun.</p>
+            <p className="text-sm text-slate-500">Aucun.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
               {data.openFundCalls.map((f: any) => (
@@ -166,18 +166,18 @@ export default function AdminCts() {
               ))}
             </ul>
           )}
-          <p className="mt-2 text-xs text-slate-400">Payés : {data.fundCallsPaid} · Déclenchements stop-loss : {data.stopLossTriggers}</p>
+          <p className="mt-2 text-xs text-slate-500">Payés : {data.fundCallsPaid} · Déclenchements stop-loss : {data.stopLossTriggers}</p>
         </div>
         <div className="card-p">
           <h2 className="font-semibold mb-2">Alertes par type</h2>
           {data.alertsByType.length === 0 ? (
-            <p className="text-sm text-slate-400">Aucune.</p>
+            <p className="text-sm text-slate-500">Aucune.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
               {data.alertsByType.map((a: any, i: number) => (
                 <li key={i} className="flex items-center gap-2 py-2 text-sm">
                   <span className="font-medium">{a.type}</span>
-                  <span className="text-xs text-slate-400">{a.status}</span>
+                  <span className="text-xs text-slate-500">{a.status}</span>
                   <span className="ml-auto font-semibold">{a._count}</span>
                 </li>
               ))}
@@ -186,7 +186,7 @@ export default function AdminCts() {
         </div>
       </div>
 
-      <p className="text-xs text-slate-400">Pilotage technique recalculé — le résultat affiché est provisoire, pas un résultat comptable définitif.</p>
+      <p className="text-xs text-slate-500">Pilotage technique recalculé — le résultat affiché est provisoire, pas un résultat comptable définitif.</p>
     </div>
   );
 }

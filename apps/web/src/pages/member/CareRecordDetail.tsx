@@ -39,7 +39,7 @@ export default function CareRecordDetail() {
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold">{dossier.reference}</h1>
         <StatusBadge status={dossier.status} />
-        <span className="text-xs text-slate-400">{fmtDateTime(dossier.createdAt)}</span>
+        <span className="text-xs text-slate-500">{fmtDateTime(dossier.createdAt)}</span>
       </div>
 
       <div className="card-p grid gap-3 sm:grid-cols-2 text-sm">
@@ -58,14 +58,14 @@ export default function CareRecordDetail() {
           <h2 className="font-semibold text-brand-800">Consultation</h2>
           <p className="text-sm"><b>Motif :</b> {dossier.consultation.motif}</p>
           {dossier.consultation.diagnostic && <p className="text-sm"><b>Diagnostic :</b> {dossier.consultation.diagnostic}</p>}
-          <p className="text-xs text-slate-400">Le {fmtDateTime(dossier.consultation.careDate)} — {dossier.consultation.practitionerName}</p>
+          <p className="text-xs text-slate-500">Le {fmtDateTime(dossier.consultation.careDate)} — {dossier.consultation.practitionerName}</p>
         </div>
       )}
 
       {dossier.prescription && (
         <div className="card-p">
           <h2 className="font-semibold text-brand-800">Ordonnance {dossier.prescription.number}</h2>
-          <p className="text-xs text-slate-400">Valide jusqu'au {fmtDate(dossier.prescription.validUntil)} · {dossier.prescription.status}</p>
+          <p className="text-xs text-slate-500">Valide jusqu'au {fmtDate(dossier.prescription.validUntil)} · {dossier.prescription.status}</p>
           <ul className="mt-2 divide-y divide-slate-100">
             {dossier.prescription.lines.map((l: any) => (
               <li key={l.id} className="flex justify-between py-1.5 text-sm">
@@ -94,14 +94,14 @@ export default function CareRecordDetail() {
 
       <div className="card-p">
         <h2 className="font-semibold mb-3">Timeline du dossier</h2>
-        {!timeline ? <SkeletonList rows={4} /> : timeline.length === 0 ? <p className="text-sm text-slate-400">Aucun événement.</p> : (
+        {!timeline ? <SkeletonList rows={4} /> : timeline.length === 0 ? <p className="text-sm text-slate-500">Aucun événement.</p> : (
           <ol className="relative border-l border-slate-200 pl-6 space-y-4">
             {timeline.map((ev: any) => (
               <li key={ev.id} className="relative">
                 <span className="absolute -left-[29px] grid h-6 w-6 place-items-center rounded-full bg-brand-100 text-xs">
                   {EVENT_ICON[ev.type] ?? '•'}
                 </span>
-                <p className="text-xs text-slate-400">{fmtDateTime(ev.createdAt)}{ev.actorRole ? ` · ${ev.actorRole}` : ''}</p>
+                <p className="text-xs text-slate-500">{fmtDateTime(ev.createdAt)}{ev.actorRole ? ` · ${ev.actorRole}` : ''}</p>
                 <p className="font-medium text-sm">{ev.title}</p>
                 {ev.detail && <p className="text-xs text-slate-500">{ev.detail}</p>}
               </li>

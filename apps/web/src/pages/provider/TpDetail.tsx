@@ -141,7 +141,7 @@ export default function TpDetail() {
                   <td className="td font-mono text-xs">{it.code ?? '—'}</td>
                   <td className="td">
                     {it.label ?? CATEGORY_LABELS[it.categoryLabel] ?? it.categoryLabel}
-                    {it.practitioner && <p className="text-[11px] text-slate-400">Praticien : {it.practitioner}</p>}
+                    {it.practitioner && <p className="text-[11px] text-slate-500">Praticien : {it.practitioner}</p>}
                   </td>
                   <td className="td">
                     {showRealize && e ? (
@@ -171,7 +171,7 @@ export default function TpDetail() {
         {showRealize && (
           <div className="mt-3 space-y-2">
             <input className="input" placeholder="Observation (optionnel)" value={realizeNote} onChange={e => setRealizeNote(e.target.value)} />
-            <p className="text-xs text-slate-400">Si les actes réels dépassent l'autorisation de plus de 10 %, une nouvelle validation du gestionnaire sera demandée.</p>
+            <p className="text-xs text-slate-500">Si les actes réels dépassent l'autorisation de plus de 10 %, une nouvelle validation du gestionnaire sera demandée.</p>
             <button className="btn-primary btn-sm" disabled={busy}
               onClick={() => action('realize', {
                 note: realizeNote || undefined,

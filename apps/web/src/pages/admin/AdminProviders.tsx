@@ -134,7 +134,7 @@ export default function AdminProviders() {
       {tab === 'pending' && (
         <div className="space-y-3">
           {pending.length === 0 ? (
-            <div className="card-p text-center text-slate-400 py-8">Aucune inscription en attente</div>
+            <div className="card-p text-center text-slate-500 py-8">Aucune inscription en attente</div>
           ) : (
             pending.map(p => (
               <div key={p.id} className="card-p border-l-4 border-yellow-400">
@@ -142,12 +142,12 @@ export default function AdminProviders() {
                   <div className="flex-1">
                     <p className="font-semibold">{p.name}</p>
                     <p className="text-xs text-slate-500">{PROVIDER_TYPES[p.type]} · {p.city}</p>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       Contact : {p.contactFirstName} {p.contactLastName} — {p.contactPhone}
                     </p>
-                    <p className="text-xs text-slate-400">Email : {p.contactEmail}</p>
-                    {p.specialties && <p className="text-xs text-slate-400">Spécialités : {p.specialties}</p>}
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-500">Email : {p.contactEmail}</p>
+                    {p.specialties && <p className="text-xs text-slate-500">Spécialités : {p.specialties}</p>}
+                    <p className="text-xs text-slate-500 mt-1">
                       Inscrit le {new Date(p.createdAt).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
@@ -196,7 +196,7 @@ export default function AdminProviders() {
                     <p className="font-semibold">{p.name}</p>
                     <Badge tone={p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'}>{p.active ? 'Actif' : 'Inactif'}</Badge>
                   </div>
-                  <p className="mt-0.5 text-xs text-slate-400">{PROVIDER_TYPES[p.type]} · {p.city}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{PROVIDER_TYPES[p.type]} · {p.city}</p>
                   <p className="text-xs text-slate-500 truncate">{p.address}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
                     {p.thirdPartyPayer && <Badge tone="bg-brand-100 text-brand-800">Tiers payant</Badge>}

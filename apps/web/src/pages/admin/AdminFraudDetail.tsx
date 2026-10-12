@@ -67,17 +67,17 @@ export default function AdminFraudDetail() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-bold font-mono">{fraudCase.caseNumber}</h1>
           <StatusBadge status={fraudCase.status} />
-          <span className="ml-auto text-xs text-slate-400">Créé le {fmtDate(fraudCase.createdAt)}</span>
+          <span className="ml-auto text-xs text-slate-500">Créé le {fmtDate(fraudCase.createdAt)}</span>
         </div>
         <div className="grid gap-3 text-sm sm:grid-cols-3">
-          <div><p className="text-xs text-slate-400">Type</p><p className="font-semibold">{fraudCase.kind}</p></div>
+          <div><p className="text-xs text-slate-500">Type</p><p className="font-semibold">{fraudCase.kind}</p></div>
           <div>
-            <p className="text-xs text-slate-400">Contrat</p>
+            <p className="text-xs text-slate-500">Contrat</p>
             <p className="font-semibold">{fraudCase.contract?.number ?? '—'}</p>
             <p className="text-xs text-slate-500">{fraudCase.contract?.holder ?? ''}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Prestataire</p>
+            <p className="text-xs text-slate-500">Prestataire</p>
             <p className="font-semibold">{fraudCase.provider?.name ?? '—'}</p>
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function AdminFraudDetail() {
         )}
         {fraudCase.linkedAuditIds?.length > 0 && (
           <div>
-            <p className="text-xs text-slate-400">Alertes d’audit liées</p>
+            <p className="text-xs text-slate-500">Alertes d’audit liées</p>
             <ul className="mt-1 list-disc pl-5 font-mono text-xs text-slate-600">
               {fraudCase.linkedAuditIds.map((auditId: string) => <li key={auditId}>{auditId}</li>)}
             </ul>

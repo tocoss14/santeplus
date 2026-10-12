@@ -28,7 +28,7 @@ export default function AdminBranches() {
         </div>
         <button className="btn-primary btn-sm mt-3" onClick={create}>Créer branche</button>
       </div>
-      {!items.length ? <p className="text-sm text-slate-400">Chargement…</p> : (
+      {!items.length ? <p className="text-sm text-slate-500">Chargement…</p> : (
         <div className="card overflow-x-auto">
           <table className="w-full">
             <thead><tr><th className="th">Code</th><th className="th">Nom</th><th className="th">Description</th></tr></thead>

@@ -228,7 +228,7 @@ test.describe('Souscription: acte de naissance lu par OCR et verrouillé', () =>
 
       const pw = page.getByLabel(PASSWORD_LABEL, { exact: true });
       const item = (label: string) => page.locator('li', { hasText: label });
-      const GREY = 'rgb(148, 163, 184)'; // slate-400 : critère pas encore atteint
+      const GREY = 'rgb(100, 116, 139)'; // slate-500 (niveau AA) : critère pas encore atteint
       const GREEN = 'rgb(5, 150, 105)'; // emerald-600 : critère respecté
 
       // 1. Champ vide : la checklist guide en gris, aucun critère coché

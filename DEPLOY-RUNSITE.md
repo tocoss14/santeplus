@@ -3,6 +3,15 @@
 > Runsite (https://runsite.app) : PaaS europÃ©en, dÃ©ploiement via GitHub, PostgreSQL managÃ©,
 > S3-compatible, SSL automatique. Compte Ã  crÃ©er sur https://dashboard.runsite.app (sans carte bancaire).
 
+> ⚠️ **ARCHIVÉ le 2026-10-17.** Le staging Runsite (`santeplus.runsite.app`) a été **retiré de
+> l'infrastructure** : service suspendu côté plateforme et clé API expirée — il ne visait qu'un
+> environnement d'essai secondaire. État réel désormais : production = API Render
+> `https://santeplus-api-kp5t.onrender.com` (auto-déployée à chaque push `master`, certifiée par le job
+> `verify-production` de `.github/workflows/deploy.yml`), front = Cloudflare Pages
+> `https://santeplus.pages.dev`. Secret GitHub `RUNSITE_API_KEY`, variables
+> `STAGING_URL`/`DEPLOY_TARGET` et jobs Runsite de la CI supprimés. À relire seulement si l'on
+> ré-héberge un staging chez Runsite.
+
 ## Architecture cible
 
 | Service Runsite | RÃ´le | Plan conseillÃ© |

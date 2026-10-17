@@ -10,12 +10,11 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target environment"
+        description: "Environment to verify"
         required: true
-        default: staging
+        default: production
         type: choice
         options:
-          - staging
           - production
 
 concurrency:
@@ -23,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 # Lecture seule au niveau du workflow : docker-publish se sur-élève localement
-# (packages: write), le job staging garde actions: write pour dispatcher seed.yml.
+# (packages: write), le job production garde le même périmètre.
 permissions:
   contents: read
 
@@ -44,9 +43,10 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
-      - run: echo "CI passed — proceeding with deployment"# ──────────────────────────────────────────────
-# Build & push Docker images (api + web) to GHCR
-# ──────────────────────────────────────────────
+      - run: echo "CI passed — proceeding with deployment"
+  # ──────────────────────────────────────────────
+  # Build & push Docker images (api + web) to GHCR
+  # ──────────────────────────────────────────────
   docker-publish:
     name: Build & Push ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -113,194 +113,81 @@ jobs:
           echo "Pushed ${{ matrix.name }} -> ${{ steps.meta.outputs.tags }}"
 
   # ──────────────────────────────────────────────
-  # Deploy to staging (automatic on main)
+  # Vérification production (Render auto-deploy)
   # ──────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy to Staging
+  # Historique : le staging d'essai vivait sur Runsite (santeplus.runsite.app,
+  # retiré de la plateforme le 2026-10-17 — service suspendu, clé API expirée).
+  # La production réelle est l'API Render https://santeplus-api-kp5t.onrender.com,
+  # auto-déployée à chaque push master (auto-Deploy). Ce job certifie la
+  # production sur le commit qui vient de passer la CI : health 200 puis sonde
+  # GET /api/version == SHA (APP_VERSION tamponné, sinon RENDER_GIT_COMMIT —
+  # cf. apps/api Dockerfile et admin-misc/version).
+  # ──────────────────────────────────────────────
+  verify-production:
+    name: Vérifier production (Render auto-deploy)
     runs-on: ubuntu-latest
-    needs: docker-publish
+    needs: [check-ci, docker-publish]
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging') ||
-      (github.event_name == 'workflow_run' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
-    permissions:
-      contents: read
-      actions: write
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_URL }}
-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Snapshot de la version en place (avant déploiement)
-        if: vars.DEPLOY_TARGET == 'runsite'
+      - name: Guard — variable PRODUCTION_URL définie
         run: |
-          V=$(curl -s --max-time 10 "${{ vars.STAGING_URL }}/api/version" || true)
-          echo "Version avant déploiement : ${V:-<injoignable>}" 
-          echo "PREV_VERSION=$(echo "$V" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')" >> "$GITHUB_ENV"
-          echo "PREV_BUILT_AT=$(echo "$V" | sed -n 's/.*"builtAt":"\([^"]*\)".*/\1/p')" >> "$GITHUB_ENV"
-
-      - name: Deploy to Runsite
-        if: vars.DEPLOY_TARGET == 'runsite'
-        env:
-          RUNSITE_API_KEY: ${{ secrets.RUNSITE_API_KEY }}
-          RUNSITE_SERVICE_ID: ${{ secrets.RUNSITE_SERVICE_ID }}
-        run: |
-          echo "Triggering Runsite deployment..."
-          # --fail : un endpoint/clé invalide doit faire échouer le job (pas de 404 silencieux).
-          # L'API publique actuelle exige /api/v1/.../deployments pour construire et
-          # publier un nouveau commit ; /deploy ne fait que démarrer l'image existante.
-          curl --fail-with-body -s -X POST \
-            "https://api.runsite.app/api/v1/web-services/${{ secrets.RUNSITE_SERVICE_ID }}/deployments" \
-            -H "Authorization: Bearer $RUNSITE_API_KEY" \
-            -H "Content-Type: application/json" \
-            --data '{"branch":"master"}'
-
-      - name: Health check
-        run: |
-          URL="${{ vars.STAGING_URL }}/api/health"
-          echo "Checking $URL"
-          for i in $(seq 1 20); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" 2>/dev/null || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ Staging is healthy"
-              exit 0
-            fi
-            echo "Attempt $i/20 — status: $STATUS"
-            sleep 10
-          done
-          echo "❌ Health check failed"
-          exit 1
-
-      - name: Vérifier que staging tourne sur le commit déployé
-        # Le health 200 ci-dessus ne garantit pas que l'image a été reconstruite :
-        # si Runsite réutilise l'image existante ou rate le rebuild, l'ancien code
-        # reste en service (déjà arrivé — le fix des photos était invisible sur
-        # staging pendant une semaine). GET /api/version expose le SHA tamponné
-        # dans l'image : tant que la sonde ne répond pas le SHA attendu, le
-        # déploiement est déclaré périmé.
-        if: vars.DEPLOY_TARGET == 'runsite'
-        run: |
-          SHA="${GITHUB_SHA}"
-          LAST=""
-          for i in $(seq 1 12); do
-            sleep 10
-            V=$(curl -s --max-time 10 "${{ vars.STAGING_URL }}/api/version" || true)
-            LAST="${V:-<injoignable>}"
-            echo "Tentative $i/12 : $LAST"
-            if echo "$LAST" | grep -q "\"version\":\"${SHA}\""; then
-              echo "✅ Staging certifié sur le commit ${SHA}"
-              exit 0
-            fi
-          done
-          echo "::error::Après 2 minutes, staging ne tourne pas sur le commit ${SHA}."
-          echo "::error::Version précédente (avant déploiement) : ${PREV_VERSION:-<inconnue>} (bâtie ${PREV_BUILT_AT:-?})"
-          echo "::error::Dernière réponse de /api/version : ${LAST}"
-          echo "::error::→ image non reconstruite ou instance non recyclée (déploiement périmé). Vérifier le build côté Runsite puis relancer."
-          exit 1
-
-      - name: Run migrations on staging
-        # Non bloquant : l'entrypoint applique deja migrate deploy + db push au boot.
-        # Le token workflow_run peut ne pas avoir le droit de dispatcher (HttpError integration).
-        continue-on-error: true
-        uses: actions/github-script@v9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'seed.yml',
-              ref: context.ref,
-              inputs: { environment: 'staging', action: 'migrate' }
-            });
-            console.log('Triggered seed.yml (migrate) for staging');
-
-  # ──────────────────────────────────────────────
-  # Recette staging (manual trigger only) : rejoue le parcours critique
-  # « inscription avec photo → profil » sur l'environnement déployé.
-  # Ne s'exécute que si le déploiement staging vient de réussir (sonde de
-  # version + health compris) — jamais sur les déploiements automatiques.
-  # ──────────────────────────────────────────────
-  staging-photo-check:
-    name: Recette staging — photo de profil
-    runs-on: ubuntu-latest
-    needs: [deploy-staging]
-    if: >-
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.environment == 'staging'
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_URL }}
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Contrôle de non-péremption (au cas où staging aurait bougé)
-        run: |
-          SHA="${GITHUB_SHA}"
-          for i in $(seq 1 12); do
-            V=$(curl -s --max-time 10 "${{ vars.STAGING_URL }}/api/version" || true)
-            if echo "$V" | grep -q "\"version\":\"${SHA}\""; then
-              echo "✅ Staging certifié sur le commit ${SHA}"
-              exit 0
-            fi
-            echo "Tentative $i/12 : ${V:-<injoignable>}"
-            sleep 10
-          done
-          # Pas le SHA attendu mais une sonde qui répond : staging est sur une
-          # autre image (master a avancé depuis le déploiement). La recette
-          # continue — son verdict fonctionnel fait foi — avec un avertissement.
-          if echo "$V" | grep -q '"version"'; then
-            echo "::warning::Staging ne tourne pas sur le commit ${SHA} (image plus ancienne ou plus récente). Recette exécutée quand même."
-            exit 0
+          if [ -z "${{ vars.PRODUCTION_URL }}" ]; then
+            echo "::error::La variable repo PRODUCTION_URL est absente (Settings → Secrets and variables → Actions → Variables)."
+            echo "::error::Valeur attendue : URL de base de l'API de production Render (ex. https://<service>.onrender.com)."
+            exit 1
           fi
-          echo "::error::GET /api/version sans sonde sur staging : image antérieure à b2466b3, non certifiable — recette annulée."
-          exit 1
 
-      - name: Recette photo (inscription avec photo → profil)
-        run: node scripts/staging-photo-check.mjs "${{ vars.STAGING_URL }}"
-
-  # ──────────────────────────────────────────────
-  # Deploy to production (manual trigger only)
-  # ──────────────────────────────────────────────
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: docker-publish
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-    environment:
-      name: production
-      url: ${{ vars.PRODUCTION_URL }}
-
-    steps:
-      - uses: actions/checkout@v5
-
-      # Aucune cible d'infrastructure configurée pour la production (staging
-      # seul est câblé, sur Runsite) : échouer tôt et lisiblement plutôt que
-      # de laisser croire à un déploiement réussi sans aucun effet.
-      - name: Guard — cible de déploiement production non configurée
-        run: |
-          echo "::error::Aucune méthode de déploiement production n'est configurée dans deploy.yml."
-          echo "::error::Ajoutez l'étape correspondant à votre cible (ex. Runsite de production) avant d'utiliser ce workflow."
-          exit 1
-
-      - name: Health check
+      - name: Health check (Render redémarre ~2 min après le push)
+        timeout-minutes: 12
         run: |
           URL="${{ vars.PRODUCTION_URL }}/api/health"
           echo "Checking $URL"
-          for i in $(seq 1 20); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" 2>/dev/null || true)
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$URL" 2>/dev/null || true)
             if [ "$STATUS" = "200" ]; then
               echo "✅ Production is healthy"
               exit 0
             fi
-            echo "Attempt $i/20 — status: $STATUS"
+            echo "Attempt $i/60 — status: $STATUS"
             sleep 10
           done
           echo "❌ Health check failed"
           exit 1
+
+      - name: Vérifier que la production tourne sur le commit déployé
+        # Le health 200 ne garantit pas que le déploiement Render s'est fait :
+        # si l'instance n'a pas redémarré (auto-Deploy manqué/échoué), l'ancien
+        # code reste en service (conception reprise de l'ancienne sonde staging).
+        timeout-minutes: 15
+        run: |
+          SHA="${GITHUB_SHA}"
+          LAST=""
+          for i in $(seq 1 42); do
+            V=$(curl -s --max-time 15 "${{ vars.PRODUCTION_URL }}/api/version" || true)
+            LAST="${V:-<injoignable>}"
+            echo "Tentative $i/42 : $LAST"
+            if echo "$LAST" | grep -q "\"version\":\"${SHA}\""; then
+              echo "✅ Production certifiée sur le commit ${SHA}"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Après ~7 minutes, la production ne tourne pas sur le commit ${SHA}."
+          echo "::error::Dernière réponse de /api/version : ${LAST}"
+          echo "::error::→ auto-Deploy Render non terminé ou échoué : vérifier le dashboard Render (dernier deploy du service API), corriger, puis relancer ce workflow."
+          exit 1
+
+      - name: Résumé du déploiement
+        run: |
+          {
+            echo "## Production certifiée : ${{ vars.PRODUCTION_URL }}"
+            echo ""
+            echo "- Commit : \`${GITHUB_SHA}\`"
+            echo ""
+            echo '```json'
+            curl -s --max-time 15 "${{ vars.PRODUCTION_URL }}/api/version"
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

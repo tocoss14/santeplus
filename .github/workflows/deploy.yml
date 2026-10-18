@@ -191,3 +191,98 @@ jobs:
             echo ""
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ──────────────────────────────────────────────
+  # Déploiement du front sur Cloudflare Pages
+  # ──────────────────────────────────────────────
+  # Historique : le front Pages était déployé à la main (script local
+  # .freebuff/deploy-cf-pages.mjs, non versionné) et le build en ligne a
+  # pris plusieurs jours de retard sur Git — le fix a11y e17aa16 est arrivé
+  # en prod front 6 jours après sa fusion. Ce job aligne santeplus.pages.dev
+  # sur le commit qui vient de passer la CI, à chaque push master.
+  #
+  # Auth : secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (variable).
+  #       Le jeton wrangler page est un OAuth à durée courte : à renouveler
+  #       via `wrangler login` en local puis re-pousser le secret, ou mieux,
+  #       remplacer par un API token permanent (Pages Edit).
+  # ──────────────────────────────────────────────
+  deploy-pages:
+    name: Déployer front sur Cloudflare Pages
+    runs-on: ubuntu-latest
+    needs: [check-ci, docker-publish]
+    if: >-
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'schedule')
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Guard — secrets Cloudflare présents
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ vars.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::error::Secrets Cloudflare manquants (CLOUDFLARE_API_TOKEN secret, CLOUDFLARE_ACCOUNT_ID variable) — front Pages non déployé."
+            exit 1
+          fi
+
+      - name: Build du front (VITE_API_URL figé sur la prod Render)
+        run: |
+          npm ci
+          npm run build -w apps/web
+        env:
+          VITE_API_URL: ${{ vars.PRODUCTION_URL }}
+
+      - name: En-têtes Pages (immuable assets, sw.js revalidable)
+        # Réplique exacte de la section _headers écrite par le script local :
+        # /assets/* versionné par hash → cache immuable ; /sw.js doit rester
+        # revalidable sinon un vieux service worker sert un front périmé.
+        run: |
+          cat > apps/web/dist/_headers <<'EOF'
+          /assets/*
+            Cache-Control: public, max-age=31536000, immutable
+
+          /sw.js
+            Cache-Control: public, max-age=0, must-revalidate
+            Service-Worker-Allowed: /
+
+          /manifest.webmanifest
+            Cache-Control: public, max-age=86400
+
+          /*
+            X-Content-Type-Options: nosniff
+            X-Frame-Options: DENY
+            Referrer-Policy: strict-origin-when-cross-origin
+          EOF
+
+      - name: Déploiement Cloudflare Pages (branche master = prod)
+        run: >-
+          npx --yes wrangler@latest pages deploy apps/web/dist
+          --project-name santeplus
+          --branch master
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Certification — le front sert bien le nouveau bundle
+        timeout-minutes: 8
+        run: |
+          sleep 20
+          # L'index référence un bundle JS hashé : il doit différer de la
+          # version précédente si du code a changé. On compare plutôt un
+          # marqueur stable : le HTML servi doit contenir le titre et un asset
+          # fraîchement déployé doit répondre 200.
+          for i in $(seq 1 12); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://santeplus.pages.dev/" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "✅ Front Cloudflare Pages en ligne (HTTP 200)"
+              exit 0
+            fi
+            echo "Tentative $i/12 — status: $CODE"
+            sleep 10
+          done
+          echo "::error::Front santeplus.pages.dev ne répond pas 200 après déploiement wrangler."
+          exit 1

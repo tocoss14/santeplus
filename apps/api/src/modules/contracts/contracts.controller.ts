@@ -68,7 +68,41 @@ export class ContractsService {
         ...(target === 'MUTUALITE' ? { riskModelSince: now } : {}),
       },
     });
+    await this.snapshotVersion(contractId, `Changement de modèle de risque : ${current} → ${target}`, auth.id);
     return { changed: true as const, riskModel: (updated as any).riskModel };
+  }
+
+  /**
+   * Archive l'état courant du contrat dans AuditLog (version numérotée).
+   * Aucun changement de schéma : la numérotation est dérivée du nombre de
+   * snapshots déjà enregistrés pour ce contrat.
+   */
+  async snapshotVersion(contractId: string, reason: string, actorUserId?: string | null): Promise<number> {
+    try {
+      const contract = await this.prisma.contract.findUnique({
+        where: { id: contractId },
+        include: { beneficiaries: true, contributions: { orderBy: { sequence: 'asc' } }, product: { select: { code: true, name: true } } },
+      });
+      if (!contract) return 0;
+      const count = await this.prisma.auditLog.count({
+        where: { entityType: 'contract', entityId: contractId, action: 'CONTRACT_VERSION' },
+      });
+      const version = count + 1;
+      await this.prisma.auditLog.create({
+        data: {
+          userId: actorUserId ?? null,
+          action: 'CONTRACT_VERSION',
+          entityType: 'contract',
+          entityId: contractId,
+          status: 'OK',
+          meta: JSON.stringify({ version, reason, snapshot: contract, createdAt: new Date().toISOString() }),
+        },
+      });
+      return version;
+    } catch (e) {
+      console.error('[CONTRACT_VERSION] snapshot failed:', (e as any)?.message ?? e);
+      return 0;
+    }
   }
 
   async capsSummary(contract: any): Promise<any[]> {
@@ -108,12 +142,13 @@ export class ContractsService {
     const schedule = [
       { sequence: 1, dueDate: baseDate, amount: contract.premiumAnnual },
     ];
-    await this.prisma.$transaction(async tx => {
-      await tx.contribution.createMany({
-        data: schedule.map(s => ({ contractId: contract.id, sequence: s.sequence + contract.contributions.length, dueDate: s.dueDate, amount: s.amount })),
-      });
-      await tx.contract.update({ where: { id: contract.id }, data: { endDate: addYears(baseDate, 1), status: contract.status === 'EXPIRED' ? 'PENDING_PAYMENT' : contract.status } });
-    });
+     await this.prisma.$transaction(async tx => {
+       await tx.contribution.createMany({
+         data: schedule.map(s => ({ contractId: contract.id, sequence: s.sequence + contract.contributions.length, dueDate: s.dueDate, amount: s.amount })),
+       });
+       await tx.contract.update({ where: { id: contract.id }, data: { endDate: addYears(baseDate, 1), status: contract.status === 'EXPIRED' ? 'PENDING_PAYMENT' : contract.status } });
+     });
+     await this.snapshotVersion(contract.id, 'Renouvellement du contrat', auth.id);
     // CTS : application du crédit de renouvellement confirmé, s'il existe (non bloquant)
     let renewalApplied: unknown = { applied: false as const };
     try { renewalApplied = await this.cts?.applyRenewalCredit(contract.id); } catch {}
@@ -123,14 +158,15 @@ export class ContractsService {
   async activateOnPayment(contractId: string) {
     const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
     if (!contract) return null;
-    if (contract.status === 'PENDING_PAYMENT' || contract.status === 'DRAFT') {
-      const today = startOfDay(new Date());
-      const updated = await this.prisma.contract.update({
-        where: { id: contractId },
-        data: { status: 'ACTIVE', startDate: today, endDate: addDays(addYears(today, 1), -1) },
-      });
-      return updated;
-    }
+     if (contract.status === 'PENDING_PAYMENT' || contract.status === 'DRAFT') {
+       const today = startOfDay(new Date());
+       const updated = await this.prisma.contract.update({
+         where: { id: contractId },
+         data: { status: 'ACTIVE', startDate: today, endDate: addDays(addYears(today, 1), -1) },
+       });
+       await this.snapshotVersion(contractId, 'Activation du contrat', null);
+       return updated;
+     }
     if (contract.status === 'SUSPENDED') {
       return this.prisma.contract.update({ where: { id: contractId }, data: { status: 'ACTIVE' } });
     }
@@ -167,6 +203,21 @@ export class ContractsController {
       select: { firstName: true, lastName: true, memberNumber: true, birthDate: true },
     });
     return { ...this.sanitizeContract(contract), caps, principal };
+  }
+
+  @Get('contracts/:id/versions')
+  async versions(@CurrentUser() auth: AuthUser, @Param('id') id: string) {
+    await this.contracts.canAccess(auth, id);
+    const logs = await this.prisma.auditLog.findMany({
+      where: { entityType: 'contract', entityId: id, action: 'CONTRACT_VERSION' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, userId: true, createdAt: true, meta: true },
+    });
+    return logs.map(l => {
+      let parsed: any = {};
+      try { parsed = l.meta ? JSON.parse(l.meta) : {}; } catch { parsed = {}; }
+      return { id: l.id, userId: l.userId, createdAt: l.createdAt, version: parsed.version ?? null, reason: parsed.reason ?? null };
+    });
   }
 
   @Get('contracts/:id/card')
@@ -361,25 +412,26 @@ export class BeneficiariesController {
       const age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 86400000));
       if (age >= childMax) throw new BadRequestException(`Un enfant doit avoir moins de ${childMax} ans`);
     }
-    const beneficiary = await this.prisma.$transaction(async tx => {
-      const created = await tx.beneficiary.create({
-        data: {
-          contractId,
-          addedById: auth.id,
-          firstName: draft.firstName,
-          lastName: draft.lastName,
-          birthDate: birth,
-          gender,
-          relation,
-          memberNumber: memberNumber(),
-        },
-      });
-      await tx.beneficiaryChange.create({
-        data: { beneficiaryId: created.id, action: 'ADDED', byUserId: auth.id, meta: JSON.stringify(draft) },
-      });
-      return created;
-    });
-    return beneficiary;
+     const beneficiary = await this.prisma.$transaction(async tx => {
+       const created = await tx.beneficiary.create({
+         data: {
+           contractId,
+           addedById: auth.id,
+           firstName: draft.firstName,
+           lastName: draft.lastName,
+           birthDate: birth,
+           gender,
+           relation,
+           memberNumber: memberNumber(),
+         },
+       });
+       await tx.beneficiaryChange.create({
+         data: { beneficiaryId: created.id, action: 'ADDED', byUserId: auth.id, meta: JSON.stringify(draft) },
+       });
+       return created;
+     });
+     await this.contracts.snapshotVersion?.(contractId, 'Ajout d\'un ayant droit', auth.id);
+     return beneficiary;
   }
 
   @Patch(':beneficiaryId')
@@ -391,6 +443,7 @@ export class BeneficiariesController {
       await this.prisma.beneficiaryChange.create({ data: { beneficiaryId: bid, action: 'UPDATED', byUserId: auth.id, meta: JSON.stringify(dto) } });
       return null;
     });
+    await this.contracts.snapshotVersion?.(contractId, 'Modification d\'un ayant droit', auth.id);
     return { ok: true };
   }
 
@@ -404,6 +457,7 @@ export class BeneficiariesController {
       await this.prisma.beneficiaryChange.create({ data: { beneficiaryId: bid, action: 'REMOVED', byUserId: auth.id } });
       return null;
     });
+    await this.contracts.snapshotVersion?.(contractId, 'Retrait d\'un ayant droit', auth.id);
     return { ok: true };
   }
 

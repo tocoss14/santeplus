@@ -177,20 +177,25 @@ async function bootstrap(): Promise<void> {
         ? `File storage: object storage (bucket ${config.s3Bucket} @ ${config.s3Endpoint})`
         : `File storage: local disk (${config.uploadsDir})`,
     );
-    if (!config.storageRemote && config.isProd) {
-      const missing = [
-        ['S3_ENDPOINT', config.s3Endpoint],
-        ['S3_BUCKET', config.s3Bucket],
-        ['S3_ACCESS_KEY_ID', config.s3AccessKeyId],
-        ['S3_SECRET_ACCESS_KEY', config.s3SecretAccessKey],
-      ]
-        .filter(([, value]) => !value)
-        .map(([key]) => key);
-      console.warn(
-        `WARNING: stockage fichiers NON PERSISTANT — les téléversements (actes de naissance, photos, pièces de sinistre) sont perdus à chaque redémarrage de l'instance. ` +
-          `Variable(s) manquante(s) : ${missing.join(', ')}. Cloudflare R2 : S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com, S3_REGION=auto, S3_BUCKET=<bucket>, puis la clé d'accès R2.`,
-      );
-    }
+     if (!config.storageRemote && config.isProd && process.env.ALLOW_LOCAL_STORAGE_IN_PROD !== 'true') {
+       const missing = [
+         ['S3_ENDPOINT', config.s3Endpoint],
+         ['S3_BUCKET', config.s3Bucket],
+         ['S3_ACCESS_KEY_ID', config.s3AccessKeyId],
+         ['S3_SECRET_ACCESS_KEY', config.s3SecretAccessKey],
+       ]
+         .filter(([, value]) => !value)
+         .map(([key]) => key);
+       console.error(
+         `FATAL: stockage fichiers NON PERSISTANT en production — les téléversements (actes de naissance, photos, pièces de sinistre) seraient perdus à chaque redémarrage. ` +
+           `Variable(s) manquante(s) : ${missing.join(', ')}. Configurez Cloudflare R2 (S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY) ou posez ALLOW_LOCAL_STORAGE_IN_PROD=true pour un volume monté.`,
+       );
+       process.exit(1);
+     } else if (!config.storageRemote && config.isProd) {
+       console.warn(
+         'WARNING: stockage fichiers local autorisé explicitement (ALLOW_LOCAL_STORAGE_IN_PROD=true) — vérifier que le volume est bien monté et persistant.',
+       );
+     }
 
     // Auto-seed: si la table User est vide, lancer le seed.
     // JAMAIS en production : le seed est destructeur et crée des comptes de démo
@@ -243,9 +248,13 @@ async function guardKnownDemoAccounts(): Promise<void> {
       console.error('Pour forcer le démarrage (urgence uniquement) : ALLOW_DEMO_ACCOUNTS_IN_PROD=true');
       process.exit(1);
     }
-  } catch (err: any) {
-    console.warn('WARNING: vérification des comptes de démonstration impossible — démarrage sans garde :', err?.message ?? err);
-  } finally {
+   } catch (err: any) {
+     if (config.isProd) {
+       console.error('FATAL: vérification des comptes de démonstration impossible — démarrage refusé par sécurité :', err?.message ?? err);
+       process.exit(1);
+     }
+     console.warn('WARNING: vérification des comptes de démonstration impossible — démarrage sans garde :', err?.message ?? err);
+   } finally {
     await check?.$disconnect().catch(() => {});
   }
 }

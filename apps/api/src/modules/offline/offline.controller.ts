@@ -54,12 +54,16 @@ export class OfflineController {
       const itemId = item.id ?? `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       // 1) Hash validation
       const expected = computeHash(item.payload, item.sessionKey);
-      if (expected !== item.hash) {
-        conflicts.push({ id: itemId, reason: 'Hash invalide — données altérées', status: 'CONFLICT' });
-        // alert managers — hash tampering
-        await this.alertManagers(`Alerte intégrité — délivrance hors-ligne`, `Hash invalide pour l'item ${itemId} (prestataire ${establishment.name}) — possible altération.`);
-        continue;
-      }
+       if (expected !== item.hash) {
+         conflicts.push({ id: itemId, reason: 'Hash invalide — données altérées', status: 'CONFLICT' });
+         try {
+           await this.prisma.auditLog.create({
+             data: { userId: auth.id, action: 'OFFLINE_SYNC_HASH_MISMATCH', entityType: 'offline', entityId: itemId, meta: JSON.stringify({ sessionKey: item.sessionKey }) },
+           });
+         } catch { /* ignore */ }
+         await this.alertManagers(`Alerte intégrité — délivrance hors-ligne`, `Hash invalide pour l'item ${itemId} (prestataire ${establishment.name}) — possible altération.`);
+         continue;
+       }
 
       // 2) Validate payload structure
       let dto: any;

@@ -40,7 +40,7 @@ export class NotificationDispatchService {
   constructor(private prisma: PrismaService) {}
 
   async dispatchToUser(userId: string, input: DispatchInput) {
-    // 1. Create in-app notification
+    // 1. Create in-app notification (ne bloque jamais l'envoi externe)
     try {
       await this.prisma.notification.create({
         data: {
@@ -52,8 +52,8 @@ export class NotificationDispatchService {
           meta: input.meta ? JSON.stringify(input.meta) : null,
         },
       });
-    } catch {
-      return;
+    } catch (err: any) {
+      console.error('[NOTIF] création in-app échouée :', err?.message ?? err);
     }
 
     // 2. Send email and/or SMS based on topic config
@@ -61,7 +61,10 @@ export class NotificationDispatchService {
       where: { id: userId },
       select: { email: true, phone: true },
     });
-    if (!user) return;
+    if (!user) {
+      console.error('[NOTIF] utilisateur introuvable, envoi externe annulé :', userId);
+      return;
+    }
 
     const emailTopics = topicList(config.notifyEmailTopics, DEFAULT_EMAIL_TOPICS);
     const smsTopics = topicList(config.notifySmsTopics, DEFAULT_SMS_TOPICS);
@@ -88,7 +91,12 @@ export class NotificationDispatchService {
   }
 
   async dispatchToMany(userIds: string[], input: DispatchInput) {
-    await Promise.allSettled(userIds.map(id => this.dispatchToUser(id, input)));
+    const results = await Promise.allSettled(userIds.map(id => this.dispatchToUser(id, input)));
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        console.error('[NOTIF] dispatchToMany échec :', r.reason?.message ?? r.reason);
+      }
+    }
   }
 
   private async sendEmail(to: string, input: DispatchInput) {

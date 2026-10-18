@@ -6,8 +6,8 @@ export const config = {
   port: Number(env('PORT', '4000')),
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),
   fieldEncryptionKey: env('FIELD_ENCRYPTION_KEY', ''),
-  webOrigin: env('WEB_ORIGIN', 'http://localhost:5173'),
-  appUrl: env('APP_URL', env('WEB_ORIGIN', 'http://localhost:5173')),
+  webOrigin: env('WEB_ORIGIN', 'http://localhost:3000'),
+  appUrl: env('APP_URL', env('WEB_ORIGIN', 'http://localhost:3000')),
   // Origine PUBLIQUE DU FRONT, distincte d'appUrl (APP_URL = URL de l'API).
   // Sur Render le front est hébergé sur Cloudflare Pages : un lien d'e-mail
   // construit sur APP_URL (« /app/contrat », « /reinitialiser-mot-de-passe »)
@@ -16,7 +16,7 @@ export const config = {
   webPublicUrl: (env('WEB_ORIGIN', 'http://localhost:5173').split(',')[0] || 'http://localhost:5173')
     .trim()
     .replace(/\/+$/, ''),
-  mockPayments: env('MOCK_PAYMENTS', 'true') === 'true',
+  mockPayments: env('MOCK_PAYMENTS', 'false') === 'true',
   payProviders: (env('PAY_PROVIDERS', 'MOCK_MOMO') || 'MOCK_MOMO').split(',').map(s => s.trim()),
   fedapaySecretKey: env('FEDAPAY_SECRET_KEY'),
   fedapayMode: env('FEDAPAY_MODE', 'sandbox') === 'live' ? 'live' : 'sandbox',

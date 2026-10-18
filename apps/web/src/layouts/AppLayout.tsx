@@ -110,7 +110,11 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
         </div>
       </aside>
 
-      <div className="flex-1 pb-20 lg:pb-0">
+      {/* pb : la nav mobile fait ~69 px (icônes + libellés + bordure) ; 96 px
+           laissent une vraie marge pour que le dernier bouton d'un formulaire
+           ne tombe jamais sous la barre fixe (bug constaté : le tap sur
+           « Continuer » du wizard de souscription atteignait « Mon contrat »). */}
+      <div className="flex-1 pb-24 lg:pb-0">
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200 bg-white/90 backdrop-blur px-4">
           <div className="flex items-center gap-2 font-semibold text-slate-700 lg:hidden">
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-600 text-white text-xs">SP</span>
@@ -136,7 +140,11 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
           <Outlet />
         </main>
 
-        <nav aria-label="Navigation principale" className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex overflow-x-auto border-t border-slate-200 bg-white">
+        <nav
+          aria-label="Navigation principale"
+          className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex overflow-x-auto border-t border-slate-200 bg-white"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
           {menu.items.map(item => (
             <NavLink
               key={item.to}

@@ -19,6 +19,7 @@ export default function MyContractUnified() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
+  const [versions, setVersions] = useState<any[]>([]);
 
   useEffect(() => {
     api.get<any[]>('/contracts/mine').then(list => {
@@ -36,6 +37,8 @@ export default function MyContractUnified() {
       setDetail(d);
       const pmts = await api.get<any[]>('/payments/mine').catch(() => []);
       setPayments(pmts.filter((payment: any) => !payment.contractId || payment.contractId === selectedId));
+      const vs = await api.get<any[]>(`/contracts/${selectedId}/versions`).catch(() => []);
+      setVersions(Array.isArray(vs) ? vs : []);
     }).catch(() => setDetail({ error: true }));
   }, [selectedId]);
 
@@ -116,7 +119,7 @@ export default function MyContractUnified() {
         <ErrorBanner message="Contrat introuvable. Sélectionnez un autre contrat." />
       ) : (
         <>
-          {tab === 'contrat' && detail && <ContractTab detail={detail} />}
+          {tab === 'contrat' && detail && <ContractTab detail={detail} versions={versions} />}
           {tab === 'paiements' && detail && <PaymentsTab detail={detail} payments={payments} />}
           {tab === 'carte' && detail && <CardTab detail={detail} />}
         </>
@@ -125,7 +128,7 @@ export default function MyContractUnified() {
   );
 }
 
-function ContractTab({ detail }: { detail: any }) {
+function ContractTab({ detail, versions }: { detail: any; versions?: any[] }) {
   const daysLeft = detail.endDate
     ? Math.ceil((new Date(detail.endDate).getTime() - Date.now()) / 86400000)
     : null;
@@ -222,6 +225,20 @@ function ContractTab({ detail }: { detail: any }) {
               </div>
             )}
           </div>
+
+          {(versions?.length ?? 0) > 0 && (
+            <div className="card-p">
+              <h3 className="font-bold mb-2">Historique des versions</h3>
+              <ul className="space-y-1 text-sm">
+                {(versions ?? []).map((v: any) => (
+                  <li key={v.id} className="flex justify-between gap-2">
+                    <span>v{v.version} — {v.reason ?? 'Mise à jour'}</span>
+                    <span className="text-slate-500">{new Date(v.createdAt).toLocaleDateString('fr-FR')}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Plafonds */}
           <div className="card-p">

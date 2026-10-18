@@ -34,6 +34,7 @@ import { CtsModule } from './modules/cts/cts.service';
 import { FinancialModelModule } from './modules/financial-model/financial-model.controller';
 import { ReferentialModule } from './modules/referential/referential.controller';
 import { HospitalModule } from './modules/hospital/hospital.controller';
+import { BiModule } from './modules/bi/bi.controller';
 import { CronService } from './jobs/cron.service';
 import { RenewalAlertJob } from './jobs/renewal-alert.job';
 import { FraudDetectionJob } from './jobs/fraud-detection.job';
@@ -75,6 +76,7 @@ import { V2SolvencyAlertJob } from './jobs/v2-solvency-alert.job';
     AnalyticsModule,
     ReferentialModule,
     HospitalModule,
+    BiModule,
     CtsModule,
     FinancialModelModule,
   ],

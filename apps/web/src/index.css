@@ -5,7 +5,8 @@
   /* Accessibilité : anneau de focus visible au clavier sur TOUS les éléments
      cliquables (règle priorité 1 du skill UI/UX — jamais supprimer le focus). */
   :focus-visible { outline: 2px solid #0D7C5C; outline-offset: 2px; }
-  html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+  html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; touch-action: manipulation; }
+  @media (max-width: 640px) { button, a.btn, [role="button"] { min-height: 44px; } }
   body { @apply bg-sand text-ink antialiased; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
   h1, h2, h3 { font-family: 'Fraunces', serif; letter-spacing: -0.02em; }
 }

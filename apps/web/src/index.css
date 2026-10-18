@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 @layer base {
   /* Accessibilité : anneau de focus visible au clavier sur TOUS les éléments
@@ -11,13 +10,15 @@
   h1, h2, h3 { font-family: 'Fraunces', serif; letter-spacing: -0.02em; }
 }
 
+@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold tracking-tight transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none; }
+@utility card { @apply bg-white rounded-2xl border border-mist shadow-[0_1px_3px_rgba(15,30,46,0.06),0_8px_24px_rgba(15,30,46,0.04)]; }
+@utility skeleton { @apply relative overflow-hidden rounded-lg bg-mist/70; }
+
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold tracking-tight transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none; }
   .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-[0_4px_14px_rgba(13,124,92,0.25)] hover:shadow-[0_6px_20px_rgba(13,124,92,0.3)] hover:-translate-y-px; }
   .btn-outline { @apply btn border-[1.5px] border-ink/15 bg-white text-ink hover:bg-ink hover:text-white hover:border-ink; }
   .btn-danger { @apply btn bg-laterite-600 text-white hover:bg-laterite-700; }
   .btn-sm { @apply px-4 py-2 text-xs; }
-  .card { @apply bg-white rounded-2xl border border-mist shadow-[0_1px_3px_rgba(15,30,46,0.06),0_8px_24px_rgba(15,30,46,0.04)]; }
   .card-p { @apply card p-5 sm:p-6; }
   .card-wax { @apply card overflow-hidden; }
   .card-wax::before { content: ''; display: block; height: 10px; background-image: url("data:image/svg+xml,%3Csvg width='24' height='12' viewBox='0 0 24 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6 L6 0 L12 6 L18 0 L24 6 L18 12 L12 6 L6 12 Z' fill='%230D7C5C'/%3E%3C/svg%3E"); background-repeat: repeat-x; background-size: 24px 12px; }
@@ -30,7 +31,6 @@
   .td { @apply px-3 py-3.5 text-sm; }
   .eyebrow { @apply text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600; font-family: 'JetBrains Mono', monospace; }
   /* Bloc de chargement scintillant (voir Skeleton dans components/ui.tsx) */
-  .skeleton { @apply relative overflow-hidden rounded-lg bg-mist/70; }
   .skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; }
 }
 

@@ -57,6 +57,115 @@ export default function Offers() {
         ))}
       </div>
 
+      {/* Structure de cotisation — conforme prompt mutualité agréée */}
+      <section className="mt-12 space-y-8">
+        <div className="card-p">
+          <h2 className="text-xl font-bold">Nos 4 formules d'adhésion</h2>
+          <p className="mt-1 text-sm text-slate-600">Cotisation annuelle pour l'assuré principal. Modulation par tranche d'âge (voir tableau ci-dessous).</p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Formule</th><th>Cotisation annuelle</th><th>Cotisation mensuelle</th><th>Plafond annuel</th><th>Cible</th></tr></thead>
+              <tbody>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Essentielle</td><td>15 000 FCFA</td><td>1 500 FCFA</td><td>500 000 FCFA</td><td>Étudiants, jeunes actifs informels</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Confort</td><td>25 000 FCFA</td><td>2 500 FCFA</td><td>1 500 000 FCFA</td><td>TPE/PME, professions libérales</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Famille</td><td>78 000 FCFA</td><td>7 800 FCFA</td><td>4 000 000 FCFA</td><td>Ménages (2 adultes + 3 enfants max)</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Entreprise</td><td>À partir de 20 000 FCFA/adhérent</td><td>Sur devis</td><td>Personnalisable</td><td>Entreprises ≥ 10 salariés</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card-p">
+          <h2 className="text-xl font-bold">Modulation par tranche d'âge</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Tranche d'âge</th><th>Essentielle (FCFA/an)</th><th>Confort (FCFA/an)</th><th>Coefficient vs 15-29 ans</th></tr></thead>
+              <tbody>
+                <tr className="border-t border-mist"><td className="py-2">15-29 ans</td><td>15 000</td><td>25 000</td><td>× 1,00 (référence)</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">30-39 ans</td><td>17 000</td><td>28 000</td><td>× 1,13</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">40-49 ans</td><td>20 000</td><td>33 000</td><td>× 1,33</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">50-59 ans</td><td>24 000</td><td>40 000</td><td>× 1,60</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">60 ans et plus</td><td>28 000</td><td>47 000</td><td>× 1,87 (max)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-slate-600">Ratio maximal entre la tranche la plus basse et la plus élevée : 1,87 (conformément à la Loi 2015-30).</p>
+        </div>
+
+        <div className="card-p">
+          <h2 className="text-xl font-bold">Panier de soins — taux de prise en charge</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Catégorie de soins</th><th>Essentielle</th><th>Confort</th><th>Famille</th><th>Entreprise</th></tr></thead>
+              <tbody>
+                {[
+                  ['Consultation médecine générale','70 %','85 %','90 %','85 %'],
+                  ['Consultation spécialisée','50 %','75 %','85 %','75 %'],
+                  ['Examens biologiques','50 %','70 %','80 %','70 %'],
+                  ['Examens radiologiques','40 %','65 %','75 %','65 %'],
+                  ['Pharmacie sur ordonnance','50 %','65 %','75 %','65 %'],
+                  ['Hospitalisation (médecine)','Non','75 %','85 %','75 %'],
+                  ['Hospitalisation (chirurgie)','Non','70 %','80 %','70 %'],
+                  ['Maternité (accouchement)','Non','70 %','85 %','70 %'],
+                  ['Soins dentaires (base)','Non','50 %','70 %','50 %'],
+                  ['Optique','Non','50 %','70 %','50 %'],
+                  ['Prévention (vaccins, dépistages)','80 %','90 %','100 %','90 %'],
+                  ['Téléconsultation','100 %','100 %','100 %','100 %'],
+                ].map(([cat,e,c,f,en]) => (
+                  <tr key={cat} className="border-t border-mist"><td className="py-2">{cat}</td><td>{e}</td><td>{c}</td><td>{f}</td><td>{en}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card-p">
+          <h2 className="text-xl font-bold">Délais de carence</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Catégorie de soins</th><th>Délai de carence</th></tr></thead>
+              <tbody>
+                {[
+                  ['Consultations médecine générale','7 jours'],
+                  ['Consultations spécialisées','15 jours'],
+                  ['Examens biologiques et radiologiques','15 jours'],
+                  ['Pharmacie sur ordonnance','7 jours'],
+                  ['Hospitalisation (médecine)','3 mois'],
+                  ['Hospitalisation (chirurgie programmée)','6 mois'],
+                  ['Hospitalisation (chirurgie urgence)','Aucun'],
+                  ['Maternité (accouchement)','9 mois'],
+                  ['Soins dentaires (programmés)','6 mois'],
+                  ['Optique','12 mois'],
+                  ['Prévention (vaccins, dépistages)','Aucun'],
+                  ['Téléconsultation','7 jours'],
+                  ['Affections chroniques préexistantes déclarées','12 mois'],
+                ].map(([cat,d]) => (
+                  <tr key={cat} className="border-t border-mist"><td className="py-2">{cat}</td><td>{d}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card-p">
+          <h2 className="text-xl font-bold">Exclusions principales</h2>
+          <ul className="mt-3 list-disc pl-5 text-sm space-y-1 text-slate-700">
+            <li>Soins esthétiques et cosmétiques</li>
+            <li>Médecines douces non conventionnées</li>
+            <li>Cures thermales et thermalisme</li>
+            <li>Orthodontie adulte, implants hors protocole, chirurgie réfractive</li>
+            <li>Affections liées à la consommation d'alcool ou de stupéfiants</li>
+            <li>Blessures auto-infligées et tentatives de suicide</li>
+            <li>Accidents du travail et maladies professionnelles (CNSS)</li>
+            <li>Accidents de la route responsables (assurance auto)</li>
+            <li>Soins à l'étranger hors zone CEDEAO (sauf urgence vitale)</li>
+            <li>Prothèses et implants hors liste nationale</li>
+            <li>PMA/AMP et FIV (hors panier de base)</li>
+            <li>Affections préexistantes non déclarées</li>
+          </ul>
+        </div>
+      </section>
+
       <section className="mt-12 card-p bg-slate-900 text-white border-slate-900">
         <h2 className="text-lg font-bold">Vous êtes une entreprise ?</h2>
         <p className="mt-1 text-sm text-slate-300">

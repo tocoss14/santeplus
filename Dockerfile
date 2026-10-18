@@ -14,7 +14,7 @@ ARG APP_VERSION=""
 ARG RENDER_GIT_COMMIT=""
 
 COPY apps/api/package.json apps/api/package-lock.json* ./
-RUN npm install --ignore-scripts --no-audit --no-fund
+RUN npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps
 
 COPY apps/api/tsconfig.json apps/api/tsconfig.build.json ./
 COPY apps/api/prisma ./prisma

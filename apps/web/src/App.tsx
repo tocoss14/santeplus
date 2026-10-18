@@ -6,6 +6,7 @@ import PublicLayout from './layouts/PublicLayout';
 import AppLayout from './layouts/AppLayout';
 import Landing from './pages/Landing';
 import FAQ from './pages/FAQ';
+import Reclamation from './pages/Reclamation';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RegisterCompany from './pages/RegisterCompany';
@@ -123,6 +124,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/offres" element={<Lazy><Offers /></Lazy>} />
         <Route path="/faq" element={<Lazy><FAQ /></Lazy>} />
+        <Route path="/reclamation" element={<Lazy><Reclamation /></Lazy>} />
         <Route path="/simulateur" element={<Lazy><Simulateur /></Lazy>} />
         <Route path="/login" element={<Login />} />
         <Route path="/mot-de-passe-oublie" element={<Lazy><ForgotPassword /></Lazy>} />

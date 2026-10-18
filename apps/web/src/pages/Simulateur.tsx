@@ -15,6 +15,7 @@ export default function Simulateur() {
     productId: '', principalAge: '30', spouse: false, spouseAge: '28',
     children: '', frequency: 'ANNUAL', consumption: '50000',
   });
+  const [childAges, setChildAges] = useState<number[]>([]);
   const [care, setCare] = useState({ category: '', amount: '10000' });
   const [result, setResult] = useState<any>(null);
   const [coverage, setCoverage] = useState<any>(null);
@@ -49,7 +50,7 @@ export default function Simulateur() {
     setError(null);
     setResult(null);
     try {
-      const childrenAges = form.children.split(/[,\s;]+/).map(s => s.trim()).filter(Boolean).map(Number).filter(n => Number.isFinite(n) && n >= 0);
+      const childrenAges = childAges.length ? childAges : form.children.split(/[,\s;]+/).map(s => s.trim()).filter(Boolean).map(Number).filter(n => Number.isFinite(n) && n >= 0);
       // Projection commerciale (prime/budget/épuisement)…
       const [res, cov] = await Promise.all([
         api.post('/cts/simulate', {
@@ -107,9 +108,18 @@ export default function Simulateur() {
         {form.spouse && (
           <Field label="Âge du conjoint"><input className="input" type="number" min={0} max={100} value={form.spouseAge} onChange={set('spouseAge')} /></Field>
         )}
-        <Field label="Âges des enfants (séparés par des virgules)" hint="Laisser vide si aucun">
-          <input className="input" value={form.children} onChange={set('children')} placeholder="Ex : 5, 8" />
-        </Field>
+        <div>
+          <label className="label">Enfants à charge</label>
+          <div className="space-y-2">
+            {childAges.map((age, idx) => (
+              <div key={idx} className="flex gap-2">
+                <input className="input" type="number" min={0} max={25} value={age} onChange={e => setChildAges(a => a.map((x, i) => i === idx ? Number(e.target.value) : x))} />
+                <button type="button" className="btn-outline btn-sm" onClick={() => setChildAges(a => a.filter((_, i) => i !== idx))}>Retirer</button>
+              </div>
+            ))}
+            <button type="button" className="btn-outline btn-sm" onClick={() => setChildAges(a => [...a, 0])}>+ Ajouter un enfant</button>
+          </div>
+        </div>
         <Field label="Consommation soins annuelle supposée (FCFA)">
           <input className="input" type="number" min={0} step={5000} value={form.consumption} onChange={set('consumption')} required />
         </Field>

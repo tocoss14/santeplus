@@ -223,7 +223,7 @@ async function main() {
     code: 'ESS', name: 'Santé Essentielle', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 1,
     description: "Gestion du risque de base : consultations, pharmacie, analyses et hospitalisation courte. Ticket modérateur de 30% pour responsabiliser l’assuré.",
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
-    basePremiumAnnual: 72000, // 6 000 FCFA/mois
+    basePremiumAnnual: 15000, // 15 000 FCFA/an (Essentielle)
     pricePerAdditionalAdultAnnual: 48000, // 4 000 FCFA/mois par conjoint/adulte
     pricePerChildAnnual: 48000, // 4 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 120000,
@@ -268,7 +268,7 @@ async function main() {
     code: 'CONF', name: 'Santé Confort', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 2,
     description: 'Équilibre entre couverture et rentabilité : consultations, spécialistes, maternité, dentaire et optique. Ticket modérateur 20%.',
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
-    basePremiumAnnual: 144000, // 12 000 FCFA/mois
+    basePremiumAnnual: 25000, // 25 000 FCFA/an (Confort)
     pricePerAdditionalAdultAnnual: 108000, // 9 000 FCFA/mois par conjoint/adulte
     pricePerChildAnnual: 108000, // 9 000 FCFA/mois par enfant
     thirdPartyAuthThreshold: 200000,
@@ -313,7 +313,7 @@ async function main() {
   // Haute gamme pour cadres. Ticket modérateur 10% maintenu.
   // Entente préalable obligatoire sauf urgences vitales.
   const prodPremium = await createProduct({
-    code: 'EXC', name: 'Santé Excellence', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 3,
+    code: 'EXC', name: 'Santé Excellence', clientType: 'INDIVIDUAL', status: 'ARCHIVED', sortOrder: 3,
     description: 'Haute gamme : toutes cliniques, évacuation sanitaire, plafonds élevés. Entente préalable pour les gros actes. Ticket modérateur 10%.',
     minAge: 0, maxAge: 75, waitingPeriodDays: 30,
     basePremiumAnnual: 300000, // 25 000 FCFA/mois

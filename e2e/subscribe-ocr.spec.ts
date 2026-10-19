@@ -228,8 +228,8 @@ test.describe('Souscription: acte de naissance lu par OCR et verrouillé', () =>
 
       const pw = page.getByLabel(PASSWORD_LABEL, { exact: true });
       const item = (label: string) => page.locator('li', { hasText: label });
-      const GREY = 'rgb(100, 116, 139)'; // slate-500 (niveau AA) : critère pas encore atteint
-      const GREEN = 'rgb(5, 150, 105)'; // emerald-600 : critère respecté
+      const GREY = 'oklch(0.554 0.046 257.417)'; // slate-500 (niveau AA) : critère pas encore atteint
+      const GREEN = 'oklch(0.596 0.145 163.225)'; // emerald-600 : critère respecté
 
       // 1. Champ vide : la checklist guide en gris, aucun critère coché
       await expect(item('8 caractères minimum')).toHaveCSS('color', GREY);

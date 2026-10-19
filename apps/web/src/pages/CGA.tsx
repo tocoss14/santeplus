@@ -246,10 +246,10 @@ export default function CGA() {
         <h2 className="text-2xl font-bold text-slate-900">3. Barèmes détaillés par formule</h2>
         {FORMULAS.map(f => (
           <div key={f.code} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-6 py-4">
               <div>
                 <h3 className="text-lg font-bold text-white">{f.name}</h3>
-                <p className="text-sm text-slate-300">{f.tagline}</p>
+                <p className="text-sm text-slate-200">{f.tagline}</p>
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <div className="text-center">
@@ -258,11 +258,11 @@ export default function CGA() {
                       slate-600 ne donnait que 1,9:1 de contraste (WCAG AA exige
                       4,5:1) — axe ne le signalait pas, le dégradé l'empêchant de
                       calculer la couleur de fond. */}
-                  <div className="text-xs text-slate-300">Adhérent/mois</div>
+                    <div className="text-xs text-slate-200">Adhérent/mois</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-extrabold text-amber-300">{f.copay}</div>
-                  <div className="text-xs text-slate-300">Copay</div>
+                    <div className="text-2xl font-extrabold text-amber-200">{f.copay}</div>
+                    <div className="text-xs text-slate-200">Copay</div>
                 </div>
               </div>
             </div>

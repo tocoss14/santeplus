@@ -34,6 +34,8 @@ import { CtsModule } from './modules/cts/cts.service';
 import { FinancialModelModule } from './modules/financial-model/financial-model.controller';
 import { ReferentialModule } from './modules/referential/referential.controller';
 import { HospitalModule } from './modules/hospital/hospital.controller';
+import { ComplianceModule } from './modules/compliance/compliance.controller';
+import { ActuarialModule } from './modules/actuarial/actuarial.controller';
 import { MedicalReviewModule } from './modules/medical-review/medical-review.controller';
 import { ImpayesModule } from './modules/impayes/impayes.controller';
 import { BiModule } from './modules/bi/bi.controller';
@@ -81,6 +83,8 @@ import { V2SolvencyAlertJob } from './jobs/v2-solvency-alert.job';
     BiModule,
     ImpayesModule,
     MedicalReviewModule,
+    ComplianceModule,
+    ActuarialModule,
     CtsModule,
     FinancialModelModule,
   ],

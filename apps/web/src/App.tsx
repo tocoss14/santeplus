@@ -58,6 +58,8 @@ const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const AdminBI = lazy(() => import('./pages/admin/AdminBI'));
 const AdminImpayes = lazy(() => import('./pages/admin/AdminImpayes'));
 const AdminMedicalReview = lazy(() => import('./pages/admin/AdminMedicalReview'));
+const AdminCompliance = lazy(() => import('./pages/admin/AdminCompliance'));
+const AdminActuarial = lazy(() => import('./pages/admin/AdminActuarial'));
 const AdminBilling = lazy(() => import('./pages/admin/AdminBilling'));
 const AdminBranches = lazy(() => import('./pages/admin/AdminBranches'));
 const AdminDiseases = lazy(() => import('./pages/admin/AdminDiseases'));
@@ -187,6 +189,8 @@ export default function App() {
         <Route path="bi" element={<Lazy><AdminBI /></Lazy>} />
         <Route path="impayes" element={<Lazy><AdminImpayes /></Lazy>} />
         <Route path="medical-review" element={<Lazy><AdminMedicalReview /></Lazy>} />
+        <Route path="compliance" element={<Lazy><AdminCompliance /></Lazy>} />
+        <Route path="actuarial" element={<Lazy><AdminActuarial /></Lazy>} />
         <Route path="billing" element={<Lazy><AdminBilling /></Lazy>} />
         <Route path="cts" element={<Lazy><AdminCts /></Lazy>} />
         <Route path="financial-models" element={<Lazy><AdminFinancialModels /></Lazy>} />

@@ -162,6 +162,28 @@ export class ClaimsService {
     );
   }
 
+  async scoreClaim(id: string) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id },
+      include: { claimantUser: { select: { id: true } }, provider: { select: { id: true } } },
+    });
+    if (!claim) throw new NotFoundException('Sinistre introuvable');
+    let score = 0;
+    const reasons: string[] = [];
+    const amount = claim.totalRequested ?? 0;
+    if (amount >= 500000) { score += 40; reasons.push('Montant élevé (≥ 500 000 FCFA)'); }
+    else if (amount >= 100000) { score += 20; reasons.push('Montant significatif (≥ 100 000 FCFA)'); }
+    const since = new Date(Date.now() - 30 * 86400000);
+    const claimantCount = await this.prisma.claim.count({ where: { claimantUserId: claim.claimantUserId, createdAt: { gte: since } } });
+    if (claimantCount > 3) { score += 30; reasons.push(`Fréquence adhérent élevée (${claimantCount} dossiers/30j)`); }
+    const providerCount = claim.providerId ? await this.prisma.claim.count({ where: { providerId: claim.providerId, createdAt: { gte: since } } }) : 0;
+    if (providerCount > 10) { score += 20; reasons.push(`Fréquence prestataire élevée (${providerCount} dossiers/30j)`); }
+    const docs = await this.prisma.claimDocument.count({ where: { claimId: id } });
+    if (docs === 0) { score += 10; reasons.push('Aucune pièce justificative'); }
+    const priority = score >= 60 ? 'HIGH' : score >= 30 ? 'MEDIUM' : 'LOW';
+    return { score, priority, reasons };
+  }
+
   private async detectDuplicate(userId: string, contractId: string, careDate: Date, items: any[]) {
     const totalRequested = items.reduce((a: number, i: any) => a + i.amountRequested, 0);
     const similar = await this.prisma.claim.findFirst({
@@ -598,6 +620,12 @@ export class ClaimsController {
       },
     });
     return { ...this.sanitize(claim), documents: docs, careDossier: careDossier ?? null };
+  }
+
+  @Get('claims/:id/score')
+  @RequirePermissions('claims.viewAll')
+  async score(@Param('id') id: string) {
+    return this.claims.scoreClaim(id);
   }
 
   @Get('admin/claims')

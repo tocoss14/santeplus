@@ -75,7 +75,7 @@ export default function Register() {
       <form onSubmit={submit} className="card-p mt-6">
         <ErrorBanner message={error} />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Nom"><input className="input" required minLength={2} value={form.lastName} onChange={set('lastName')} /></Field>
+          <Field label="Nom"><input className="input" required minLength={2} value={form.lastName} onChange={set('lastName')} autoFocus /></Field>
           <Field label="Prénom(s)"><input className="input" required minLength={2} value={form.firstName} onChange={set('firstName')} /></Field>
         </div>
         <Field label="Email"><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="vous@exemple.bj" /></Field>

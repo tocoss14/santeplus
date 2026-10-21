@@ -9,6 +9,7 @@ export default function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="min-h-screen flex flex-col">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-3 focus:py-2 focus:rounded focus:shadow">Aller au contenu principal</a>
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2 font-bold text-lg text-brand-800">
@@ -77,7 +78,7 @@ export default function PublicLayout() {
           </nav>
         )}
       </header>
-      <main className="flex-1 pb-28">
+      <main id="main-content" className="flex-1 pb-28">
         <Outlet />
       </main>
       <footer className="border-t border-slate-200 bg-white">

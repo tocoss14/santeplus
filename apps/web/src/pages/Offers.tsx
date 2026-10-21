@@ -36,10 +36,10 @@ export default function Offers() {
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Formule</th><th>Cotisation annuelle</th><th>Cotisation mensuelle</th><th>Plafond annuel</th><th>Cible</th></tr></thead>
               <tbody>
-                <tr className="border-t border-mist"><td className="py-2 font-semibold">Essentielle</td><td>15 000 FCFA</td><td>1 500 FCFA</td><td>500 000 FCFA</td><td>Étudiants, jeunes actifs informels</td></tr>
-                <tr className="border-t border-mist"><td className="py-2 font-semibold">Confort</td><td>25 000 FCFA</td><td>2 500 FCFA</td><td>1 500 000 FCFA</td><td>TPE/PME, professions libérales</td></tr>
-                <tr className="border-t border-mist"><td className="py-2 font-semibold">Famille</td><td>78 000 FCFA</td><td>7 800 FCFA</td><td>4 000 000 FCFA</td><td>Ménages (2 adultes + 3 enfants max)</td></tr>
-                <tr className="border-t border-mist"><td className="py-2 font-semibold">Entreprise</td><td>À partir de 20 000 FCFA/adhérent</td><td>Sur devis</td><td>Personnalisable</td><td>Entreprises ≥ 10 salariés</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Essentielle</td><td>À partir de 25 000 FCFA</td><td>2 100 FCFA</td><td>600 000 FCFA</td><td>Étudiants, jeunes actifs informels</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Confort</td><td>À partir de 28 000 FCFA</td><td>2 350 FCFA</td><td>1 800 000 FCFA</td><td>TPE/PME, professions libérales</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Famille</td><td>À partir de 75 000 FCFA</td><td>6 250 FCFA</td><td>3 000 000 FCFA</td><td>Ménages (2 adultes + 3 enfants max)</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Entreprise</td><td>À partir de 19 000 FCFA/adhérent</td><td>Sur devis</td><td>Personnalisable</td><td>Entreprises ≥ 10 salariés</td></tr>
               </tbody>
             </table>
           </div>
@@ -51,11 +51,11 @@ export default function Offers() {
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Tranche d'âge</th><th>Essentielle (FCFA/an)</th><th>Confort (FCFA/an)</th><th>Coefficient vs 15-29 ans</th></tr></thead>
               <tbody>
-                <tr className="border-t border-mist"><td className="py-2">15-29 ans</td><td>15 000</td><td>25 000</td><td>× 1,00 (référence)</td></tr>
-                <tr className="border-t border-mist"><td className="py-2">30-39 ans</td><td>17 000</td><td>28 000</td><td>× 1,13</td></tr>
-                <tr className="border-t border-mist"><td className="py-2">40-49 ans</td><td>20 000</td><td>33 000</td><td>× 1,33</td></tr>
-                <tr className="border-t border-mist"><td className="py-2">50-59 ans</td><td>24 000</td><td>40 000</td><td>× 1,60</td></tr>
-                <tr className="border-t border-mist"><td className="py-2">60 ans et plus</td><td>28 000</td><td>47 000</td><td>× 1,87 (max)</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">15-29 ans</td><td>25 000</td><td>28 000</td><td>× 1,00 (référence)</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">30-39 ans</td><td>25 000</td><td>33 000</td><td>× 1,00 / 1,18</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">40-49 ans</td><td>27 000</td><td>40 000</td><td>× 1,08 / 1,43</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">50-59 ans</td><td>33 000</td><td>50 000</td><td>× 1,32 / 1,79</td></tr>
+                <tr className="border-t border-mist"><td className="py-2">60 ans et plus</td><td>42 000</td><td>65 000</td><td>× 1,68 / 2,32</td></tr>
               </tbody>
             </table>
           </div>

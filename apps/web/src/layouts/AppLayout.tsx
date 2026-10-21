@@ -83,6 +83,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
 
   return (
     <div className="min-h-screen lg:flex">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-3 focus:py-2 focus:rounded focus:shadow">Aller au contenu principal</a>
       <aside className="hidden lg:flex w-64 flex-col border-r border-slate-200 bg-white">
         <NavLink to="/" className="flex items-center gap-2 px-5 h-16 border-b border-slate-200 font-bold text-brand-800">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white text-sm">SP</span>
@@ -136,7 +137,7 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
           </div>
         </header>
 
-        <main className="mx-auto max-w-5xl px-4 py-6 motion-safe:animate-fade-up">
+        <main id="main-content" className="mx-auto max-w-5xl px-4 py-6 motion-safe:animate-fade-up">
           <Outlet />
         </main>
 

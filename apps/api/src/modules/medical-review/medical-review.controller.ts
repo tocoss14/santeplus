@@ -1,6 +1,9 @@
-import { Controller, Get, Injectable, Module } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Injectable, Module, NotFoundException, Param, Post } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.module';
+import { CurrentUser } from '../../common/decorators';
+import { AuthUser } from '../../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../../common/guards/permissions.guard';
+import { assertClaimTransition } from '../../domain/claim-machine';
 
 @Injectable()
 export class MedicalReviewService {
@@ -25,6 +28,20 @@ export class MedicalReviewService {
       createdAt: c.createdAt,
     }));
   }
+
+  async review(id: string, action: 'APPROVE' | 'REJECT' | 'REQUEST_INFO', note?: string, actorId?: string | null) {
+    const claim = await this.prisma.claim.findUnique({ where: { id } });
+    if (!claim) throw new Error('Sinistre introuvable');
+    const map: Record<string, string> = { APPROVE: 'APPROVED', REJECT: 'REJECTED', REQUEST_INFO: 'INFO_REQUESTED' };
+    const target = map[action];
+    const transition = action === 'APPROVE' ? 'APPROVE' : action === 'REJECT' ? 'REJECT' : 'REQUEST_INFO';
+    assertClaimTransition(claim.status, transition as any);
+    const updated = await this.prisma.claim.update({ where: { id }, data: { status: target } });
+    await this.prisma.auditLog.create({
+      data: { userId: actorId ?? null, action: `MEDICAL_REVIEW_${action}`, entityType: 'claim', entityId: id, meta: JSON.stringify({ note: note ?? null, from: claim.status, to: target }) },
+    });
+    return updated;
+  }
 }
 
 @Controller('admin/medical-review')
@@ -35,6 +52,36 @@ export class MedicalReviewController {
   @RequirePermissions('contracts.viewAll')
   queue() {
     return this.svc.queue();
+  }
+
+  @Post('claims/:id/validate')
+  @RequirePermissions('contracts.viewAll')
+  async validate(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body() body: any) {
+    try {
+      return await this.svc.review(id, 'APPROVE', body?.note, auth.id);
+    } catch (e: any) {
+      throw new BadRequestException(e?.message ?? 'Transition impossible');
+    }
+  }
+
+  @Post('claims/:id/reject')
+  @RequirePermissions('contracts.viewAll')
+  async reject(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body() body: any) {
+    try {
+      return await this.svc.review(id, 'REJECT', body?.note, auth.id);
+    } catch (e: any) {
+      throw new BadRequestException(e?.message ?? 'Transition impossible');
+    }
+  }
+
+  @Post('claims/:id/request-info')
+  @RequirePermissions('contracts.viewAll')
+  async requestInfo(@CurrentUser() auth: AuthUser, @Param('id') id: string, @Body() body: any) {
+    try {
+      return await this.svc.review(id, 'REQUEST_INFO', body?.note, auth.id);
+    } catch (e: any) {
+      throw new BadRequestException(e?.message ?? 'Transition impossible');
+    }
   }
 }
 

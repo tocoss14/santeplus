@@ -13,7 +13,10 @@ export class ImpayesService {
       include: { contract: { include: { principalUser: { select: { firstName: true, lastName: true, memberNumber: true } }, product: { select: { name: true } } } } },
       orderBy: { dueDate: 'asc' },
     });
-    return overdue.map(c => ({
+    return overdue.map(c => {
+      const days = Math.floor((now.getTime() - new Date(c.dueDate).getTime()) / 86400000);
+      const bucket = days >= 60 ? 'J+60' : days >= 30 ? 'J+30' : days >= 15 ? 'J+15' : days >= 7 ? 'J+7' : 'J+3';
+      return {
       contributionId: c.id,
       contractId: c.contractId,
       contractNumber: c.contract.number,
@@ -22,8 +25,10 @@ export class ImpayesService {
       product: c.contract.product.name,
       amount: c.amount,
       dueDate: c.dueDate,
-      daysOverdue: Math.floor((now.getTime() - new Date(c.dueDate).getTime()) / 86400000),
-    }));
+      daysOverdue: days,
+      bucket,
+    };
+    });
   }
 }
 

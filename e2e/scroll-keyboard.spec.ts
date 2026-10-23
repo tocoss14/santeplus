@@ -85,6 +85,14 @@ test.describe('Zones défilantes horizontales accessibles au clavier — 390×84
   // largement les 30 s par défaut de playwright.config.ts.
   test.describe.configure({ timeout: 300_000 });
 
+  // La CI lance `npx playwright test` (viewport 1280) : sans ce garde-fou les
+  // assertions « le tableau doit déborder » échoueraient, puisque à 1280 px
+  // aucun tableau ne défile. L'audit ne vaut qu'en 390 × 844.
+  test.skip(
+    ({ viewport }) => (viewport?.width ?? 1280) > 480,
+    'audit mobile : lancer avec -c playwright.mobile.config.ts',
+  );
+
   test.afterAll(() => {
     expect(echecs, echecs.map(e => `${e.route} — ${e.label}`).join('\n')).toEqual([]);
   });

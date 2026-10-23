@@ -112,7 +112,15 @@ test.describe('Souscription: acte de naissance lu par OCR et verrouillé', () =>
 
     // 4. Étape 1 : choisir la première formule proposée
     await expect(page.getByText('Comparez nos formules')).toBeVisible();
-    await page.locator('button', { hasText: /\/mois/ }).first().click();
+    // La formule est rendue DEUX fois : tableau comparatif (≥ md, masqué en
+    // mobile) et cartes empilées (< md, masquées sur desktop). Un locator CSS
+    // brut attrapait le bouton du tableau caché à 390 px (click impossible) ;
+    // getByRole ne retient que l'arbre d'accessibilité, donc le rendu réellement
+    // visible pour le viewport du test — le parcours passe aux deux tailles.
+    const formulaCard = page.getByRole('button', { name: /\/mois/ }).first();
+    // Carte mobile = bouton très haut : on vise son coin supérieur plutôt que
+    // le centre, qui peut tomber hors du viewport de 844 px.
+    await formulaCard.click({ position: { x: 16, y: 16 } });
     await page.getByRole('button', { name: /Choisir / }).click();
 
     // 5. Étape 2 : upload de l'acte (l'extraction OCR est déclenchée par l'ajout du fichier)

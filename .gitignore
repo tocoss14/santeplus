@@ -19,6 +19,11 @@ test-results/
 phase4-results.json
 e2e/phase4-results.json
 
+# Pièces jointes déposées par les tests et les exécutions locales
+# (<horodatage>-<aléatoire>.<pdf|png>), écrites à la racine quand l'API tourne
+# depuis la racine du dépôt. Les fichiers déjà versionnés restent inchangés.
+/uploads/
+
 # Journaux et artefacts locaux de l'agent (logs serveurs, rapports Lighthouse, scripts d'appoint)
 .freebuff/
 
@@ -31,3 +36,4 @@ docs/~$*
 # Déploiement (Vercel / Cloudflare)
 .vercel/
 .wrangler/
+/freebuff-sites-build/

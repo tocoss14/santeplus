@@ -188,7 +188,7 @@ export default function AdminDistributors() {
           ) : items.length === 0 ? (
             <div className="card-p text-center py-8 text-slate-500">Aucun distributeur trouvé</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Distributeurs (défilement horizontal)">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">

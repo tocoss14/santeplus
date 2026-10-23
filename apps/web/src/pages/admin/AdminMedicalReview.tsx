@@ -17,7 +17,7 @@ export default function AdminMedicalReview() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Contrôle médical — file d'attente</h1>
       {items.length === 0 ? <p className="text-sm text-slate-500">Aucun dossier à contrôler.</p> : (
-        <div className="card-p overflow-x-auto">
+        <div className="card-p overflow-x-auto" tabIndex={0} role="region" aria-label="Dossiers en revue médicale (défilement horizontal)">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Référence</th><th>Adhérent</th><th>Contrat</th><th>Demandé</th><th>Approuvé</th><th>Statut</th></tr></thead>
             <tbody>

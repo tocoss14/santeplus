@@ -33,7 +33,7 @@ export default function AdminDocuments() {
         </select>
       </div>
       {!data ? <SkeletonTable bare rows={6} cols={7} /> : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Documents (défilement horizontal)">
           <table className="w-full min-w-[800px]">
             <thead><tr><th className="th">Fichier</th><th className="th">Type</th><th className="th">Version</th><th className="th">Taille</th><th className="th">Propriétaire</th><th className="th">Date</th><th className="th">Tags</th></tr></thead>
             <tbody className="divide-y">

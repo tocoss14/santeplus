@@ -50,7 +50,7 @@ export default function MobileFacturesPage() {
       </div>
 
       {/* Filtres */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-2" tabIndex={0} role="region" aria-label="Filtres de statut des factures (défilement horizontal)">
         {statusFilters.map(f => (
           <button
             key={f.value}

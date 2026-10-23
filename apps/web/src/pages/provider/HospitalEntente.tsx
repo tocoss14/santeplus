@@ -45,7 +45,7 @@ export default function HospitalEntente() {
         <button className="btn-primary" onClick={submit}>Demander entente</button>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Ententes hospitalières (défilement horizontal)">
         <table className="w-full min-w-[700px]">
           <thead><tr><th className="th">Réf</th><th className="th">Contrat</th><th className="th">Montant</th><th className="th">Statut</th><th className="th">Date</th></tr></thead>
           <tbody className="divide-y">

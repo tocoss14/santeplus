@@ -184,7 +184,7 @@ export default function AdminCommissions() {
           ) : (items?.length ?? 0) === 0 ? (
             <div className="card-p text-center py-8 text-slate-500">Aucune commission trouvée</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Commissions générées (défilement horizontal)">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">

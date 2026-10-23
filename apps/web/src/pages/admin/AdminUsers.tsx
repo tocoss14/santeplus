@@ -88,7 +88,7 @@ export default function AdminUsers() {
       {!data ? (
         <SkeletonTable bare rows={6} cols={6} />
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Utilisateurs (défilement horizontal)">
           <table className="w-full min-w-[720px]">
             <thead><tr><th className="th">Utilisateur</th><th className="th">Rôle</th><th className="th">N° assuré</th><th className="th">Inscrit le</th><th className="th">Statut</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

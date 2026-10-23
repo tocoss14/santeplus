@@ -90,7 +90,7 @@ export default function AdminClaims() {
       {!items ? (
         <SkeletonTable bare rows={6} cols={6} />
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Demandes de prise en charge (défilement horizontal)">
           <table className="w-full min-w-[760px]">
             <thead><tr><th className="th">Référence</th><th className="th">Assuré</th><th className="th">Soins</th><th className="th">Demandé</th><th className="th">Approuvé</th><th className="th">Statut</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

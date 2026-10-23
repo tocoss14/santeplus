@@ -47,7 +47,7 @@ export default function ProviderDashboard() {
         <StatCard label="Reste à charge patients" value={fcfa(data.month.patientDue)} />
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Activité récente (défilement horizontal)">
         <div className="flex items-center justify-between px-4 pt-4">
           <h2 className="font-semibold">Activité récente</h2>
           <Link to="/prestataire/prises" className="text-xs font-semibold text-brand-700 hover:underline">Tout voir</Link>

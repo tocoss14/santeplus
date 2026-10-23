@@ -33,7 +33,7 @@ export default function AdminAudit() {
       </div>
 
       <div className="card-p">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Journal d'audit (défilement horizontal)">
           <table className="w-full text-sm">
             <thead>
               <tr>

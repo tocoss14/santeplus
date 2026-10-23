@@ -93,7 +93,7 @@ export default function MobileRejetsPage() {
       <ErrorBanner message={error} />
       {notice && <p className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-700">{notice}</p>}
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-2" tabIndex={0} role="region" aria-label="Filtres de statut des rejets (défilement horizontal)">
         {statusFilters.map(filter => (
           <button
             key={filter.value}

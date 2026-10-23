@@ -102,7 +102,7 @@ export default function Employees() {
       {items.length === 0 ? (
         <EmptyState icon="👥" title="Aucun salarié enregistré" hint="Souscrivez d’abord le contrat collectif, puis ajoutez ou importez vos salariés." />
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Salariés couverts (défilement horizontal)">
           <table className="w-full min-w-[640px]">
             <thead><tr><th className="th">Salarié</th><th className="th">N° assuré</th><th className="th">Contrat</th><th className="th">Statut</th><th className="th"></th></tr></thead>
             <tbody className="divide-y divide-slate-100">
@@ -183,7 +183,7 @@ export default function Employees() {
                 ✅ {report.imported} salarié(s) importé(s){report.errors.length > 0 && ` · ⚠️ ${report.errors.length} ligne(s) rejetée(s)`}
               </p>
               {report.tempPasswords.length > 0 && (
-                <div className="mt-2 rounded bg-amber-50 border border-amber-200 p-3 text-xs max-h-40 overflow-y-auto">
+                <div className="mt-2 rounded bg-amber-50 border border-amber-200 p-3 text-xs max-h-40 overflow-y-auto" tabIndex={0} role="region" aria-label="Accès temporaires à communiquer (défilement vertical)">
                   <b>Communiquez ces accès temporaires :</b>
                   <ul className="mt-1 space-y-0.5 font-mono">
                     {report.tempPasswords.map((t: any) => (
@@ -193,7 +193,7 @@ export default function Employees() {
                 </div>
               )}
               {report.errors.length > 0 && (
-                <ul className="mt-2 space-y-1 text-xs text-red-600 max-h-32 overflow-y-auto">
+                <ul className="mt-2 space-y-1 text-xs text-red-600 max-h-32 overflow-y-auto" tabIndex={0} aria-label="Lignes rejetées à l'import (défilement vertical)">
                   {report.errors.map((er: any) => <li key={er.row}>Ligne {er.row} — {er.message}</li>)}
                 </ul>
               )}

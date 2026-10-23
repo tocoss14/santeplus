@@ -159,7 +159,7 @@ export default function BulkProviderImport({ onClose, onDone }: Props) {
               <code className="mt-1 block rounded bg-white p-2 font-mono text-lg font-bold text-emerald-800">{tempPassword}</code>
               <p className="mt-1 text-xs text-slate-500">Communiquez ce mot de passe aux prestataires. Ils devront le changer à la première connexion.</p>
             </div>
-            <div className="max-h-48 overflow-y-auto">
+            <div className="max-h-48 overflow-y-auto" tabIndex={0} role="region" aria-label="Comptes créés (défilement vertical)">
               <table className="w-full text-xs">
                 <thead><tr className="text-left text-slate-500"><th>Email</th><th>Nom</th><th>Statut</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
@@ -175,7 +175,7 @@ export default function BulkProviderImport({ onClose, onDone }: Props) {
         {exists.length > 0 && (
           <details className="card-p">
             <summary className="cursor-pointer text-sm font-semibold text-yellow-700">⚠️ {exists.length} existant(s)</summary>
-            <div className="mt-2 max-h-32 overflow-y-auto text-xs">
+            <div className="mt-2 max-h-32 overflow-y-auto text-xs" tabIndex={0} role="region" aria-label="Prestataires déjà existants (défilement vertical)">
               {exists.map(r => <p key={r.email}>{r.name} ({r.email}) — déjà existant</p>)}
             </div>
           </details>
@@ -184,7 +184,7 @@ export default function BulkProviderImport({ onClose, onDone }: Props) {
         {errors.length > 0 && (
           <details className="card-p">
             <summary className="cursor-pointer text-sm font-semibold text-red-700">❌ {errors.length} erreur(s)</summary>
-            <div className="mt-2 max-h-32 overflow-y-auto text-xs">
+            <div className="mt-2 max-h-32 overflow-y-auto text-xs" tabIndex={0} role="region" aria-label="Lignes en erreur (défilement vertical)">
               {errors.map(r => <p key={r.email}>{r.name} ({r.email}) — {r.error}</p>)}
             </div>
           </details>
@@ -227,7 +227,7 @@ export default function BulkProviderImport({ onClose, onDone }: Props) {
             <strong>{data.length}</strong> prestataire(s) détecté(s) dans le fichier.
           </div>
 
-          <div className="max-h-64 overflow-y-auto rounded-lg border">
+          <div className="max-h-64 overflow-y-auto rounded-lg border" tabIndex={0} role="region" aria-label="Aperçu des prestataires détectés (défilement vertical)">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-slate-50">
                 <tr className="text-left text-slate-500">

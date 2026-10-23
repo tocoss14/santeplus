@@ -108,7 +108,7 @@ export default function AdminContracts() {
       {!data ? (
         <SkeletonTable bare rows={6} cols={6} />
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Contrats (défilement horizontal)">
           <table className="w-full min-w-[820px]">
             <thead><tr><th className="th">Contrat</th><th className="th">Assuré / Entreprise</th><th className="th">Produit</th><th className="th">Modèle</th><th className="th">Validité</th><th className="th">Cotisation</th><th className="th">Statut</th><th className="th"></th></tr></thead>
             <tbody className="divide-y divide-slate-100">

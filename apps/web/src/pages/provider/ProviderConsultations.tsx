@@ -38,7 +38,7 @@ export default function ProviderConsultations() {
       </div>
       <ErrorBanner message={error} />
       {!items ? <SkeletonTable bare rows={6} cols={6} /> : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Consultations (défilement horizontal)">
           <table className="w-full min-w-[720px]">
             <thead><tr><th className="th">Référence</th><th className="th">Patient</th><th className="th">Praticien</th><th className="th">Motif</th><th className="th">Diagnostic</th><th className="th">Date</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

@@ -173,7 +173,7 @@ export default function CollectiveContract() {
         )}
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Échéancier du contrat collectif (défilement horizontal)">
         <table className="w-full">
           <thead><tr><th className="th">#</th><th className="th">Échéance</th><th className="th">Montant</th><th className="th">Statut</th></tr></thead>
           <tbody className="divide-y divide-slate-100">

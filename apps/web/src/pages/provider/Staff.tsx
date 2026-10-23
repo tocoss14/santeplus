@@ -34,7 +34,7 @@ export default function Staff() {
       {!items ? (
         <SkeletonTable bare rows={5} cols={5} />
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Équipe du prestataire (défilement horizontal)">
           <table className="w-full min-w-[640px]">
             <thead><tr><th className="th">Membre</th><th className="th">Email</th><th className="th">Dernière connexion</th><th className="th">Statut</th><th className="th"></th></tr></thead>
             <tbody className="divide-y divide-slate-100">

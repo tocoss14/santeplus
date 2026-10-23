@@ -17,7 +17,7 @@ export default function AdminImpayes() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Impayés et relances</h1>
       {items.length === 0 ? <p className="text-sm text-slate-500">Aucun impayé.</p> : (
-        <div className="card-p overflow-x-auto">
+        <div className="card-p overflow-x-auto" tabIndex={0} role="region" aria-label="Impayés et paliers de relance (défilement horizontal)">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Contrat</th><th>Adhérent</th><th>Produit</th><th>Montant</th><th>Échéance</th><th>Retard</th><th>Palier</th></tr></thead>
             <tbody>

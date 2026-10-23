@@ -212,7 +212,7 @@ export default function DistributorDashboard() {
               <p className="text-xs text-stone">Les commissions sont générées automatiquement quand vos recrutés souscrivent.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Commissions du distributeur (défilement horizontal)">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">

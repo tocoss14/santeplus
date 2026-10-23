@@ -32,7 +32,10 @@ export default function Offers() {
         <div className="card-p">
           <h2 className="text-xl font-bold">Nos 4 formules d'adhésion</h2>
           <p className="mt-1 text-sm text-slate-600">Cotisation annuelle pour l'assuré principal. Modulation par tranche d'âge (voir tableau ci-dessous).</p>
-          <div className="mt-4 overflow-x-auto">
+          {/* tabIndex + role="region" nommé : à 390 px le tableau défile
+              horizontalement, une zone défilante inatteignable au clavier est
+              une violation axe `scrollable-region-focusable` (sérieuse). */}
+          <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Formules d'adhésion — cotisations annuelles et mensuelles (défilement horizontal)">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Formule</th><th>Cotisation annuelle</th><th>Cotisation mensuelle</th><th>Plafond annuel</th><th>Cible</th></tr></thead>
               <tbody>
@@ -47,7 +50,7 @@ export default function Offers() {
 
         <div className="card-p">
           <h2 className="text-xl font-bold">Modulation par tranche d'âge</h2>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Modulation par tranche d'âge (défilement horizontal)">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Tranche d'âge</th><th>Essentielle (FCFA/an)</th><th>Confort (FCFA/an)</th><th>Coefficient vs 15-29 ans</th></tr></thead>
               <tbody>
@@ -64,7 +67,7 @@ export default function Offers() {
 
         <div className="card-p">
           <h2 className="text-xl font-bold">Panier de soins — taux de prise en charge</h2>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Panier de soins — taux de prise en charge par formule (défilement horizontal)">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Catégorie de soins</th><th>Essentielle</th><th>Confort</th><th>Famille</th><th>Entreprise</th></tr></thead>
               <tbody>
@@ -91,7 +94,7 @@ export default function Offers() {
 
         <div className="card-p">
           <h2 className="text-xl font-bold">Délais de carence</h2>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Délais de carence par catégorie de soins (défilement horizontal)">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Catégorie de soins</th><th>Délai de carence</th></tr></thead>
               <tbody>

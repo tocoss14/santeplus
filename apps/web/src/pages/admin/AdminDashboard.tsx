@@ -153,7 +153,7 @@ export default function AdminDashboard() {
         ) : anomalies.length === 0 ? (
           <p className="text-sm text-slate-500">Aucune anomalie détectée sur les 30 derniers jours.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Anomalies détectées (défilement horizontal)">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500">

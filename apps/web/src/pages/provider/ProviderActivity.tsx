@@ -46,7 +46,7 @@ function ConsultationsTab() {
 
   if (!items) return <SkeletonTable rows={8} />;
   return (
-    <div className="card overflow-x-auto">
+    <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Consultations (défilement horizontal)">
       <table className="w-full min-w-[720px]">
         <thead><tr>
           <th className="th">Référence</th><th className="th">Patient</th><th className="th">Praticien</th>
@@ -76,7 +76,7 @@ function PrescriptionsTab() {
 
   if (!items) return <SkeletonTable rows={8} />;
   return (
-    <div className="card overflow-x-auto">
+    <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Ordonnances (défilement horizontal)">
       <table className="w-full min-w-[720px]">
         <thead><tr>
           <th className="th">Numéro</th><th className="th">Patient</th><th className="th">Produits</th>
@@ -105,7 +105,7 @@ function DeliveriesTab() {
 
   if (!items) return <SkeletonTable rows={8} />;
   return (
-    <div className="card overflow-x-auto">
+    <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Livraisons de soins (défilement horizontal)">
       <table className="w-full min-w-[720px]">
         <thead><tr>
           <th className="th">Référence</th><th className="th">Patient</th><th className="th">Ordonnance</th>

@@ -640,7 +640,9 @@ export default function SubscribeWizard() {
       <p className="mb-2 text-xs font-semibold text-brand-700 sm:hidden" aria-live="polite">
         Étape {step + 1} sur {STEPS.length} : {STEPS[step]}
       </p>
-      <div className="mb-6 flex items-center gap-1.5 overflow-x-auto pb-1" role="list" aria-label="Progression de la souscription">
+      {/* Défile horizontalement sur écran étroit : focusable pour que les flèches
+          atteignent les étapes hors champ (axe : scrollable-region-focusable). */}
+      <div className="mb-6 flex items-center gap-1.5 overflow-x-auto pb-1" role="list" aria-label="Progression de la souscription" tabIndex={0}>
         {STEPS.map((s, i) => (
           <div key={s} className="flex min-w-[48px] flex-1 items-center gap-1.5" role="listitem" aria-current={i === step ? 'step' : undefined}>
             <span

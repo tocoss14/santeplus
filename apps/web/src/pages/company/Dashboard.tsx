@@ -74,7 +74,7 @@ export default function CompanyDashboard() {
             <div><p className="text-xs text-slate-500">Résultat provisoire</p><p className="font-semibold">{fcfa(cts.totals.result)}</p></div>
           </div>
           {cts.contracts?.length > 0 && (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Contrats de l'entreprise (défilement horizontal)">
               <table className="w-full text-sm">
                 <thead><tr><th className="th text-left">Contrat</th><th className="th text-left">Titulaire</th><th className="th text-left">Statut</th><th className="th text-right">Disponible</th><th className="th text-right">Ratio</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">

@@ -30,7 +30,7 @@ export default function ProviderPayments() {
         <StatCard label="À facturer" value={fcfa(items.filter(c => !c.invoiceNumber && c.status === 'CONFIRMED').reduce((a, c) => a + (c.totalApproved ?? 0), 0))} sub="prises en charge confirmées non facturées" />
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Prises en charge et règlements (défilement horizontal)">
         <table className="w-full min-w-[720px]">
           <thead>
             <tr><th className="th">Référence</th><th className="th">Patient</th><th className="th">Date soins</th><th className="th">Montant couvert</th><th className="th">Facture</th><th className="th">Statut</th></tr>

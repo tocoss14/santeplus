@@ -29,7 +29,7 @@ export default function AdminBranches() {
         <button className="btn-primary btn-sm mt-3" onClick={create}>Créer branche</button>
       </div>
       {!items.length ? <p className="text-sm text-slate-500">Chargement…</p> : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Branches d'assurance (défilement horizontal)">
           <table className="w-full">
             <thead><tr><th className="th">Code</th><th className="th">Nom</th><th className="th">Description</th></tr></thead>
             <tbody className="divide-y">

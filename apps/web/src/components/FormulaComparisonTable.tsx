@@ -59,7 +59,7 @@ export default function FormulaComparisonTable({ products, selectedId, onSelect 
       </div>
 
       {/* Tableau comparatif — Desktop */}
-      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm" tabIndex={0} role="region" aria-label="Comparatif des formules (défilement horizontal)">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50">

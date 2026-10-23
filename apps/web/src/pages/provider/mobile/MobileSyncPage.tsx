@@ -77,7 +77,7 @@ export default function MobileSyncPage() {
         {queue.length > 0 && (
           <div className="pt-3 border-t">
             <h3 className="font-semibold text-sm mb-2">File d'attente ({queue.length})</h3>
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <div className="max-h-64 overflow-y-auto space-y-2" tabIndex={0} role="region" aria-label="File d'attente de synchronisation (défilement vertical)">
               {queue.map(item => (
                 <div key={item.id} className="text-xs p-2 bg-slate-50 rounded">
                   <div className="flex items-center justify-between">

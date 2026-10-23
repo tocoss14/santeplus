@@ -212,7 +212,7 @@ export default function AdminAnalytics() {
 
       <div className="card-p">
         <h2 className="font-semibold">Sinistralité mensuelle</h2>
-        <div className="mt-2 overflow-x-auto">
+        <div className="mt-2 overflow-x-auto" tabIndex={0} role="region" aria-label="Primes et sinistres par période (défilement horizontal)">
           <table className="w-full min-w-[560px] text-sm">
             <thead><tr><th className="th text-left">Période</th><th className="th text-right">Primes</th><th className="th text-right">Sinistres</th><th className="th text-right">S/P</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
@@ -231,7 +231,7 @@ export default function AdminAnalytics() {
 
       <div className="card-p">
         <h2 className="font-semibold">Réserves techniques — RBNS {fcfa(data.reserves.rbns)} · IBNR {fcfa(data.reserves.ibnr)}</h2>
-        <div className="mt-2 overflow-x-auto">
+        <div className="mt-2 overflow-x-auto" tabIndex={0} role="region" aria-label="Provisions RBNS et IBNR par produit (défilement horizontal)">
           <table className="w-full min-w-[560px] text-sm">
             <thead><tr><th className="th text-left">Produit</th><th className="th text-right">RBNS</th><th className="th text-right">IBNR</th><th className="th text-right">Total</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
@@ -250,7 +250,7 @@ export default function AdminAnalytics() {
 
       <div className="card-p">
         <h2 className="font-semibold">Rentabilité par produit</h2>
-        <div className="mt-2 overflow-x-auto">
+        <div className="mt-2 overflow-x-auto" tabIndex={0} role="region" aria-label="Résultat technique par produit (défilement horizontal)">
           <table className="w-full min-w-[720px] text-sm">
             <thead><tr><th className="th text-left">Produit</th><th className="th text-right">Contrats</th><th className="th text-right">Primes</th><th className="th text-right">Sinistres</th><th className="th text-right">S/P</th><th className="th text-right">Résultat</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
@@ -271,7 +271,7 @@ export default function AdminAnalytics() {
 
       <div className="card-p">
         <h2 className="font-semibold">Principaux prestataires par montant</h2>
-        <div className="mt-2 overflow-x-auto">
+        <div className="mt-2 overflow-x-auto" tabIndex={0} role="region" aria-label="Dossiers et montants par prestataire (défilement horizontal)">
           <table className="w-full min-w-[680px] text-sm">
             <thead><tr><th className="th text-left">Prestataire</th><th className="th text-left">Type</th><th className="th text-right">Dossiers</th><th className="th text-right">Montant</th><th className="th text-right">Approbation</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

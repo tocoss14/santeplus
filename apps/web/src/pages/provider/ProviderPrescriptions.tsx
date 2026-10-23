@@ -84,7 +84,7 @@ export default function ProviderPrescriptions() {
       )}
 
       {!items ? <SkeletonTable bare rows={6} cols={6} /> : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Ordonnances (défilement horizontal)">
           <table className="w-full min-w-[720px]">
             <thead><tr><th className="th">Numéro</th><th className="th">Patient</th><th className="th">Lignes</th><th className="th">Validité</th><th className="th">Renouv.</th><th className="th">Statut</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

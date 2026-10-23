@@ -41,7 +41,7 @@ export default function AdminDiseases() {
       </div>
       {!data ? <SkeletonTable bare rows={6} cols={3} /> : (
         <>
-          <div className="card overflow-x-auto">
+          <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Maladies et catégories de soins (défilement horizontal)">
             <table className="w-full">
               <thead><tr><th className="th">Code</th><th className="th">Nom</th><th className="th">Catégorie</th></tr></thead>
               <tbody className="divide-y">

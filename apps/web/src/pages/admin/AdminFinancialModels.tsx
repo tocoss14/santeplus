@@ -64,7 +64,7 @@ export default function AdminFinancialModels() {
       {!versions ? (
         <SkeletonTable bare rows={5} cols={5} />
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Versions de modèles financiers (défilement horizontal)">
           <table className="w-full min-w-[720px]">
             <thead>
               <tr>
@@ -118,7 +118,7 @@ export default function AdminFinancialModels() {
       {!migrations.length ? (
         <p className="text-sm text-slate-500">Aucune migration enregistrée — les contrats V1 restent sur leur modèle d'origine.</p>
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Migrations de contrats V1 vers V2 (défilement horizontal)">
           <table className="w-full min-w-[720px]">
             <thead>
               <tr>

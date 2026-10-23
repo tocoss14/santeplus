@@ -73,7 +73,7 @@ export default function AdminAccounting() {
       </div>
 
       {!entries ? <SkeletonTable bare rows={6} cols={7} /> : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Écritures comptables (défilement horizontal)">
           <table className="w-full min-w-[900px]">
             <thead><tr><th className="th">Date</th><th className="th">Journal</th><th className="th">Compte</th><th className="th">Libellé</th><th className="th">Débit</th><th className="th">Crédit</th><th className="th">Période</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

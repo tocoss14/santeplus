@@ -203,7 +203,7 @@ export default function AdminTechnicalResult() {
         <div className="px-6 py-4 border-b">
           <h2 className="text-lg font-semibold">Analyse par produit</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Analyse du résultat par produit (défilement horizontal)">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50">

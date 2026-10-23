@@ -202,7 +202,7 @@ export default function AdminPositionV2() {
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Contrats et position par contrat (défilement horizontal)">
         <table className="w-full min-w-[720px]">
           <thead>
             <tr>

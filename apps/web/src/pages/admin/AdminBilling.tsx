@@ -175,7 +175,7 @@ export default function AdminBilling() {
                 <span className="ml-auto text-sm font-semibold">{fcfa(invoice.totalApproved)}</span>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Sinistres de la facture sélectionnée (défilement horizontal)">
                 <table className="w-full min-w-[560px] text-sm">
                   <thead><tr><th className="th text-left">Sinistre</th><th className="th text-right">Demandé</th><th className="th text-right">Approuvé</th><th className="th text-left">Motif de rejet</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">

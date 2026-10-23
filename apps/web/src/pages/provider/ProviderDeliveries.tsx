@@ -256,7 +256,7 @@ export default function ProviderDeliveries() {
       {!deliveries ? <SkeletonTable bare rows={6} cols={5} /> : deliveries.length === 0 ? (
         <div className="card-p text-center text-sm text-slate-500">Aucune délivrance.</div>
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Livraisons (défilement horizontal)">
           <table className="w-full min-w-[720px]">
             <thead><tr><th className="th">Référence</th><th className="th">Ordonnance</th><th className="th">Patient</th><th className="th">Montant</th><th className="th">Couvert</th><th className="th">Date</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

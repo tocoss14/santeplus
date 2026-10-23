@@ -48,7 +48,7 @@ export default function TpList() {
         <SkeletonTable bare rows={6} cols={6} />
       ) : (
         <>
-          <div className="card overflow-x-auto">
+          <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Prises en charge (défilement horizontal)">
             <table className="w-full min-w-[860px]">
               <thead>
                 <tr>

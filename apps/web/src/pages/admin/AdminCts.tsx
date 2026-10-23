@@ -90,7 +90,7 @@ export default function AdminCts() {
             </div>
           </div>
           {fund.byProduct?.length > 0 && (
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Répartition du fonds par produit (défilement horizontal)">
               <table className="w-full text-xs">
                 <thead><tr><th className="th text-left">Produit</th><th className="th text-right">Contrats</th><th className="th text-right">Contribué</th><th className="th text-right">Couvert</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
@@ -119,7 +119,7 @@ export default function AdminCts() {
         {data.critical.length === 0 ? (
           <p className="text-sm text-slate-500">Aucun contrat en bande critique ou épuisée.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Situation des contrats par bande de solidarité (défilement horizontal)">
             <table className="w-full text-sm">
               <thead><tr><th className="th text-left">Contrat</th><th className="th text-left">Produit</th><th className="th text-left">Entreprise</th><th className="th text-left">Bande</th><th className="th text-right">Disponible</th><th className="th text-right">Déficit</th><th className="th text-right">Solidarité</th></tr></thead>
               <tbody className="divide-y divide-slate-100">

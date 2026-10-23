@@ -59,7 +59,7 @@ export default function AdminFraud() {
         ) : data.items.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">Aucun dossier pour ces critères.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Dossiers suspects (défilement horizontal)">
             <table className="w-full text-sm">
               <thead>
                 <tr>

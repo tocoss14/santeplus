@@ -210,7 +210,10 @@ export default function CGA() {
       {/* Tableau comparatif rapide */}
       <section className="space-y-4">
         <h2 className="text-2xl font-bold text-slate-900">2. Résumé des formules</h2>
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
+        {/* tabIndex + role="region" nommé : à 390 px ce tableau défile
+            horizontalement ; sans accès clavier axe lève
+            `scrollable-region-focusable` (impact sérieux). */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200" tabIndex={0} role="region" aria-label="Résumé des formules (défilement horizontal)">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50">
@@ -312,7 +315,7 @@ export default function CGA() {
               {/* Tableau des garanties */}
               <div>
                 <h4 className="text-sm font-bold text-slate-700 mb-2">🛡️ Garanties et barèmes</h4>
-                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <div className="overflow-x-auto rounded-lg border border-slate-200" tabIndex={0} role="region" aria-label={`Garanties et barèmes — ${f.name} (défilement horizontal)`}>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-50">

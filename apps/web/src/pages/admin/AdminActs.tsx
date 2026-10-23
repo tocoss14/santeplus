@@ -67,7 +67,7 @@ export default function AdminActs() {
       {!items ? (
         <SkeletonTable bare rows={6} cols={5} />
       ) : (
-        <div className="overflow-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-auto rounded-lg border border-slate-200 bg-white" tabIndex={0} role="region" aria-label="Catalogue des actes et seuils d'autorisation (défilement)">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-500">
               <tr>

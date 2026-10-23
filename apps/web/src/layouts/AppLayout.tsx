@@ -146,9 +146,12 @@ export default function AppLayout({ variant = 'member' }: { variant?: string }) 
           <Outlet />
         </main>
 
+        {/* tabIndex : sur mobile la barre déborde (21 entrées côté admin) ;
+            sans focus propre, les flèches ne feraient défiler que la page. */}
         <nav
-          aria-label="Navigation principale"
-          className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex overflow-x-auto border-t border-slate-200 bg-white"
+          aria-label="Navigation principale (défilement horizontal)"
+          tabIndex={0}
+          className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex overflow-x-auto border-t border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
           {menu.items.map(item => (

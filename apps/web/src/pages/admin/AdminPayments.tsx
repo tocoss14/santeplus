@@ -79,7 +79,7 @@ export default function AdminPayments() {
       {!data ? (
         <SkeletonTable bare rows={6} cols={6} />
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto" tabIndex={0} role="region" aria-label="Paiements (défilement horizontal)">
           <table className="w-full min-w-[720px]">
             <thead><tr><th className="th">Référence</th><th className="th">Payeur</th><th className="th">Contrat</th><th className="th">Montant</th><th className="th">Moyen</th><th className="th">Date</th><th className="th">Statut</th></tr></thead>
             <tbody className="divide-y divide-slate-100">

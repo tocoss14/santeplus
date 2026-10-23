@@ -5,11 +5,13 @@ WORKDIR /app
 
 # Sonde de version (GET /api/version) — deux sources de SHA :
 # - APP_VERSION : passée par la CI GitHub (docker/build-push-action).
-# - RENDER_GIT_COMMIT : injectée par Render au build ET à l'exécution, à
-#   chaque deploy — c'est elle qui rend la sonde fiable en prod : le SHA est
-#   rafraîchi même quand les couches Docker sont en cache (un push docs-only
-#   ne change aucun des fichiers copiés plus bas, mais change
-#   RENDER_GIT_COMMIT, ce qui rejoue la couche de tampon ci-dessous).
+# - RENDER_GIT_COMMIT : SHA du deploy, injecté par Render — au RUNTIME, pas en
+#   build-arg. Un ARG Docker ne lit pas l'environnement d'exécution : sur
+#   Render cette variable est donc vide au build, et la couche de tampon
+#   ci-dessous n'est PAS invalidée à chaque commit (un push docs/e2e-only ne
+#   change aucun fichier copié). C'est pourquoi /api/version donne la priorité
+#   au SHA runtime ; le tampon ne sert plus que d'horodatage et de secours
+#   pour les images sans runtime Render (GHCR, local).
 ARG APP_VERSION=""
 ARG RENDER_GIT_COMMIT=""
 
@@ -23,12 +25,12 @@ COPY apps/api/src ./src
 RUN npx prisma generate
 RUN npm run build
 
-# Tampon de version lu par GET /api/version. ${APP_VERSION:-$RENDER_GIT_COMMIT}
-# : CI d'abord, SHA du deploy Render ensuite, sinon vide (build local).
-# La commande référence $RENDER_GIT_COMMIT : BuildKit inclut sa valeur dans la
-# clé de cache de cette couche — tout nouveau commit re-exécute le RUN
-# (builtAt frais + SHA juste), tandis qu'un re-déploiement à SHA identique
-# reste en cache (stamp inchangé, ce qui est exact).
+# Tampon de version lu par GET /api/version : ${APP_VERSION:-$RENDER_GIT_COMMIT},
+# vide hors CI et hors Render. BuildKit ne rejoue cette couche que si un ARG
+# qu'elle référence change de valeur ; comme Render n'injecte
+# RENDER_GIT_COMMIT qu'au runtime, un commit sans changement de fichier copié
+# réutilise le tampon du commit précédent. D'où la priorité au SHA runtime :
+# ici le tampon est indicatif — version de l'IMAGE et builtAt du build.
 RUN printf '{"version":"%s","builtAt":"%s"}\n' "${APP_VERSION:-$RENDER_GIT_COMMIT}" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > dist/build-info.json
 
 # ── Runtime ────────────────────────────────────────────────────────────────

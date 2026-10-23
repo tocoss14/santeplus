@@ -26,14 +26,24 @@ export class HealthController {
   /**
    * Sonde de version : le health-check du workflow de déploiement compare
    * cette réponse au SHA publié pour détecter immédiatement un déploiement
-   * périmé (image non reconstruite ou instance non recyclée). Les valeurs
-   * viennent de dist/build-info.json, tamponné par le Dockerfile au build
-   * (APP_VERSION fourni par la CI, sinon RENDER_GIT_COMMIT — le SHA du deploy,
-   * qui fait rejouer la couche de tampon à chaque commit même en cache ;
-   * builtAt horodaté à chaque exécution du tampon). APP_VERSION/BUILT_AT
-   * restent prioritaires comme échappatoire runtime, puis RENDER_GIT_COMMIT
-   * (SHA du deploy en cours, injecté par Render) referme la chaîne : la sonde
-   * reste juste même sur une image bâtie avant l'existence du tampon.
+   * périmé (image non reconstruite ou instance non recyclée).
+   *
+   * Priorité : RENDER_GIT_COMMIT (SHA du deploy, injecté par Render au runtime)
+   * > APP_VERSION (SHA passé par la CI aux images GHCR) > dist/build-info.json
+   * (tampon gravé par le Dockerfile).
+   *
+   * Le SHA runtime passe devant le tampon parce que celui-ci n'est PAS
+   * invalidé à chaque commit : BuildKit ne rejoue la couche que si une valeur
+   * d'ARG change, et Render n'injecte RENDER_GIT_COMMIT qu'au runtime, jamais
+   * en build-arg. Un commit qui ne touche aucun fichier copié par le
+   * Dockerfile (docs, e2e, fichiers racine) réutilise donc la couche telle
+   * quelle et le tampon désigne le commit PRÉCÉDENT — le 2026-10-23 la
+   * certification du déploiement a échoué pour cette raison alors que la
+   * production tournait bien sur le bon code.
+   *
+   * `builtAt` reste l'horodatage du tampon image : il documente l'image, pas le
+   * commit, et peut donc précéder `version` quand l'image vient du cache
+   * (l'échappatoire BUILT_AT permet de le fixer à la main).
    */
   @Public()
   @Get('version')
@@ -41,7 +51,7 @@ export class HealthController {
     const info = readBuildInfo();
     return {
       service: 'santeplus-api',
-      version: process.env.APP_VERSION || info.version || process.env.RENDER_GIT_COMMIT || null,
+      version: process.env.RENDER_GIT_COMMIT || process.env.APP_VERSION || info.version || null,
       builtAt: process.env.BUILT_AT || info.builtAt || null,
       time: new Date().toISOString(),
     };

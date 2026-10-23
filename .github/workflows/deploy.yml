@@ -120,8 +120,8 @@ jobs:
   # La production réelle est l'API Render https://santeplus-api-kp5t.onrender.com,
   # auto-déployée à chaque push master (auto-Deploy). Ce job certifie la
   # production sur le commit qui vient de passer la CI : health 200 puis sonde
-  # GET /api/version == SHA (APP_VERSION tamponné, sinon RENDER_GIT_COMMIT —
-  # cf. apps/api Dockerfile et admin-misc/version).
+  # GET /api/version == SHA (RENDER_GIT_COMMIT au runtime, sinon APP_VERSION /
+  # tampon image — cf. apps/api Dockerfile et admin-misc/version).
   # ──────────────────────────────────────────────
   verify-production:
     name: Vérifier production (Render auto-deploy)

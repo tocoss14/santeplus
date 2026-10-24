@@ -5,12 +5,15 @@ const FORMULAS = [
     code: 'ESS',
     name: 'Santé Essentielle',
     tagline: 'Gestion du risque de base',
-    monthlyPrice: '6 000',
-    adultPrice: '4 000',
-    childPrice: '4 000',
+    retired: false,
+    annualPrice: '25 000',
+    monthlyPrice: '2 100',
+    adultAnnual: '25 000 F/an',
+    childAnnual: '15 000 F/an',
     copay: '30%',
-    globalCap: '500 000',
-    ageLoading: '1,0 à 1,4',
+    globalCap: '600 000',
+    oopCap: '200 000',
+    ageLoading: '1,0 à 1,68',
     waitingDefault: '30 jours',
     waitingHospitalization: '90 jours',
     waitingMaternity: 'Non couverte',
@@ -28,12 +31,15 @@ const FORMULAS = [
     code: 'CONF',
     name: 'Santé Confort',
     tagline: 'Équilibre couverture / rentabilité',
-    monthlyPrice: '12 000',
-    adultPrice: '9 000',
-    childPrice: '9 000',
+    retired: false,
+    annualPrice: '28 000',
+    monthlyPrice: '2 350',
+    adultAnnual: '28 000 F/an',
+    childAnnual: '22 000 F/an',
     copay: '20%',
-    globalCap: '1 200 000',
-    ageLoading: '1,0 à 1,55',
+    globalCap: '1 800 000',
+    oopCap: '150 000',
+    ageLoading: '1,0 à 2,32',
     waitingDefault: '30 jours',
     waitingHospitalization: '90 jours',
     waitingMaternity: '10 mois',
@@ -52,14 +58,49 @@ const FORMULAS = [
     childMaxAge: '25 ans',
   },
   {
+    code: 'FAM',
+    name: 'Santé Famille',
+    tagline: 'Forfait foyer : 2 adultes + 3 enfants',
+    retired: false,
+    annualPrice: '75 000',
+    monthlyPrice: '6 250',
+    adultAnnual: 'Inclus dans le forfait',
+    childAnnual: 'Inclus dans le forfait',
+    copay: '10%',
+    globalCap: '3 000 000',
+    oopCap: '200 000',
+    ageLoading: '—',
+    waitingDefault: '30 jours',
+    waitingHospitalization: '90 jours',
+    waitingMaternity: '9 mois',
+    guarantees: [
+      { category: 'Hospitalisation', rate: '85%', cap: '800 000/an', perAct: '—', copay: '15%' },
+      { category: 'Consultation généraliste', rate: '90%', cap: '200 000/an', perAct: '—', copay: '10%' },
+      { category: 'Pharmacie', rate: '75%', cap: '400 000/an', perAct: '—', copay: '25%' },
+      { category: 'Analyses & imagerie', rate: '80%', cap: '100 000/an', perAct: '—', copay: '20%' },
+      { category: 'Soins spécialisés', rate: '85%', cap: '300 000/an', perAct: '—', copay: '15%' },
+      { category: 'Maternité', rate: '85%', cap: '400 000/an', perAct: '—', copay: '15%' },
+      { category: 'Dentaire', rate: '70%', cap: '80 000/an', perAct: '—', copay: '30%' },
+      { category: 'Optique', rate: '70%', cap: '60 000/an', perAct: '—', copay: '30%' },
+    ],
+    exclusions: [],
+    maxBeneficiaries: 5,
+    childMaxAge: '21 ans',
+  },
+  {
     code: 'EXC',
     name: 'Santé Excellence',
     tagline: 'Haute gamme pour cadres',
+    // Archivée en production (remplacée par Entreprise Cadre/VIP) : conservée
+    // comme trace documentaire, exclue de l'affichage par ACTIVE_FORMULAS.
+    retired: true,
+    annualPrice: '300 000',
     monthlyPrice: '25 000',
-    adultPrice: '20 000',
-    childPrice: '20 000',
+    adultAnnual: '240 000 F/an',
+    childAnnual: '240 000 F/an',
     copay: '10%',
     globalCap: '3 000 000',
+    oopCap: '100 000',
     ageLoading: '1,0 à 1,7',
     waitingDefault: '30 jours',
     waitingHospitalization: '90 jours',
@@ -82,12 +123,16 @@ const FORMULAS = [
   {
     code: 'ENT-PERF',
     name: 'Entreprise Performance',
-    tagline: 'Collectif à co-partage',
+    tagline: 'Collectif, co-partage employeur / salarié',
+    retired: false,
+    annualPrice: '120 000',
     monthlyPrice: '10 000',
-    adultPrice: '5 000 employ. + 5 000 sal.',
-    childPrice: '4 000',
+    // Pas de tarif « conjoint » : la cotisation est par adhérent salarié.
+    adultAnnual: '—',
+    childAnnual: '48 000 F/an',
     copay: '30%',
     globalCap: '500 000',
+    oopCap: '150 000',
     ageLoading: '—',
     waitingDefault: '15 jours',
     waitingHospitalization: '90 jours',
@@ -106,12 +151,15 @@ const FORMULAS = [
   {
     code: 'ENT-VIP',
     name: 'Entreprise Cadre / VIP',
-    tagline: 'Couverture premium collective',
+    tagline: 'Premium collectif, co-partage employeur / salarié',
+    retired: false,
+    annualPrice: '240 000',
     monthlyPrice: '20 000',
-    adultPrice: '10 000 employ. + 10 000 sal.',
-    childPrice: '8 000',
+    adultAnnual: '—',
+    childAnnual: '96 000 F/an',
     copay: '10%',
     globalCap: '1 200 000',
+    oopCap: '100 000',
     ageLoading: '—',
     waitingDefault: '15 jours',
     waitingHospitalization: '90 jours',
@@ -133,6 +181,13 @@ const FORMULAS = [
   },
 ];
 
+/**
+ * Formules réellement commercialisées. Une archivée en production (Excellence)
+ * ne doit pas être présentée comme souscriptible dans une CGA : seules les
+ * formules servies par l'API sont publiées.
+ */
+const ACTIVE_FORMULAS = FORMULAS.filter(f => !f.retired);
+
 const COST_CONTROL_MECHANISMS = [
   {
     title: '🎫 Ticket modérateur (Copay)',
@@ -151,18 +206,18 @@ const COST_CONTROL_MECHANISMS = [
   },
   {
     title: '🛑 Plafond annuel global (Stop-loss)',
-    description: "Au-delà du plafond de consommation globale par assuré (ex: 500 000 FCFA pour l'Essentielle), la mutuelle ne rembourse plus. C'est le filet de sécurité ultime.",
+    description: "Au-delà du plafond de consommation globale par assuré (ex: 600 000 FCFA pour l'Essentielle), la mutuelle ne rembourse plus. C'est le filet de sécurité ultime.",
     detail: 'Ce mécanisme empêche les explosions de coûts sur les cas lourds (cancer, transplantation…) qui pourraient mettre en péril l\'équilibre technique.',
   },
   {
     title: '⏰ Délais de carence',
     description: "Période pendant laquelle certains soins ne sont pas remboursés après souscription. Cela empêche les souscriptions opportunistes (s'inscrire juste pour se faire soigner).",
-    detail: 'Soins externes : 30 jours · Hospitalisation : 90 jours · Maternité : 10 mois (Confort/Excellence). La maternité n\'est pas couverte sur l\'Essentielle.',
+    detail: 'Soins externes : 30 jours (15 jours en Entreprise) · Hospitalisation : 90 jours · Maternité : 10 mois (Confort, Entreprise), 9 mois sur la Famille. La maternité n\'est pas couverte sur l\'Essentielle.'
   },
   {
     title: '📝 Entente préalable',
     description: "Pour tout acte coûteux (hospitalisation programmée, scanner, IRM, chirurgie), le médecin-conseil de la mutuelle doit valider l'acte AVANT sa réalisation.",
-    detail: "Sans entente préalable, la mutuelle peut refuser le remboursement (sauf urgences vitales certifiées). C'est obligatoire sur Excellence et Cadre/VIP.",
+    detail: "Sans entente préalable, la mutuelle peut refuser le remboursement (sauf urgences vitales certifiées). C'est obligatoire sur Cadre/VIP et au-delà de 150 000 FCFA sur Entreprise Performance.",
   },
   {
     title: '🤝 Fonds de solidarité mutualiste',
@@ -172,7 +227,7 @@ const COST_CONTROL_MECHANISMS = [
   {
     title: '🔬 Limite consultations spécialiste',
     description: "Nombre maximum de consultations chez un spécialiste par an. Au-delà, les consultations ne sont plus remboursées.",
-    detail: 'Essentielle : 3 consultations spécialiste/an · Confort : 5 consultations spécialiste/an · Excellence : sans limite.',
+    detail: 'Essentielle : 3 consultations spécialiste/an · Confort : 5 consultations spécialiste/an · Cadre/VIP : sans limite. Les soins spécialisés ne sont pas couverts par l\'Essentielle ni par Entreprise Performance.',
   },
 ];
 
@@ -185,10 +240,10 @@ export default function CGA() {
           Conditions Générales d'Assurance
         </h1>
         <p className="mt-2 text-lg text-slate-600">
-          SantéPlus Bénin — Formules d'assurance maladie v2.0
+          SantéPlus Bénin — Formules d'assurance maladie v2.1
         </p>
         <p className="mt-1 text-sm text-slate-600">
-          Version 2.0 · Équilibre Technique · Août 2026
+          Version 2.1 · Grille tarifaire d'octobre 2026
         </p>
       </div>
 
@@ -218,7 +273,7 @@ export default function CGA() {
             <thead>
               <tr className="bg-slate-50">
                 <th className="p-3 text-left font-semibold text-slate-600 min-w-[130px]">Formule</th>
-                <th className="p-3 text-center font-semibold text-slate-600">Prix/mois</th>
+                <th className="p-3 text-center font-semibold text-slate-600">Cotisation/an</th>
                 <th className="p-3 text-center font-semibold text-slate-600">Copay</th>
                 <th className="p-3 text-center font-semibold text-slate-600">Plafond global/an</th>
                 <th className="p-3 text-center font-semibold text-slate-600">Maternité</th>
@@ -226,13 +281,13 @@ export default function CGA() {
               </tr>
             </thead>
             <tbody>
-              {FORMULAS.map((f, i) => (
+              {ACTIVE_FORMULAS.map((f, i) => (
                 <tr key={f.code} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                   <td className="p-3">
                     <div className="font-bold text-slate-800">{f.name}</div>
                     <div className="text-xs text-slate-600">{f.tagline}</div>
                   </td>
-                  <td className="p-3 text-center font-bold text-brand-700">{f.monthlyPrice} F</td>
+                  <td className="p-3 text-center font-bold text-brand-700">{f.annualPrice} F</td>
                   <td className="p-3 text-center font-semibold">{f.copay}</td>
                   <td className="p-3 text-center">{f.globalCap} F</td>
                   <td className="p-3 text-center text-xs">{f.waitingMaternity === 'Non couverte' ? <span className="text-red-700 font-medium">✗ Non</span> : <span className="text-emerald-700 font-medium">✓ {f.waitingMaternity}</span>}</td>
@@ -247,7 +302,7 @@ export default function CGA() {
       {/* Détail par formule */}
       <section className="space-y-6">
         <h2 className="text-2xl font-bold text-slate-900">3. Barèmes détaillés par formule</h2>
-        {FORMULAS.map(f => (
+        {ACTIVE_FORMULAS.map(f => (
           <div key={f.code} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-6 py-4">
               <div>
@@ -256,12 +311,12 @@ export default function CGA() {
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <div className="text-center">
-                  <div className="text-2xl font-extrabold text-white">{f.monthlyPrice}<span className="text-sm font-normal"> F</span></div>
+                  <div className="text-2xl font-extrabold text-white">{f.annualPrice}<span className="text-sm font-normal"> F</span></div>
                   {/* text-slate-300 et non slate-600 : sur la bande slate-800→900,
                       slate-600 ne donnait que 1,9:1 de contraste (WCAG AA exige
                       4,5:1) — axe ne le signalait pas, le dégradé l'empêchant de
                       calculer la couleur de fond. */}
-                    <div className="text-xs text-slate-200">Adhérent/mois</div>
+                    <div className="text-xs text-slate-200">Adhérent/an</div>
                 </div>
                 <div className="text-center">
                     <div className="text-2xl font-extrabold text-amber-200">{f.copay}</div>
@@ -275,21 +330,27 @@ export default function CGA() {
               <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
                 <div className="rounded-lg bg-slate-50 p-3">
                   <div className="text-slate-600 text-xs">Adhérent seul</div>
-                  <div className="font-bold text-slate-800">{f.monthlyPrice} F/mois</div>
+                  <div className="font-bold text-slate-800">{f.annualPrice} F/an</div>
+                  <div className="text-xs text-slate-600">soit {f.monthlyPrice} F/mois</div>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
                   <div className="text-slate-600 text-xs">Conjoint / adulte</div>
-                  <div className="font-bold text-slate-800">{f.adultPrice} F/mois</div>
+                  <div className="font-bold text-slate-800">{f.adultAnnual}</div>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
                   <div className="text-slate-600 text-xs">Enfant</div>
-                  <div className="font-bold text-slate-800">{f.childPrice} F/mois</div>
+                  <div className="font-bold text-slate-800">{f.childAnnual}</div>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
                   <div className="text-slate-600 text-xs">Ayants droit max</div>
                   <div className="font-bold text-slate-800">{f.maxBeneficiaries} (max {f.childMaxAge})</div>
                 </div>
               </div>
+
+              <p className="text-sm text-slate-700">
+                Plafond annuel global : <strong>{f.globalCap} FCFA</strong> · Plafond annuel de reste à charge :{' '}
+                <strong>{f.oopCap} FCFA</strong>.
+              </p>
 
               {/* Délais de carence */}
               <div>
@@ -403,8 +464,8 @@ export default function CGA() {
         <ol className="space-y-3 text-sm text-slate-700">
           {[
             { step: '1', title: 'Vérification du statut du contrat', detail: 'Le contrat doit être ACTIF et les cotisations à jour.' },
-            { step: '2', title: 'Vérification du délai de carence global', detail: 'Le soin doit intervenir après le délai de carence (30 jours soins externes, 90 jours hospitalisation).' },
-            { step: '3', title: 'Vérification du délai de carence par catégorie', detail: 'Délai spécifique : maternité = 10 mois (Confort, Excellence, Entreprise).' },
+            { step: '2', title: 'Vérification du délai de carence global', detail: 'Le soin doit intervenir après le délai de carence (30 jours soins externes, 15 jours en Entreprise ; 90 jours hospitalisation).' },
+            { step: '3', title: 'Vérification du délai de carence par catégorie', detail: 'Délai spécifique : maternité = 10 mois (Confort, Entreprise), 9 mois sur la Famille.' },
             { step: '4', title: 'Vérification des exclusions', detail: 'Certaines catégories sont exclues de la formule (ex: dentaire, optique sur l\'Essentielle).' },
             { step: '5', title: 'Vérification du plafond annuel par catégorie', detail: 'Le plafond annuel de la catégorie doit avoir un reste disponible.' },
             { step: '6', title: 'Vérification du plafond annuel global', detail: 'La dépense totale de l\'assuré ne doit pas dépasser le stop-loss global.' },

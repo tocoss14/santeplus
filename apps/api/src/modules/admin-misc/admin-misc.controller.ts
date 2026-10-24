@@ -58,6 +58,97 @@ export class HealthController {
   }
 }
 
+/**
+ * État des migrations Prisma, en lecture seule et sans authentification : la
+ * certification de production peut ainsi vérifier que la base a bien absorbé
+ * le schéma du commit déployé, sans jamais manipuler DATABASE_URL.
+ *
+ * Deux sources sont comparées :
+ * - les dossiers livrés dans l'image (`prisma/migrations/*`), donc le schéma
+ *   attendu par le code en cours d'exécution ;
+ * - la table `_prisma_migrations` (source de vérité de ce qui a été appliqué).
+ *
+ * Le verdict est porté par le champ `status`, pas par le code HTTP : la route
+ * répond toujours 200. Un 500 sur une base momentanément injoignable ferait
+ * échouer une certification pour une cause transitoire sans dire laquelle ;
+ * ici `status: "unknown"` + `error` restent lisibles par un humain comme par
+ * un job CI (`curl -fsS … | jq -e '.status == "up-to-date"'`).
+ */
+@Controller()
+export class MigrationsController {
+  constructor(private prisma: PrismaService) {}
+
+  @Public()
+  @Get('migrations')
+  async migrations() {
+    const expected = readMigrationFolders();
+
+    let rows: MigrationRow[];
+    try {
+      rows = await this.prisma.$queryRaw<MigrationRow[]>`
+        SELECT migration_name, finished_at, rolled_back_at
+        FROM _prisma_migrations
+        ORDER BY started_at ASC
+      `;
+    } catch {
+      // Table absente (base jamais migrée) ou base injoignable : on le dit, on
+      // ne masque pas l'incident derrière un 200 optimiste.
+      return {
+        service: 'santeplus-api',
+        status: 'unknown' as const,
+        applied: null,
+        total: expected.length,
+        last: null,
+        pending: [] as string[],
+        failed: [] as string[],
+        rolledBack: [] as string[],
+        error: 'Table _prisma_migrations illisible — base injoignable ou jamais migrée',
+        time: new Date().toISOString(),
+      };
+    }
+
+    const isFinished = (r: MigrationRow) => r.finished_at !== null && r.finished_at !== undefined;
+    const isRolledBack = (r: MigrationRow) => r.rolled_back_at !== null && r.rolled_back_at !== undefined;
+
+    const appliedRows = rows.filter(r => isFinished(r) && !isRolledBack(r));
+    const appliedNames = appliedRows.map(r => r.migration_name);
+    // Une ligne sans finished_at ni rolled_back_at = migration tentée et
+    // interrompue : `prisma migrate deploy` refuse de continuer tant qu'elle
+    // n'est pas résolue. C'est la panne qu'il faut voir, pas la noyer.
+    const failed = rows.filter(r => !isFinished(r) && !isRolledBack(r)).map(r => r.migration_name);
+    const rolledBack = rows.filter(r => isRolledBack(r)).map(r => r.migration_name);
+    // En attente = livrée dans l'image mais jamais tentée. Les migrations en
+    // échec ou annulées sont comptées à part : elles ne sont pas « en attente
+    // de déploiement », elles demandent une intervention.
+    const attempted = new Set([...appliedNames, ...failed, ...rolledBack]);
+    const pending = expected.filter(name => !attempted.has(name));
+
+    const lastRow = [...appliedRows].sort((a, b) => a.migration_name.localeCompare(b.migration_name)).pop();
+
+    const status = failed.length > 0
+      ? 'failed'
+      : pending.length > 0
+        ? 'pending'
+        : expected.length === 0
+          ? 'unknown'
+          : 'up-to-date';
+
+    return {
+      service: 'santeplus-api',
+      status,
+      applied: appliedNames.length,
+      total: expected.length,
+      last: lastRow
+        ? { name: lastRow.migration_name, finishedAt: toIso(lastRow.finished_at) }
+        : null,
+      pending,
+      failed,
+      rolledBack,
+      time: new Date().toISOString(),
+    };
+  }
+}
+
 @Controller('admin')
 export class AdminMiscController {
   constructor(private prisma: PrismaService) {}
@@ -180,6 +271,45 @@ export class AdminMiscController {
   }
 }
 
+type MigrationRow = {
+  migration_name: string;
+  finished_at: Date | string | null;
+  rolled_back_at: Date | string | null;
+};
+
+function toIso(value: Date | string | null): string | null {
+  if (value === null || value === undefined) return null;
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+/**
+ * Dossiers `migration.sql` présents dans l'image, triés (le préfixe horodaté
+ * rend l'ordre lexicographique chronologique). Candidats : cwd du conteneur
+ * (`/app`), racine du workspace (`apps/api` en dev/test) et chemin relatif au
+ * module compilé — les trois pointent vers le même dossier sans dépendre du
+ * répertoire courant.
+ */
+function readMigrationFolders(): string[] {
+  const candidates = [
+    path.resolve(process.cwd(), 'prisma', 'migrations'),
+    path.resolve(process.cwd(), 'apps', 'api', 'prisma', 'migrations'),
+    path.resolve(__dirname, '..', '..', '..', 'prisma', 'migrations'),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const names = fs.readdirSync(dir, { withFileTypes: true })
+        .filter(d => d.isDirectory() && fs.existsSync(path.join(dir, d.name, 'migration.sql')))
+        .map(d => d.name)
+        .sort();
+      if (names.length > 0) return names;
+    } catch {
+      // dossier illisible : candidat suivant
+    }
+  }
+  return [];
+}
+
 /**
  * Lit dist/build-info.json sans jamais lever : sonde dégradée (valeurs vides)
  * si le fichier est absent ou illisible — par exemple en dev hors Docker.
@@ -205,5 +335,5 @@ function safeParse(v: string): any {
   }
 }
 
-@Module({ controllers: [HealthController, AdminMiscController] })
+@Module({ controllers: [HealthController, MigrationsController, AdminMiscController] })
 export class AdminMiscModule {}

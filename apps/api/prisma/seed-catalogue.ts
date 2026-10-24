@@ -245,8 +245,11 @@ const PRODUCTS = [
     code: 'FAM', name: 'Santé Famille', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 3, partner: 'A',
     description: 'Forfait familial : 2 adultes + 3 enfants maximum. Ticket modérateur 10%.',
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
-    basePremiumAnnual: 78000, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
-    thirdPartyAuthThreshold: 200000, globalAnnualCap: 4000000, oopAnnualCap: 200000,
+    // Grille prudente d'octobre 2026 (migration 20261021000000) : 75 000 FCFA
+    // de forfait et 3 000 000 de plafond global. Le catalogue s'aligne sur la
+    // base pour qu'une réinstallation ne réintroduise pas l'ancienne grille.
+    basePremiumAnnual: 75000, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
+    thirdPartyAuthThreshold: 200000, globalAnnualCap: 3000000, oopAnnualCap: 200000,
     ageLoadings: [],
     beneficiaryRules: { spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 5 },
     eligibilityConditions: { waitingPeriodDays: { default: 30, hospitalization: 90, maternity: 270 }, copayRate: 10 },

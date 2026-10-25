@@ -139,13 +139,13 @@ export default function Offers() {
         </div>
       </section>
 
-      <section className="mt-12 card-p bg-slate-900 text-white border-slate-900">
+      <div className="mt-12 card-p bg-slate-900 text-white border-slate-900">
         <h2 className="text-lg font-bold">Vous êtes une entreprise ?</h2>
         <p className="mt-1 text-sm text-slate-300">
           Créez un compte entreprise depuis la page d’inscription entreprise, importez vos salariés par CSV et souscrivez le contrat collectif.
         </p>
         <Link to="/login" className="btn-outline mt-3 btn-sm">Contact commercial dans l’espace support</Link>
-      </section>
+      </div>
 
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDetail(null)}>

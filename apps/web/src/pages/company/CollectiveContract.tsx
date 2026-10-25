@@ -3,6 +3,38 @@ import { api, API_BASE } from '../../api';
 import { fcfa, fmtDate, FREQUENCY_LABELS, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Spinner, StatusBadge } from '../../components/ui';
 
+export function collectiveQuote(product: any, employeesCount: number, frequency: string) {
+  if (!product) {
+    return {
+      perEmployeeAnnual: 0,
+      subtotalAnnual: 0,
+      annualTotal: 0,
+      factor: 1,
+      periods: frequency === 'MONTHLY' ? 12 : frequency === 'QUARTERLY' ? 4 : 1,
+      firstContribution: 0,
+      adhesion: employeesCount * 3000,
+      firstPayment: employeesCount * 3000,
+    };
+  }
+  const basePremiumAnnual = product.basePremiumAnnual ?? 0;
+  const factor = (JSON.parse(product.frequencyFactors || '{}'))[frequency] ?? 1;
+  const annualTotal = Math.round(basePremiumAnnual * employeesCount * factor / 5) * 5;
+  const periods = frequency === 'MONTHLY' ? 12 : frequency === 'QUARTERLY' ? 4 : 1;
+  const firstContribution = Math.ceil(annualTotal / periods);
+  const adhesionRaw = employeesCount * 3000;
+  const adhesion = Math.min(adhesionRaw, 100000);
+  return {
+    perEmployeeAnnual: basePremiumAnnual,
+    subtotalAnnual: basePremiumAnnual * employeesCount,
+    annualTotal,
+    factor,
+    periods,
+    firstContribution,
+    adhesion,
+    firstPayment: firstContribution + adhesion,
+  };
+}
+
 export default function CollectiveContract() {
   const [contract, setContract] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -109,13 +141,13 @@ export default function CollectiveContract() {
                 <div className="card-p text-sm">
                   <p className="font-medium">Estimation</p>
                   <p className="mt-1 text-slate-500">
-                    {fcfa(products.find(p => p.id === productId)?.pricePerAdditionalAdultAnnual ?? 0)} / salarié / an — Total cotisation : {fcfa((products.find(p => p.id === productId)?.pricePerAdditionalAdultAnnual ?? 0) * employeesCount)}
+                    {fcfa(products.find(p => p.id === productId)?.basePremiumAnnual ?? 0)} / salarié / an — Total cotisation : {fcfa((products.find(p => p.id === productId)?.basePremiumAnnual ?? 0) * employeesCount)}
                   </p>
                 </div>
                 <div className="card-p bg-amber-50 text-sm">
                   <div className="flex justify-between"><span className="text-slate-600">Frais d'adhésion (une fois)</span><span className="font-medium">{employeesCount} × 3 000 = {fcfa(Math.min(employeesCount * 3000, 100000))}</span></div>
                   <p className="mt-1 text-xs text-amber-700">Plafond entreprise : 100 000 FCFA · Payable avec la 1ère échéance</p>
-                  <div className="mt-2 flex justify-between border-t border-amber-200 pt-2 font-bold"><span>Total 1er paiement</span><span>{fcfa((products.find(p => p.id === productId)?.pricePerAdditionalAdultAnnual ?? 0) * employeesCount / (frequency === 'MONTHLY' ? 12 : frequency === 'QUARTERLY' ? 4 : 1) + Math.min(employeesCount * 3000, 100000))} (cotisation + adhésion)</span></div>
+                  <div className="mt-2 flex justify-between border-t border-amber-200 pt-2 font-bold"><span>Total 1er paiement</span><span>{fcfa((products.find(p => p.id === productId)?.basePremiumAnnual ?? 0) * employeesCount / (frequency === 'MONTHLY' ? 12 : frequency === 'QUARTERLY' ? 4 : 1) + Math.min(employeesCount * 3000, 100000))} (cotisation + adhésion)</span></div>
                 </div>
               </>
             )}

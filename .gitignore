@@ -4,6 +4,8 @@ dist/
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 apps/api/uploads/
+/uploads/
+.tmp-verify/
 .env
 .env.local
 .env.prod

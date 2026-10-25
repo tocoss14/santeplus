@@ -423,8 +423,17 @@ export class SubscriptionService {
       throw new BadRequestException('Nombre de salariés invalide (1 à 5000)');
 
     const parsed = this.parseProduct(product);
-    const totalAnnual =
-      employeesCount * parsed.pricePerAdditionalAdultAnnual;
+
+    // Tarif par salarié pour les formules collectives = basePremiumAnnual.
+    // pricePerAdditionalAdultAnnual est un champ individuel (surcharge d'âge /
+    // ayants droit supplémentaires) ; sur les offres COMPANY en production il est
+    // à 0. Utiliser basePremiumAnnual évite que subscribeCompany ne facture 0
+    // quand le catalogue B2B a été seedé avec 0 sur ce champ (ENT-PERF / ENT-VIP).
+    const perEmployeeAnnual = parsed.basePremiumAnnual;
+    if (!Number.isFinite(perEmployeeAnnual) || perEmployeeAnnual <= 0) {
+      throw new BadRequestException('Cotisation par salarié non configurée sur ce produit');
+    }
+    const totalAnnual = employeesCount * perEmployeeAnnual;
     const factor = parsed.frequencyFactors[frequency] ?? 1;
     const total = Math.round((totalAnnual * factor) / 5) * 5;
     const quote = {

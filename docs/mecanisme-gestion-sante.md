@@ -51,17 +51,22 @@ Il n’y a **pas de réassurance externe** : le filet de sécurité est interne 
 
 ### 3.1 Barèmes par formule (taux brut / ticket modérateur / plafond annuel / max par acte)
 
+Le 4e nombre est le **barème par acte** (`maxUnitPrice`), appliqué depuis la migration `20261025000000_per_act_schedule` — il était publié dans la CGA mais absent de toutes les lignes `ProductGuarantee` avant cette date.
+
 **ESS** : consultation 70 %/30 %/100 000/10 000 · pharmacie 60 %/40 %/180 000/15 000 par ordonnance · labo 50 %/50 %/30 000/10 000 par acte · hospitalisation 60 %/40 %/150 000/45 000 par jour. Exclusions : maternité, dentaire, optique, spécialisé.
-**CONF** : consultation 80 %/20 %/144 000/12 000 · pharmacie 70 %/30 %/360 000/30 000 par ordonnance · labo 70 %/30 %/75 000/15 000 · spécialisé 70 %/30 %/200 000/15 000 (max 5/an) · maternité forfait 200 000, taux 100 %, **copay 0** · dentaire 60 %/40 %/40 000 · optique forfait 30 000/2 ans, **copay 0**.
-**EXC** : consultations 90 %/10 %/300 000/25 000 · hospitalisation 90 %/10 %/1 500 000/45 000 par jour · pharmacie 90 %/10 %/600 000/40 000 par ordonnance · labo 90 %/10 %/250 000 · spécialisé 90 %/10 %/500 000 · maternité 80 %/20 %/400 000 · dentaire 80 %/20 %/100 000 · optique 70 %/30 %/80 000.
-**ENT-PERF** : consultation 70 %/30 % · pharmacie 70 %/30 % · labo 70 %/30 % · hospitalisation 70 %/30 %/350 000 · maternité forfait 150 000, **copay 0**. Exclusions : dentaire, optique, spécialisé.
-**ENT-VIP** : consultation 90 %/10 % · pharmacie 85 %/15 % · labo 85 %/15 % · spécialisé 85 %/15 %/400 000 · maternité 85 %/15 %/300 000 · dentaire 70 %/30 %/60 000 · optique 60 %/40 %/50 000.
+**CONF** : consultation 80 %/20 %/144 000/12 000 · pharmacie 70 %/30 %/360 000/30 000 par ordonnance · labo 70 %/30 %/75 000/15 000 · spécialisé 70 %/30 %/200 000/15 000 (max 5/an) · maternité forfait 200 000, taux 100 %, **copay 0** · dentaire 60 %/40 %/40 000/15 000 · optique forfait 30 000/2 ans, **copay 0**.
+**FAM** : forfait foyer 75 000/an, plafond global 3 000 000 · consultation 90 %/10 %/200 000/12 000 · pharmacie 75 %/25 %/400 000/30 000 par ordonnance · labo 80 %/20 %/100 000/15 000 · spécialisé 85 %/15 %/300 000/15 000 · hospitalisation 85 %/15 %/800 000/45 000 par jour · maternité forfait 400 000, 85 %/15 % · dentaire 70 %/30 %/80 000/15 000 · optique forfait 60 000, 70 %/30 %.
+**EXC** (archivée, non commercialisée) : consultations 90 %/10 %/300 000/25 000 · hospitalisation 90 %/10 %/1 500 000/45 000 par jour · pharmacie 90 %/10 %/600 000/40 000 par ordonnance · labo 90 %/10 %/250 000/25 000 · spécialisé 90 %/10 %/500 000/25 000 · maternité 80 %/20 %/400 000 · dentaire 80 %/20 %/100 000/15 000 · optique 70 %/30 %/80 000.
+**ENT-PERF** : consultation 70 %/30 %/120 000/10 000 · pharmacie 70 %/30 %/300 000/25 000 · labo 70 %/30 %/50 000/10 000 · hospitalisation 70 %/30 %/350 000/45 000 par jour · maternité forfait 150 000, **copay 0**. Exclusions : dentaire, optique, spécialisé.
+**ENT-VIP** : consultation 90 %/10 %/240 000/20 000 · pharmacie 85 %/15 %/480 000/40 000 · labo 85 %/15 %/150 000/25 000 · spécialisé 85 %/15 %/400 000/25 000 · hospitalisation 90 %/10 %/1 000 000/45 000 par jour · maternité 85 %/15 %/300 000 · dentaire 70 %/30 %/60 000/15 000 · optique 60 %/40 %/50 000.
+
+**Maternité et optique n'ont pas de barème par acte** : ce sont des forfaits (un accouchement, un équipement), le plafond annuel est le plafond de l'acte. **L'hospitalisation se plafonne par journée** ; le moteur plafonne une ligne de réclamation, donc une hospitalisation de N jours se déclare en N lignes.
 
 ### 3.2 Règles de calcul (moteur `estimateClaim`)
 
 Ordre strict appliqué à chaque poste :
 1. contrat actif + date dans la période de couverture ;
-2. délai de carence global (30 j soins externes ; 90 j hospitalisation ; 300 j maternité CONF/EXC/entreprise ; maternité non couverte sur ESS) ;
+2. délai de carence global (30 j soins externes ; 90 j hospitalisation ; 300 j maternité CONF/EXC/entreprise, 270 j Famille ; maternité non couverte sur ESS) ;
 3. exclusions de la formule ;
 4. plafond annuel par catégorie (cumul contrat ou par personne si `familyLimit`) ;
 5. plafond foyer le cas échéant ;

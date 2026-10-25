@@ -201,6 +201,9 @@ async function main() {
             limitStep: g.limitStep ?? 50000,
             pricePerLimitStep: g.pricePerLimitStep ?? 0,
             copayRate: g.copayRate ?? 15,
+            // Sans cette ligne, le barème par acte déclaré plus bas n'était
+            // jamais écrit : le seed produisait un catalogue sans maxUnitPrice.
+            maxUnitPrice: g.maxUnitPrice ?? null,
             mandatory: g.mandatory ?? true,
             customizable: g.customizable ?? false,
           })),
@@ -300,12 +303,12 @@ async function main() {
       { category: 'LABORATORY', limit: 75000, rate: 70, minRate: 70, maxRate: 70, minLimit: 75000, maxLimit: 75000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 15000 },
       // Soins spécialisés : 70%, maxUnitPrice 15 000/acte
       { category: 'SPECIALIZED', limit: 200000, rate: 70, minRate: 70, maxRate: 70, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 15000 },
-      // Maternité : forfait 200 000 FCFA, sans copay explicite
-      { category: 'MATERNITY', limit: 200000, rate: 100, minRate: 100, maxRate: 100, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, copayRate: 0, maxUnitPrice: 200000 },
+      // Maternité : forfait 200 000 FCFA — le plafond annuel EST le plafond de l'acte.
+      { category: 'MATERNITY', limit: 200000, rate: 100, minRate: 100, maxRate: 100, minLimit: 200000, maxLimit: 200000, limitStep: 0, customizable: false, copayRate: 0 },
       // Dentaire : 60%, maxUnitPrice 15 000/acte
       { category: 'DENTAL', limit: 40000, rate: 60, minRate: 60, maxRate: 60, minLimit: 40000, maxLimit: 40000, limitStep: 0, customizable: false, copayRate: 40, maxUnitPrice: 15000 },
-      // Optique : forfait 30 000 FCFA tous les 2 ans, sans copay explicite
-      { category: 'OPTICAL', limit: 30000, rate: 100, minRate: 100, maxRate: 100, minLimit: 30000, maxLimit: 30000, limitStep: 0, customizable: false, copayRate: 0, maxUnitPrice: 30000 },
+      // Optique : forfait 30 000 FCFA tous les 2 ans — pas de barème par acte.
+      { category: 'OPTICAL', limit: 30000, rate: 100, minRate: 100, maxRate: 100, minLimit: 30000, maxLimit: 30000, limitStep: 0, customizable: false, copayRate: 0 },
     ],
   });
 
@@ -349,12 +352,12 @@ async function main() {
       { category: 'LABORATORY', limit: 250000, rate: 90, minRate: 90, maxRate: 90, minLimit: 250000, maxLimit: 250000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 25000 },
       // Soins spécialisés : 90%, maxUnitPrice 25 000/acte
       { category: 'SPECIALIZED', limit: 500000, rate: 90, minRate: 90, maxRate: 90, minLimit: 500000, maxLimit: 500000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 25000 },
-      // Maternité : 80%, plafond 400 000 FCFA
-      { category: 'MATERNITY', limit: 400000, rate: 80, minRate: 80, maxRate: 80, minLimit: 400000, maxLimit: 400000, limitStep: 0, customizable: false, copayRate: 20, maxUnitPrice: 400000 },
+      // Maternité : 80%, plafond 400 000 FCFA — forfait, pas de barème par acte.
+      { category: 'MATERNITY', limit: 400000, rate: 80, minRate: 80, maxRate: 80, minLimit: 400000, maxLimit: 400000, limitStep: 0, customizable: false, copayRate: 20 },
       // Dentaire : 80%, maxUnitPrice 15 000/acte
       { category: 'DENTAL', limit: 100000, rate: 80, minRate: 80, maxRate: 80, minLimit: 100000, maxLimit: 100000, limitStep: 0, customizable: false, copayRate: 20, maxUnitPrice: 15000 },
-      // Optique : 70%, maxUnitPrice 80 000 FCFA tous les 2 ans
-      { category: 'OPTICAL', limit: 80000, rate: 70, minRate: 70, maxRate: 70, minLimit: 80000, maxLimit: 80000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 80000 },
+      // Optique : 70%, plafond 80 000 FCFA tous les 2 ans — forfait, pas de barème par acte.
+      { category: 'OPTICAL', limit: 80000, rate: 70, minRate: 70, maxRate: 70, minLimit: 80000, maxLimit: 80000, limitStep: 0, customizable: false, copayRate: 30 },
     ],
   });
 
@@ -380,14 +383,14 @@ async function main() {
       globalAnnualCapPerEmployee: 500000, // Plafond de consommation globale par salarié
     }),
     guarantees: [
-      // Hospitalisation : 70%, plafond 350 000 FCFA/an
-      { category: 'HOSPITALIZATION', limit: 350000, rate: 70, minRate: 70, maxRate: 70, minLimit: 350000, maxLimit: 350000, limitStep: 0, customizable: false, copayRate: 30 },
+      // Hospitalisation : 70%, plafond 350 000 FCFA/an, 45 000 par journée
+      { category: 'HOSPITALIZATION', limit: 350000, rate: 70, minRate: 70, maxRate: 70, minLimit: 350000, maxLimit: 350000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 45000 },
       // Consultations : 70%, plafond 10 000 FCFA/acte
-      { category: 'CONSULTATION', limit: 120000, rate: 70, minRate: 70, maxRate: 70, minLimit: 120000, maxLimit: 120000, limitStep: 0, customizable: false, copayRate: 30 },
-      // Pharmacie : 70%, plafond 25 000 FCFA/mois (300 000/an)
-      { category: 'PHARMACY', limit: 300000, rate: 70, minRate: 70, maxRate: 70, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 30 },
-      // Analyses : 70%, plafond 50 000 FCFA/an
-      { category: 'LABORATORY', limit: 50000, rate: 70, minRate: 70, maxRate: 70, minLimit: 50000, maxLimit: 50000, limitStep: 0, customizable: false, copayRate: 30 },
+      { category: 'CONSULTATION', limit: 120000, rate: 70, minRate: 70, maxRate: 70, minLimit: 120000, maxLimit: 120000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 10000 },
+      // Pharmacie : 70%, plafond 25 000 FCFA/ordonnance
+      { category: 'PHARMACY', limit: 300000, rate: 70, minRate: 70, maxRate: 70, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 25000 },
+      // Analyses : 70%, plafond 10 000 FCFA/acte
+      { category: 'LABORATORY', limit: 50000, rate: 70, minRate: 70, maxRate: 70, minLimit: 50000, maxLimit: 50000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 10000 },
       // Maternité : forfait 150 000 FCFA, carence 10 mois, sans copay explicite
       { category: 'MATERNITY', limit: 150000, rate: 100, minRate: 100, maxRate: 100, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 0 },
     ],
@@ -421,20 +424,20 @@ async function main() {
       priorAuthRequired: true, // Entente préalable obligatoire pour hospitalisations
     }),
     guarantees: [
-      // Hospitalisation (toutes cliniques) : 90%, plafond 1 000 000 FCFA/an, entente préalable
-      { category: 'HOSPITALIZATION', limit: 1000000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1000000, maxLimit: 1000000, limitStep: 0, customizable: false, copayRate: 10 },
+      // Hospitalisation (toutes cliniques) : 90%, plafond 1 000 000 FCFA/an, 45 000 par journée
+      { category: 'HOSPITALIZATION', limit: 1000000, rate: 90, minRate: 90, maxRate: 90, minLimit: 1000000, maxLimit: 1000000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 45000 },
       // Consultations : 90%, plafond 20 000 FCFA/acte
-      { category: 'CONSULTATION', limit: 240000, rate: 90, minRate: 90, maxRate: 90, minLimit: 240000, maxLimit: 240000, limitStep: 0, customizable: false, copayRate: 10 },
-      // Pharmacie : 85%, plafond 40 000 FCFA/mois (480 000/an)
-      { category: 'PHARMACY', limit: 480000, rate: 85, minRate: 85, maxRate: 85, minLimit: 480000, maxLimit: 480000, limitStep: 0, customizable: false, copayRate: 15 },
-      // Analyses & imagerie : 85%, plafond 150 000 FCFA/an
-      { category: 'LABORATORY', limit: 150000, rate: 85, minRate: 85, maxRate: 85, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 15 },
-      // Soins spécialisés : 85%, plafond 400 000 FCFA/an
-      { category: 'SPECIALIZED', limit: 400000, rate: 85, minRate: 85, maxRate: 85, minLimit: 400000, maxLimit: 400000, limitStep: 0, customizable: false, copayRate: 15 },
+      { category: 'CONSULTATION', limit: 240000, rate: 90, minRate: 90, maxRate: 90, minLimit: 240000, maxLimit: 240000, limitStep: 0, customizable: false, copayRate: 10, maxUnitPrice: 20000 },
+      // Pharmacie : 85%, plafond 40 000 FCFA/ordonnance
+      { category: 'PHARMACY', limit: 480000, rate: 85, minRate: 85, maxRate: 85, minLimit: 480000, maxLimit: 480000, limitStep: 0, customizable: false, copayRate: 15, maxUnitPrice: 40000 },
+      // Analyses & imagerie : 85%, plafond 25 000 FCFA/acte
+      { category: 'LABORATORY', limit: 150000, rate: 85, minRate: 85, maxRate: 85, minLimit: 150000, maxLimit: 150000, limitStep: 0, customizable: false, copayRate: 15, maxUnitPrice: 25000 },
+      // Soins spécialisés : 85%, plafond 25 000 FCFA/acte
+      { category: 'SPECIALIZED', limit: 400000, rate: 85, minRate: 85, maxRate: 85, minLimit: 400000, maxLimit: 400000, limitStep: 0, customizable: false, copayRate: 15, maxUnitPrice: 25000 },
       // Maternité : 85%, plafond 300 000 FCFA, carence 10 mois
       { category: 'MATERNITY', limit: 300000, rate: 85, minRate: 85, maxRate: 85, minLimit: 300000, maxLimit: 300000, limitStep: 0, customizable: false, copayRate: 15 },
-      // Dentaire : 70%, plafond 60 000 FCFA/an
-      { category: 'DENTAL', limit: 60000, rate: 70, minRate: 70, maxRate: 70, minLimit: 60000, maxLimit: 60000, limitStep: 0, customizable: false, copayRate: 30 },
+      // Dentaire : 70%, plafond 15 000 FCFA/acte
+      { category: 'DENTAL', limit: 60000, rate: 70, minRate: 70, maxRate: 70, minLimit: 60000, maxLimit: 60000, limitStep: 0, customizable: false, copayRate: 30, maxUnitPrice: 15000 },
       // Optique : 60%, plafond 50 000 FCFA tous les 2 ans
       { category: 'OPTICAL', limit: 50000, rate: 60, minRate: 60, maxRate: 60, minLimit: 50000, maxLimit: 50000, limitStep: 0, customizable: false, copayRate: 40 },
     ],

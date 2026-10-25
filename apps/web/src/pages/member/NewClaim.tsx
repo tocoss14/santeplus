@@ -115,6 +115,12 @@ export default function NewClaim() {
           <button onClick={() => setItems(a => [...a, { categoryId: '', amountRequested: '' }])} className="mt-2 text-sm font-semibold text-brand-700 hover:underline">
             ＋ Ajouter une ligne
           </button>
+          {/* Le barème (maxUnitPrice) plafonne chaque LIGNE, pas le total de la
+              catégorie : regrouper plusieurs journées d'hospitalisation sur une
+              seule ligne les ferait toutes plafonner au tarif d'une seule. */}
+          <p className="mt-2 text-xs text-slate-500">
+            Une ligne par acte — pour une hospitalisation, une ligne par journée : le barème s'applique ligne par ligne, pas au total.
+          </p>
         </div>
 
         <div>

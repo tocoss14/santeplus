@@ -74,13 +74,17 @@ const FORMULAS = [
     waitingHospitalization: '90 jours',
     waitingMaternity: '9 mois',
     guarantees: [
-      { category: 'Hospitalisation', rate: '85%', cap: '800 000/an', perAct: '—', copay: '15%' },
-      { category: 'Consultation généraliste', rate: '90%', cap: '200 000/an', perAct: '—', copay: '10%' },
-      { category: 'Pharmacie', rate: '75%', cap: '400 000/an', perAct: '—', copay: '25%' },
-      { category: 'Analyses & imagerie', rate: '80%', cap: '100 000/an', perAct: '—', copay: '20%' },
-      { category: 'Soins spécialisés', rate: '85%', cap: '300 000/an', perAct: '—', copay: '15%' },
+      // Barème Famille = celui de Confort (même réseau de prestataires) : une
+      // formule familiale ne peut pas être plus restrictive que l'individuelle
+      // qu'elle surclasse sur le même acte. Maternité et optique restent des
+      // forfaits : le plafond annuel EST le plafond de l'acte.
+      { category: 'Hospitalisation', rate: '85%', cap: '800 000/an', perAct: '45 000/jour', copay: '15%' },
+      { category: 'Consultation généraliste', rate: '90%', cap: '200 000/an', perAct: '12 000/acte', copay: '10%' },
+      { category: 'Pharmacie', rate: '75%', cap: '400 000/an', perAct: '30 000/ordonnance', copay: '25%' },
+      { category: 'Analyses & imagerie', rate: '80%', cap: '100 000/an', perAct: '15 000/acte', copay: '20%' },
+      { category: 'Soins spécialisés', rate: '85%', cap: '300 000/an', perAct: '15 000/acte', copay: '15%' },
       { category: 'Maternité', rate: '85%', cap: '400 000/an', perAct: '—', copay: '15%' },
-      { category: 'Dentaire', rate: '70%', cap: '80 000/an', perAct: '—', copay: '30%' },
+      { category: 'Dentaire', rate: '70%', cap: '80 000/an', perAct: '15 000/acte', copay: '30%' },
       { category: 'Optique', rate: '70%', cap: '60 000/an', perAct: '—', copay: '30%' },
     ],
     exclusions: [],
@@ -197,7 +201,7 @@ const COST_CONTROL_MECHANISMS = [
   {
     title: '📋 Plafonds par acte (Barème médical)',
     description: "Chaque acte est plafonné à une valeur de référence. Si le prestataire facture au-dessus du tarif conventionné, la mutuelle ne rembourse qu'à hauteur du barème.",
-    detail: 'Exemple : consultation généraliste bridée à 10 000 FCFA (Essentielle). Si le médecin facture 15 000 FCFA, la mutuelle calcul sur 10 000 FCFA. Les 5 000 FCFA de dépassement sont à la charge de l\'assuré.',
+    detail: 'Exemple : consultation généraliste bridée à 10 000 FCFA (Essentielle). Si le médecin facture 15 000 FCFA, la mutuelle calcule sur 10 000 FCFA. Les 5 000 FCFA de dépassement sont à la charge de l\'assuré. Le barème s\'applique à chaque acte déclaré ; une hospitalisation se déclare par journée (une ligne par jour). Maternité et optique sont des forfaits : leur plafond annuel est le plafond de l\'acte, aucun barème ne s\'y ajoute.',
   },
   {
     title: '💰 Plafonds annuels stricts',

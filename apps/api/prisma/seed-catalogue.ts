@@ -197,6 +197,16 @@ const GUARANTEES = [
   { code: 'OPT', name: 'Optique', category: 'OPTICAL', sortOrder: 8, basePrice: 5000 },
 ];
 
+// Barème par acte (`maxUnitPrice`) : décision du 25/10/2026, alignée sur la
+// CGA publiée. Les tarifs de référence suivent le niveau de couverture :
+//   ESS                        → consultation 10 000 · pharmacie 15 000 · labo 10 000
+//   CONF, FAM                  → 12 000 · 30 000 · 15 000 (+ spécialisé/dentaire 15 000)
+//   ENT-PERF                   → 10 000 · 25 000 · 10 000
+//   ENT-VIP                    → 20 000 · 40 000 · 25 000 (+ spécialisé 25 000, dentaire 15 000)
+// Hospitalisation : 45 000 par JOURNÉE sur les cinq formules (la déclaration
+// détaille une ligne par jour — le moteur plafonne une ligne, pas une journée).
+// Maternité et optique n'ont volontairement pas de barème : ce sont des
+// forfaits, le plafond annuel est le plafond de l'acte.
 const PRODUCTS = [
   {
     code: 'ESS', name: 'Santé Essentielle', clientType: 'INDIVIDUAL', status: 'ACTIVE', sortOrder: 1, partner: 'B',
@@ -235,9 +245,11 @@ const PRODUCTS = [
       { category: 'PHARMACY', limit: 360000, rate: 70, copayRate: 30, maxUnitPrice: 30000 },
       { category: 'LABORATORY', limit: 75000, rate: 70, copayRate: 30, maxUnitPrice: 15000 },
       { category: 'SPECIALIZED', limit: 200000, rate: 70, copayRate: 30, maxUnitPrice: 15000 },
-      { category: 'MATERNITY', limit: 200000, rate: 100, copayRate: 0, maxUnitPrice: 200000 },
+      // Forfait accouchement : le plafond annuel EST le plafond de l'acte.
+      { category: 'MATERNITY', limit: 200000, rate: 100, copayRate: 0 },
       { category: 'DENTAL', limit: 40000, rate: 60, copayRate: 40, maxUnitPrice: 15000 },
-      { category: 'OPTICAL', limit: 30000, rate: 100, copayRate: 0, maxUnitPrice: 30000 },
+      // Forfait équipement (une paire tous les 2 ans) : pas de barème par acte.
+      { category: 'OPTICAL', limit: 30000, rate: 100, copayRate: 0 },
     ],
     exclusions: [],
   },
@@ -259,9 +271,9 @@ const PRODUCTS = [
       { category: 'PHARMACY', limit: 400000, rate: 75, copayRate: 25, maxUnitPrice: 30000 },
       { category: 'LABORATORY', limit: 100000, rate: 80, copayRate: 20, maxUnitPrice: 15000 },
       { category: 'SPECIALIZED', limit: 300000, rate: 85, copayRate: 15, maxUnitPrice: 15000 },
-      { category: 'MATERNITY', limit: 400000, rate: 85, copayRate: 15, maxUnitPrice: 400000 },
+      { category: 'MATERNITY', limit: 400000, rate: 85, copayRate: 15 },
       { category: 'DENTAL', limit: 80000, rate: 70, copayRate: 30, maxUnitPrice: 15000 },
-      { category: 'OPTICAL', limit: 60000, rate: 70, copayRate: 30, maxUnitPrice: 60000 },
+      { category: 'OPTICAL', limit: 60000, rate: 70, copayRate: 30 },
     ],
     exclusions: [],
   },
@@ -280,9 +292,9 @@ const PRODUCTS = [
       { category: 'PHARMACY', limit: 600000, rate: 90, copayRate: 10, maxUnitPrice: 40000 },
       { category: 'LABORATORY', limit: 250000, rate: 90, copayRate: 10, maxUnitPrice: 25000 },
       { category: 'SPECIALIZED', limit: 500000, rate: 90, copayRate: 10, maxUnitPrice: 25000 },
-      { category: 'MATERNITY', limit: 400000, rate: 80, copayRate: 20, maxUnitPrice: 400000 },
+      { category: 'MATERNITY', limit: 400000, rate: 80, copayRate: 20 },
       { category: 'DENTAL', limit: 100000, rate: 80, copayRate: 20, maxUnitPrice: 15000 },
-      { category: 'OPTICAL', limit: 80000, rate: 70, copayRate: 30, maxUnitPrice: 80000 },
+      { category: 'OPTICAL', limit: 80000, rate: 70, copayRate: 30 },
     ],
     exclusions: [],
   },
@@ -296,10 +308,10 @@ const PRODUCTS = [
     beneficiaryRules: { spouse: true, childMaxAge: 23, otherAllowed: false, maxBeneficiaries: 6 },
     eligibilityConditions: { waitingPeriodDays: { default: 15, hospitalization: 90, maternity: 300 }, copayRate: 30, employerShare: 5000, employeeShare: 5000, globalAnnualCapPerEmployee: 500000 },
     guarantees: [
-      { category: 'HOSPITALIZATION', limit: 350000, rate: 70, copayRate: 30 },
-      { category: 'CONSULTATION', limit: 120000, rate: 70, copayRate: 30 },
-      { category: 'PHARMACY', limit: 300000, rate: 70, copayRate: 30 },
-      { category: 'LABORATORY', limit: 50000, rate: 70, copayRate: 30 },
+      { category: 'HOSPITALIZATION', limit: 350000, rate: 70, copayRate: 30, maxUnitPrice: 45000 },
+      { category: 'CONSULTATION', limit: 120000, rate: 70, copayRate: 30, maxUnitPrice: 10000 },
+      { category: 'PHARMACY', limit: 300000, rate: 70, copayRate: 30, maxUnitPrice: 25000 },
+      { category: 'LABORATORY', limit: 50000, rate: 70, copayRate: 30, maxUnitPrice: 10000 },
       { category: 'MATERNITY', limit: 150000, rate: 100, copayRate: 0 },
     ],
     exclusions: [
@@ -318,13 +330,13 @@ const PRODUCTS = [
     beneficiaryRules: { spouse: true, childMaxAge: 25, otherAllowed: false, maxBeneficiaries: 8 },
     eligibilityConditions: { waitingPeriodDays: { default: 15, hospitalization: 90, maternity: 300 }, copayRate: 10, employerShare: 10000, employeeShare: 10000, globalAnnualCapPerEmployee: 1200000, priorAuthRequired: true },
     guarantees: [
-      { category: 'HOSPITALIZATION', limit: 1000000, rate: 90, copayRate: 10 },
-      { category: 'CONSULTATION', limit: 240000, rate: 90, copayRate: 10 },
-      { category: 'PHARMACY', limit: 480000, rate: 85, copayRate: 15 },
-      { category: 'LABORATORY', limit: 150000, rate: 85, copayRate: 15 },
-      { category: 'SPECIALIZED', limit: 400000, rate: 85, copayRate: 15 },
+      { category: 'HOSPITALIZATION', limit: 1000000, rate: 90, copayRate: 10, maxUnitPrice: 45000 },
+      { category: 'CONSULTATION', limit: 240000, rate: 90, copayRate: 10, maxUnitPrice: 20000 },
+      { category: 'PHARMACY', limit: 480000, rate: 85, copayRate: 15, maxUnitPrice: 40000 },
+      { category: 'LABORATORY', limit: 150000, rate: 85, copayRate: 15, maxUnitPrice: 25000 },
+      { category: 'SPECIALIZED', limit: 400000, rate: 85, copayRate: 15, maxUnitPrice: 25000 },
       { category: 'MATERNITY', limit: 300000, rate: 85, copayRate: 15 },
-      { category: 'DENTAL', limit: 60000, rate: 70, copayRate: 30 },
+      { category: 'DENTAL', limit: 60000, rate: 70, copayRate: 30, maxUnitPrice: 15000 },
       { category: 'OPTICAL', limit: 50000, rate: 60, copayRate: 40 },
     ],
     exclusions: [],
@@ -405,6 +417,9 @@ async function seedCatalogue() {
             limitStep: g.limitStep ?? 0,
             pricePerLimitStep: 0,
             copayRate: g.copayRate ?? 15,
+            // Sans cette ligne, le barème déclaré ci-dessus n'était jamais
+            // écrit en base : toute réinstallation repartait sans maxUnitPrice.
+            maxUnitPrice: g.maxUnitPrice ?? null,
             mandatory: true,
             customizable: false,
           })),

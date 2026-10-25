@@ -93,6 +93,7 @@ export default function PublicLayout() {
               <li><Link className="hover:text-brand-700" to="/offres">Formules individuelles</Link></li>
               <li><span className="text-slate-600">Offres entreprises</span></li>
               <li><Link className="hover:text-brand-700" to="/cga">Conditions Générales</Link></li>
+              <li><Link className="hover:text-brand-700" to="/ipid">Information produit (IPID)</Link></li>
               <li><Link className="hover:text-brand-700" to="/reseau">Réseau de soins</Link></li>
             </ul>
           </div>
@@ -106,7 +107,11 @@ export default function PublicLayout() {
           </div>
           <div className="md:col-span-1 text-xs text-slate-600">
             <p>SantéPlus est une plateforme technologique d’intermédiation. Les contrats sont portés par des assureurs et mutuelles partenaires agréés.</p>
-            <p className="mt-2">© 2026 SantéPlus — Démonstration.</p>
+            {/* Ni « mutuelle agréée » ni « assureur » : SantéPlus est courtier
+                technologique, le risque est porté par les partenaires agréés
+                (CGA §1). Revendiquer l’agrément ici contredirait la phrase
+                ci-dessus et le statut réel du porteur de risque. */}
+            <p className="mt-2">© 2026 SantéPlus Bénin — plateforme technologique d’intermédiation.</p>
           </div>
         </div>
       </footer>

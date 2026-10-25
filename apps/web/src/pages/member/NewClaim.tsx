@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
-import { fcfa, CATEGORY_LABELS, PROVIDER_TYPES } from '../../format';
+import { fcfa, claimUnitLabel, CATEGORY_LABELS, PROVIDER_TYPES } from '../../format';
 import { ErrorBanner, Field } from '../../components/ui';
 
 export function claimDocumentTypes(fileCount: number, firstDocType: string): string[] {
@@ -15,7 +15,7 @@ export default function NewClaim() {
   const [providers, setProviders] = useState<any[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
   const [form, setForm] = useState({ contractId: '', beneficiaryId: '', providerId: '', careDate: new Date().toISOString().slice(0, 10) });
-  const [items, setItems] = useState([{ categoryId: '', amountRequested: '' }]);
+  const [items, setItems] = useState([{ categoryId: '', amountRequested: '', quantity: '1' }]);
   const [files, setFiles] = useState<File[]>([]);
   const [docType, setDocType] = useState('INVOICE');
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +43,14 @@ export default function NewClaim() {
         providerId: form.providerId || undefined,
         careDate: form.careDate,
         items: items.filter(i => i.categoryId && Number(i.amountRequested) > 0)
-          .map(i => ({ categoryId: i.categoryId, amountRequested: Number(i.amountRequested) })),
+          .map(i => ({
+            categoryId: i.categoryId,
+            // Le barème s'applique par unité (journée, acte) : la quantité est
+            // bornée comme côté API pour qu'une saisie aberrante soit refusée
+            // ici plutôt que corrigée en silence.
+            quantity: Math.max(1, Math.min(365, Math.floor(Number(i.quantity) || 1))),
+            amountRequested: Number(i.amountRequested),
+          })),
         docTypes: claimDocumentTypes(files.length, docType),
       }));
       for (const f of files) fd.append('documents', f);
@@ -89,9 +96,10 @@ export default function NewClaim() {
           <label className="label">Prestations</label>
           <div className="space-y-2">
             {items.map((it, i) => (
-              <div key={i} className="flex gap-2">
+              <div key={i} className="flex flex-wrap items-center gap-2">
                 <select
-                  className="input flex-1"
+                  className="input min-w-0 flex-1"
+                  aria-label={`Type de prestation ${i + 1}`}
                   value={it.categoryId}
                   onChange={e => setItems(arr => arr.map((x, j) => (j === i ? { ...x, categoryId: e.target.value } : x)))}
                 >
@@ -99,27 +107,40 @@ export default function NewClaim() {
                   {categories.map(c => <option key={c.category} value={c.category}>{CATEGORY_LABELS[c.category] ?? c.name}</option>)}
                 </select>
                 <input
-                  className="input w-36"
+                  className="input w-32"
                   type="number"
                   min={1}
                   placeholder="Montant"
+                  aria-label={`Montant de la prestation ${i + 1}`}
                   value={it.amountRequested}
                   onChange={e => setItems(arr => arr.map((x, j) => (j === i ? { ...x, amountRequested: e.target.value } : x)))}
                 />
+                <div className="flex items-center gap-1">
+                  <input
+                    className="input w-16"
+                    type="number"
+                    min={1}
+                    max={365}
+                    aria-label={`Quantité de la prestation ${i + 1} (${claimUnitLabel(it.categoryId, 2)})`}
+                    value={it.quantity}
+                    onChange={e => setItems(arr => arr.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)))}
+                  />
+                  <span className="text-xs text-slate-500">{claimUnitLabel(it.categoryId, Number(it.quantity) || 1)}</span>
+                </div>
                 {items.length > 1 && (
-                  <button onClick={() => setItems(arr => arr.filter((_, j) => j !== i))} className="px-2 text-red-500">✕</button>
+                  <button onClick={() => setItems(arr => arr.filter((_, j) => j !== i))} className="px-2 text-red-500" aria-label={`Retirer la prestation ${i + 1}`}>✕</button>
                 )}
               </div>
             ))}
           </div>
-          <button onClick={() => setItems(a => [...a, { categoryId: '', amountRequested: '' }])} className="mt-2 text-sm font-semibold text-brand-700 hover:underline">
+          <button onClick={() => setItems(a => [...a, { categoryId: '', amountRequested: '', quantity: '1' }])} className="mt-2 text-sm font-semibold text-brand-700 hover:underline">
             ＋ Ajouter une ligne
           </button>
-          {/* Le barème (maxUnitPrice) plafonne chaque LIGNE, pas le total de la
-              catégorie : regrouper plusieurs journées d'hospitalisation sur une
-              seule ligne les ferait toutes plafonner au tarif d'une seule. */}
+          {/* Le barème (maxUnitPrice) est un prix PAR UNITÉ : la quantité
+              multiplie le plafond d'une même ligne (3 journées = 3 × 45 000),
+              au lieu d'obliger à découper un séjour en plusieurs lignes. */}
           <p className="mt-2 text-xs text-slate-500">
-            Une ligne par acte — pour une hospitalisation, une ligne par journée : le barème s'applique ligne par ligne, pas au total.
+            Indiquez la quantité facturée (journées d'hospitalisation, actes) : le barème s'applique par unité, pas au total de la ligne.
           </p>
         </div>
 

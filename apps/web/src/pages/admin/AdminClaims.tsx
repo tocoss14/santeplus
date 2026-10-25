@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl } from '../../api';
-import { fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
+import { claimUnitLabel, fcfa, fmtDate, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, Field, Modal, SkeletonTable, Spinner, StatusBadge } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { printReport, exportCsv } from '../../printReport';
@@ -284,7 +284,14 @@ function ReviewModal({ claimId, onClose, onChanged }: { claimId: string; onClose
           <tbody className="divide-y divide-slate-100">
             {claim.items.map((it: any) => (
               <tr key={it.id}>
-                <td className="td">{it.categoryLabel}</td>
+                <td className="td">
+                  {it.categoryLabel}
+                  {it.quantity > 1 && (
+                    <span className="ml-1 text-xs text-slate-500">
+                      × {it.quantity} {claimUnitLabel(it.categoryLabel, it.quantity)}
+                    </span>
+                  )}
+                </td>
                 <td className="td">{fcfa(it.amountEligible)}</td>
                 <td className="td">{it.rateApplied != null ? `${it.rateApplied}%` : '—'}</td>
                 <td className="td w-32">

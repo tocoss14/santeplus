@@ -8,6 +8,7 @@ import { RequirePermissions } from '../../common/guards/permissions.guard';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { CLAIM_STATUSES_CONSUMING_CAPS, needsPriorAuthorization, resolveThreshold } from '../../domain/engine';
+import { toEstimationItems } from '../../domain/units';
 import { ClaimsModule, ClaimsService } from '../claims/claims.controller';
 import { FilesModule } from '../files/files.service';
 import { CtsModule, CtsService } from '../cts/cts.service';
@@ -781,8 +782,10 @@ export class ProviderPortalController {
       where: { id: claim.contractId },
       include: { product: { include: { guarantees: { include: { guarantee: true } }, exclusions: true } } },
     });
+    // Quantité relue après édition : un séjour corrigé de 2 à 5 journées doit
+    // rouvrir le barème d'autant (45 000 × 5), pas rester plafonné à une.
     const estimation = await this.claims.buildEstimation(contract as any, claim.careDate,
-      fresh!.items.map(i => ({ categoryId: i.categoryLabel, amountRequested: i.amountRequested })),
+      toEstimationItems(fresh!.items),
       { beneficiaryId: claim.beneficiaryId, claimantUserId: claim.claimantUserId });
     const newApproved = estimation.totals.approved;
 

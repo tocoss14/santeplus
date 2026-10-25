@@ -1,3 +1,5 @@
+import { claimUnit, multipliesCap, normalizeQuantity, type ClaimUnit } from './units';
+
 export type Frequency = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY';
 export const FREQUENCIES: Frequency[] = ['ANNUAL', 'QUARTERLY', 'MONTHLY'];
 const PERIODS: Record<Frequency, number> = { ANNUAL: 1, QUARTERLY: 4, MONTHLY: 12 };
@@ -415,12 +417,18 @@ export interface ClaimCtx {
 export interface ClaimItemInput {
   categoryId: string;
   label?: string;
+  /** Nombre d'unités de la ligne (journées, actes, boîtes) — 1 par défaut. */
+  quantity?: number;
   amountRequested: number;
 }
 
 export interface EstimationItem {
   categoryId: string;
   label?: string;
+  /** Quantité normalisée (entier ≥ 1) telle que déclarée sur la ligne. */
+  quantity: number;
+  /** Unité de compte du barème, dérivée de la catégorie. */
+  unit: ClaimUnit;
   amountRequested: number;
   amountEligible: number;
   rateApplied: number;
@@ -479,7 +487,13 @@ export function estimateClaim(
   // reprend la part de ticket modérateur restante (sans rouvrir les plafonds).
   let cumulativeOop = Math.max(0, ctx.usedOop ?? 0);
 
-  const estimationItems: EstimationItem[] = items.map(item => {
+  const estimationItems: EstimationItem[] = items.map(raw => {
+    // Quantité normalisée une seule fois : toutes les branches ci-dessous la
+    // propagent via `...item`, y compris les rejets (la ligne doit rester
+    // auditable même quand elle n'est pas couverte).
+    const quantity = normalizeQuantity(raw.quantity);
+    const unit = claimUnit(raw.categoryId);
+    const item = { ...raw, quantity, unit };
     if (blocked) {
       return {
         ...item,
@@ -610,10 +624,16 @@ export function estimateClaim(
       }
     }
 
-    // Contrôle barème médical : plafonner le montant à la valeur de référence
+    // Contrôle barème médical : prix de référence × unités facturables de la
+    // ligne. Une hospitalisation de 3 journées est donc plafonnée à
+    // 3 × 45 000 — plus besoin de découper le séjour en trois lignes. Une
+    // ordonnance, un équipement ou un forfait restent plafonnés une seule fois
+    // quel que soit le nombre de boîtes ou de pièces de la ligne.
     let effectiveAmount = item.amountRequested;
-    if (rule.maxUnitPrice != null && rule.maxUnitPrice > 0 && item.amountRequested > rule.maxUnitPrice) {
-      effectiveAmount = rule.maxUnitPrice;
+    if (rule.maxUnitPrice != null && rule.maxUnitPrice > 0) {
+      const billableUnits = multipliesCap(unit) ? quantity : 1;
+      const cap = rule.maxUnitPrice * billableUnits;
+      if (item.amountRequested > cap) effectiveAmount = cap;
     }
 
     const eligible = Math.min(effectiveAmount, remaining, familyRemaining);

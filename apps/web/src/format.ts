@@ -1,6 +1,23 @@
 export const fcfa = (n: number | null | undefined): string =>
   n == null ? '—' : `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
 
+/**
+ * Unité de compte d'une ligne de réclamation, côté affichage.
+ * Le moteur dérive la même unité de la catégorie (apps/api/src/domain/units.ts) :
+ * ici c'est uniquement le libellé français, au singulier ou au pluriel.
+ */
+const CLAIM_UNITS: Record<string, [string, string]> = {
+  HOSPITALIZATION: ['journée', 'journées'],
+  PHARMACY: ['ordonnance', 'ordonnances'],
+  OPTICAL: ['équipement', 'équipements'],
+  MATERNITY: ['forfait', 'forfaits'],
+};
+
+export const claimUnitLabel = (category: string | null | undefined, quantity = 1): string => {
+  const [one, many] = CLAIM_UNITS[category ?? ''] ?? ['acte', 'actes'];
+  return quantity > 1 ? many : one;
+};
+
 export const fmtDate = (d: string | Date | null | undefined): string =>
   d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 

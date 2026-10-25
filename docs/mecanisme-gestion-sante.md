@@ -60,7 +60,7 @@ Le 4e nombre est le **barème par acte** (`maxUnitPrice`), appliqué depuis la m
 **ENT-PERF** : consultation 70 %/30 %/120 000/10 000 · pharmacie 70 %/30 %/300 000/25 000 · labo 70 %/30 %/50 000/10 000 · hospitalisation 70 %/30 %/350 000/45 000 par jour · maternité forfait 150 000, **copay 0**. Exclusions : dentaire, optique, spécialisé.
 **ENT-VIP** : consultation 90 %/10 %/240 000/20 000 · pharmacie 85 %/15 %/480 000/40 000 · labo 85 %/15 %/150 000/25 000 · spécialisé 85 %/15 %/400 000/25 000 · hospitalisation 90 %/10 %/1 000 000/45 000 par jour · maternité 85 %/15 %/300 000 · dentaire 70 %/30 %/60 000/15 000 · optique 60 %/40 %/50 000.
 
-**Maternité et optique n'ont pas de barème par acte** : ce sont des forfaits (un accouchement, un équipement), le plafond annuel est le plafond de l'acte. **L'hospitalisation se plafonne par journée** ; le moteur plafonne une ligne de réclamation, donc une hospitalisation de N jours se déclare en N lignes.
+**Maternité et optique n'ont pas de barème par acte** : ce sont des forfaits (un accouchement, un équipement), le plafond annuel est le plafond de l'acte. **L'hospitalisation se plafonne par journée** : la ligne porte une quantité (N journées) et le moteur applique le plafond journalier à chacune. Seules les unités « journée » et « acte » multiplient le plafond ; une ordonnance reste plafonnée une fois, même si elle contient plusieurs boîtes.
 
 ### 3.2 Règles de calcul (moteur `estimateClaim`)
 
@@ -71,7 +71,7 @@ Ordre strict appliqué à chaque poste :
 4. plafond annuel par catégorie (cumul contrat ou par personne si `familyLimit`) ;
 5. plafond foyer le cas échéant ;
 6. plafond annuel global (refus au-delà) ;
-7. barème par acte (`maxUnitPrice` : le dépassement reste à charge) ;
+7. barème par acte (`maxUnitPrice` × unités facturables — journées, actes — : le dépassement reste à charge) ;
 8. taux de couverture sur le montant éligible ;
 9. ticket modérateur (copay) calculé sur le montant couvert ;
 10. **plafond annuel de reste à charge (RAC)** : le patient paie au maximum le reliquat jusqu’au plafond ; l’assureur reprend le surplus de ticket modérateur sur soins éligibles, **sans rouvrir** les plafonds déjà atteints (catégorie, global) ni couvrir les soins exclus/dépassements.

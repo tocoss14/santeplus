@@ -201,7 +201,7 @@ const COST_CONTROL_MECHANISMS = [
   {
     title: '📋 Plafonds par acte (Barème médical)',
     description: "Chaque acte est plafonné à une valeur de référence. Si le prestataire facture au-dessus du tarif conventionné, la mutuelle ne rembourse qu'à hauteur du barème.",
-    detail: 'Exemple : consultation généraliste bridée à 10 000 FCFA (Essentielle). Si le médecin facture 15 000 FCFA, la mutuelle calcule sur 10 000 FCFA. Les 5 000 FCFA de dépassement sont à la charge de l\'assuré. Le barème s\'applique à chaque acte déclaré ; une hospitalisation se déclare par journée (une ligne par jour). Maternité et optique sont des forfaits : leur plafond annuel est le plafond de l\'acte, aucun barème ne s\'y ajoute.',
+    detail: 'Exemple : consultation généraliste bridée à 10 000 FCFA (Essentielle). Si le médecin facture 15 000 FCFA, la mutuelle calcule sur 10 000 FCFA. Les 5 000 FCFA de dépassement sont à la charge de l\'assuré. Le barème s\'applique à chaque unité déclarée : une hospitalisation de trois journées se déclare avec la quantité 3, et le plafond journalier s\'applique à chacune. Maternité et optique sont des forfaits : leur plafond annuel est le plafond de l\'acte, aucun barème ne s\'y ajoute.',
   },
   {
     title: '💰 Plafonds annuels stricts',

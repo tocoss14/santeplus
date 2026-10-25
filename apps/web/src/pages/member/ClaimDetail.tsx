@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { api, fileUrl } from '../../api';
-import { fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
+import { claimUnitLabel, fcfa, fmtDate, fmtDateTime, statusLabel, statusStyle } from '../../format';
 import { ErrorBanner, SkeletonDetail } from '../../components/ui';
 
 const TIMELINE = ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'PAID'];
@@ -150,7 +150,14 @@ export default function ClaimDetail() {
           <tbody className="divide-y divide-slate-100">
             {claim.items.map((it: any) => (
               <tr key={it.id}>
-                <td className="td">{it.categoryLabel}</td>
+                <td className="td">
+                  {it.categoryLabel}
+                  {it.quantity > 1 && (
+                    <span className="ml-1 text-xs text-slate-500">
+                      × {it.quantity} {claimUnitLabel(it.categoryLabel, it.quantity)}
+                    </span>
+                  )}
+                </td>
                 <td className="td text-right text-xs text-slate-500">
                   {it.rateApplied != null && `taux ${it.rateApplied}%`}
                 </td>

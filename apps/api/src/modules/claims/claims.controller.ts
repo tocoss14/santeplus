@@ -18,6 +18,7 @@ import {
   resolveAutoApproveThreshold,
   type ClaimAction,
 } from '../../domain/claim-machine';
+import { toEstimationItems } from '../../domain/units';
 import { NotificationDispatchService } from '../../common/notifications/dispatch.service';
 import { StorageService, FilesModule } from '../files/files.service';
 import { AccountingModule, AccountingService } from '../accounting/accounting.controller';
@@ -36,7 +37,7 @@ export class ClaimsService {
   async buildEstimation(
     contract: any,
     careDate: Date,
-    items: { categoryId: string; label?: string; amountRequested: number }[],
+    items: { categoryId: string; label?: string; quantity?: number; amountRequested: number }[],
     person?: { beneficiaryId?: string | null; claimantUserId?: string },
   ): Promise<EstimationResult> {
     const rules: CoverageRule[] = contract.product.guarantees.map((pg: any) => ({
@@ -219,6 +220,9 @@ export class ClaimsService {
 const itemSchema = z.object({
   categoryId: z.string().min(2),
   label: z.string().max(120).optional(),
+  // Nombre d'unités facturées (journées d'hospitalisation, actes). Absent = 1 :
+  // les clients historiques gardent exactement le comportement d'avant.
+  quantity: z.coerce.number().int().min(1).max(365).optional(),
   amountRequested: z.number().int().min(1),
 });
 
@@ -363,7 +367,13 @@ export class ClaimsController {
           totalRequested,
           estimation: JSON.stringify(estimation),
           flags: JSON.stringify(flags),
-          items: { create: dto.items.map((i: any) => ({ categoryLabel: i.categoryId, amountRequested: i.amountRequested })) },
+          items: {
+            create: dto.items.map((i: any) => ({
+              categoryLabel: i.categoryId,
+              quantity: i.quantity ?? 1,
+              amountRequested: i.amountRequested,
+            })),
+          },
         },
         include: { items: true },
       });
@@ -401,7 +411,10 @@ export class ClaimsController {
     const docs = await this.prisma.claimDocument.count({ where: { claimId: claim.id, docType: 'INVOICE' } });
     if (!docs) throw new BadRequestException('Une facture est requise pour soumettre la demande');
     const contract = await this.loadContractForClaim(claim);
-    const estimation = await this.claims.buildEstimation(contract, claim.careDate, claim.items.map(i => ({ categoryId: i.categoryLabel, amountRequested: i.amountRequested })),
+    // toEstimationItems relit la quantité stockée : sans elle, une
+    // hospitalisation de plusieurs journées serait re-plafonnée à une seule.
+    const estimation = await this.claims.buildEstimation(contract, claim.careDate,
+      toEstimationItems(claim.items),
       { beneficiaryId: claim.beneficiaryId, claimantUserId: claim.claimantUserId });
 
     // Voie rapide : approbation automatique des petits dossiers propres.

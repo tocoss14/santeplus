@@ -145,22 +145,22 @@ describe('barème par acte — effet sur une demande Famille', () => {
     expect(r.items[0].reason).toBeUndefined();
   });
 
-  it('hospitalisation : une ligne par journée, sinon la journée est le seul acte payé', () => {
-    // Trois journées détaillées : 3 × 45 000 éligibles.
-    const detaille = estimateClaim(ctxFam(rulesFam), new Date('2026-06-01'), [
-      { categoryId: 'HOSPITALIZATION', amountRequested: 100_000 },
-      { categoryId: 'HOSPITALIZATION', amountRequested: 100_000 },
-      { categoryId: 'HOSPITALIZATION', amountRequested: 100_000 },
+  it('hospitalisation : trois journées déclarées ouvrent le barème à 3 × 45 000', () => {
+    // La quantité porte le nombre de journées : un séjour n'a plus à être
+    // découpé en autant de lignes.
+    const sejour = estimateClaim(ctxFam(rulesFam), new Date('2026-06-01'), [
+      { categoryId: 'HOSPITALIZATION', quantity: 3, amountRequested: 300_000 },
     ]);
-    expect(detaille.items.map(i => i.amountEligible)).toEqual([45_000, 45_000, 45_000]);
-    expect(detaille.totals.eligible).toBe(135_000);
+    expect(sejour.items[0].amountEligible).toBe(135_000);
+    expect(sejour.items[0].amountApproved).toBe(114_750); // 85 %
+    expect(sejour.items[0].reason).toBe('FEE_SCHEDULE_EXCEEDED');
 
-    // Séjour regroupé sur une seule ligne : une seule journée est reconnue.
-    const regroupe = estimateClaim(ctxFam(rulesFam), new Date('2026-06-01'), [
+    // Sans quantité, la ligne vaut une seule journée.
+    const sansQuantite = estimateClaim(ctxFam(rulesFam), new Date('2026-06-01'), [
       { categoryId: 'HOSPITALIZATION', amountRequested: 300_000 },
     ]);
-    expect(regroupe.items[0].amountEligible).toBe(45_000);
-    expect(regroupe.items[0].reason).toBe('FEE_SCHEDULE_EXCEEDED');
+    expect(sansQuantite.items[0].amountEligible).toBe(45_000);
+    expect(sansQuantite.items[0].reason).toBe('FEE_SCHEDULE_EXCEEDED');
   });
 
   it('maternité : forfait sans barème, le plafond annuel fait foi', () => {

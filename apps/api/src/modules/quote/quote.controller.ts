@@ -28,6 +28,9 @@ const estimateSchema = z.object({
       z.object({
         categoryId: z.string().min(1),
         label: z.string().max(120).optional(),
+        // Même sémantique que la déclaration de sinistre : la quantité multiplie
+        // le barème pour les journées d'hospitalisation et les actes.
+        quantity: z.coerce.number().int().min(1).max(365).optional(),
         amountRequested: z.number().int().min(1).max(100_000_000),
       }),
     )

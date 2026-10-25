@@ -1,5 +1,19 @@
 export const fcfa = (n: number | null | undefined): string =>
-  n == null ? '—' : `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;
+  n == null ? '—' : `${new Intl.NumberFormat('fr-FR').format(n)} FCFA`;export const CATEGORY_WAITING_LABELS: Record<string, string | undefined> = {
+  CONSULTATION: '30 jours',
+  SPECIALIZED: '15 jours',
+  LABORATORY: '15 jours',
+  RADIOLOGY: 'Non couvert (voir labo)',
+  PHARMACY: '30 jours',
+  HOSPITALIZATION: '90 jours',
+  SURGERY: '90 jours',
+  MATERNITY: '10 mois (300 jours)',
+  DENTAL: '6 mois',
+  OPTICAL: '12 mois',
+  PREVENTION: 'Aucun',
+  TELECONSULT: 'Aucun',
+  CHRONIC: '12 mois',
+};
 
 /**
  * Unité de compte d'une ligne de réclamation, côté affichage.

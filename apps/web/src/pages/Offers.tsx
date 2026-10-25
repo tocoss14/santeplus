@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { fcfa, ticketModerateurLabel, CATEGORY_LABELS } from '../format';
+import { fcfa, ticketModerateurLabel, CATEGORY_LABELS, CATEGORY_WAITING_LABELS } from '../format';
 
 export default function Offers() {
   const [products, setProducts] = useState<any[]>([]);
@@ -61,8 +61,7 @@ export default function Offers() {
                 <tr className="border-t border-mist"><td className="py-2">60 ans et plus</td><td>42 000</td><td>65 000</td><td>× 1,68 / 2,32</td></tr>
               </tbody>
             </table>
-          </div>
-          <p className="mt-2 text-xs text-slate-600">Ratio maximal entre la tranche la plus basse et la plus élevée : 1,87 (conformément à la Loi 2015-30).</p>
+          </div>              <p className="mt-2 text-xs text-slate-600">Ratio maximal entre la tranche la plus basse et la plus élevée : 1,87 (conformément à la Loi 2015-30).</p>
         </div>
 
         <div className="card-p">
@@ -73,23 +72,24 @@ export default function Offers() {
               <tbody>
                 {[
                   ['Consultation médecine générale','70 %','85 %','90 %','85 %'],
-                  ['Consultation spécialisée','50 %','75 %','85 %','75 %'],
+                  ['Consultation spécialisée','Non','75 %','85 %','85 %'],
                   ['Examens biologiques','50 %','70 %','80 %','70 %'],
-                  ['Examens radiologiques','40 %','65 %','75 %','65 %'],
-                  ['Pharmacie sur ordonnance','50 %','65 %','75 %','65 %'],
-                  ['Hospitalisation (médecine)','Non','75 %','85 %','75 %'],
-                  ['Hospitalisation (chirurgie)','Non','70 %','80 %','70 %'],
-                  ['Maternité (accouchement)','Non','70 %','85 %','70 %'],
-                  ['Soins dentaires (base)','Non','50 %','70 %','50 %'],
-                  ['Optique','Non','50 %','70 %','50 %'],
-                  ['Prévention (vaccins, dépistages)','80 %','90 %','100 %','90 %'],
-                  ['Téléconsultation','100 %','100 %','100 %','100 %'],
+                  ['Examens radiologiques','Non','70 %','80 %','85 %'],
+                  ['Pharmacie sur ordonnance','60 %','70 %','75 %','70 %'],
+                  ['Hospitalisation (médecine)','60 %','75 %','85 %','70 %'],
+                  ['Hospitalisation (chirurgie)','Non','70 %','80 %','90 %'],
+                  ['Maternité (accouchement)','Non','100 %','85 %','100 %'],
+                  ['Soins dentaires','Non','60 %','70 %','Non'],
+                  ['Optique','Non','100 %','70 %','Non'],
+                  ['Prévention (vaccins, dépistages)','Non','Non','Non','Non'],
+                  ['Téléconsultation','Non','Non','Non','Non'],
                 ].map(([cat,e,c,f,en]) => (
                   <tr key={cat} className="border-t border-mist"><td className="py-2">{cat}</td><td>{e}</td><td>{c}</td><td>{f}</td><td>{en}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <p className="mt-2 text-xs text-slate-600">Taux brut avant plafonds et barème médical. Chaque ligne peut être plafonnée par acte (ex. hospitalisation : 45 000 FCFA/jour). Le ticket modérateur complète le taux (taux + ticket = 100 %).</p>
         </div>
 
         <div className="card-p">
@@ -99,19 +99,19 @@ export default function Offers() {
               <thead><tr className="text-left text-xs uppercase tracking-wider text-stone"><th className="py-2">Catégorie de soins</th><th>Délai de carence</th></tr></thead>
               <tbody>
                 {[
-                  ['Consultations médecine générale','7 jours'],
-                  ['Consultations spécialisées','15 jours'],
-                  ['Examens biologiques et radiologiques','15 jours'],
-                  ['Pharmacie sur ordonnance','7 jours'],
-                  ['Hospitalisation (médecine)','3 mois'],
-                  ['Hospitalisation (chirurgie programmée)','6 mois'],
-                  ['Hospitalisation (chirurgie urgence)','Aucun'],
-                  ['Maternité (accouchement)','9 mois'],
-                  ['Soins dentaires (programmés)','6 mois'],
-                  ['Optique','12 mois'],
-                  ['Prévention (vaccins, dépistages)','Aucun'],
-                  ['Téléconsultation','7 jours'],
-                  ['Affections chroniques préexistantes déclarées','12 mois'],
+                  ['Consultations médecine générale', CATEGORY_WAITING_LABELS['CONSULTATION'] ?? '30 jours'],
+                  ['Consultations spécialisées', CATEGORY_WAITING_LABELS['SPECIALIZED'] ?? '15 jours'],
+                  ['Examens biologiques', CATEGORY_WAITING_LABELS['LABORATORY'] ?? '15 jours'],
+                  ['Examens radiologiques', CATEGORY_WAITING_LABELS['RADIOLOGY'] ?? 'Non couvert (voir labo)'],
+                  ['Pharmacie sur ordonnance', CATEGORY_WAITING_LABELS['PHARMACY'] ?? '30 jours'],
+                  ['Hospitalisation (médecine)', CATEGORY_WAITING_LABELS['HOSPITALIZATION'] ?? '90 jours'],
+                  ['Hospitalisation (chirurgie)', CATEGORY_WAITING_LABELS['SURGERY'] ?? '90 jours'],
+                  ['Maternité (accouchement)', CATEGORY_WAITING_LABELS['MATERNITY'] ?? '10 mois'],
+                  ['Soins dentaires', CATEGORY_WAITING_LABELS['DENTAL'] ?? '6 mois'],
+                  ['Optique', CATEGORY_WAITING_LABELS['OPTICAL'] ?? '12 mois'],
+                  ['Prévention (vaccins, dépistages)', CATEGORY_WAITING_LABELS['PREVENTION'] ?? 'Aucun'],
+                  ['Téléconsultation', CATEGORY_WAITING_LABELS['TELECONSULT'] ?? 'Aucun'],
+                  ['Affections chroniques préexistantes déclarées', CATEGORY_WAITING_LABELS['CHRONIC'] ?? '12 mois'],
                 ].map(([cat,d]) => (
                   <tr key={cat} className="border-t border-mist"><td className="py-2">{cat}</td><td>{d}</td></tr>
                 ))}

@@ -2,11 +2,27 @@ import * as path from 'path';
 
 const env = (k: string, d: string = '') => process.env[k] ?? d;
 
+// Origines du front toujours autorisées, en plus de WEB_ORIGIN.
+//
+// Le front de production est servi par Vercel avec un proxy /api/* vers l'API :
+// Vercel réécrit le Host vers l'hôte Render. Côté API, l'Origin du navigateur
+// (https://santeplus-sigma.vercel.app) n'est donc JAMAIS égal au Host de la
+// requête, et la garde anti-CSRF de main.ts refuse toute mutation authentifiée
+// par cookie (souscription, paiement, sinistre) en 403 « Origine non autorisée ».
+// Ces origines doivent figurer explicitement : les lister ici les rend
+// indépendantes de la valeur (variable d'environnement) de WEB_ORIGIN.
+const FRONT_ORIGINS = ['https://santeplus-sigma.vercel.app'];
+
+const webOriginList = [env('WEB_ORIGIN', 'http://localhost:3000'), ...FRONT_ORIGINS]
+  .flatMap(v => v.split(','))
+  .map(s => s.trim())
+  .filter(Boolean);
+
 export const config = {
   port: Number(env('PORT', '4000')),
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),
   fieldEncryptionKey: env('FIELD_ENCRYPTION_KEY', ''),
-  webOrigin: env('WEB_ORIGIN', 'http://localhost:3000'),
+  webOrigin: webOriginList.join(','),
   appUrl: env('APP_URL', env('WEB_ORIGIN', 'http://localhost:3000')),
   // Origine PUBLIQUE DU FRONT, distincte d'appUrl (APP_URL = URL de l'API).
   // Sur Render le front est hébergé sur Cloudflare Pages : un lien d'e-mail

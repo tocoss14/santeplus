@@ -13,6 +13,13 @@ const env = (k: string, d: string = '') => process.env[k] ?? d;
 // indépendantes de la valeur (variable d'environnement) de WEB_ORIGIN.
 const FRONT_ORIGINS = ['https://santeplus-sigma.vercel.app'];
 
+// Motifs d'hôte autorisés EN PLUS de la liste précédente : déploiements de
+// préversion et de branche de l'équipe Vercel (« santeplus-abc123-elzeds-
+// projects.vercel.app »). Le suffixe d'équipe est propre au compte Vercel :
+// aucune autre équipe ne peut enregistrer un hôte qui le termine, donc autoriser
+// le motif ne revient pas à autoriser « n'importe quel *.vercel.app ».
+const FRONT_ORIGIN_PATTERNS = [/^[a-z0-9][a-z0-9-]*-elzeds-projects\.vercel\.app$/i];
+
 const webOriginList = [env('WEB_ORIGIN', 'http://localhost:3000'), ...FRONT_ORIGINS]
   .flatMap(v => v.split(','))
   .map(s => s.trim())
@@ -23,6 +30,7 @@ export const config = {
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),
   fieldEncryptionKey: env('FIELD_ENCRYPTION_KEY', ''),
   webOrigin: webOriginList.join(','),
+  frontOriginPatterns: FRONT_ORIGIN_PATTERNS,
   appUrl: env('APP_URL', env('WEB_ORIGIN', 'http://localhost:3000')),
   // Origine PUBLIQUE DU FRONT, distincte d'appUrl (APP_URL = URL de l'API).
   // Sur Render le front est hébergé sur Cloudflare Pages : un lien d'e-mail

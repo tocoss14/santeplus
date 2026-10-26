@@ -106,7 +106,13 @@ async function bootstrap(): Promise<void> {
       let originHost = '';
       try { originHost = originHeader ? new URL(originHeader).host.toLowerCase() : ''; } catch { originHost = ''; }
       const reqHost = (req.get('host') ?? '').toLowerCase();
-      if (originHost && (csrfAllowedHosts.has(originHost) || originHost === reqHost)) return next();
+      // Motifs : previews / déploiements de branche Vercel de l'équipe (l'origine
+      // change à chaque déploiement, une liste d'hôtes exacts ne suffirait pas).
+      if (originHost && (
+        csrfAllowedHosts.has(originHost)
+        || originHost === reqHost
+        || config.frontOriginPatterns.some(re => re.test(originHost))
+      )) return next();
       res.status(403).json({ statusCode: 403, message: 'Origine non autorisée' });
     });
 

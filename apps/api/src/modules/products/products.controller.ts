@@ -29,7 +29,7 @@ export const ctsConfigSchema = z.object({
   }
 });
 
-const productBaseSchema = z
+export const productBaseSchema = z
   .object({    code: z.string().min(2).max(20).regex(/^[A-Z0-9_-]+$/),
     name: z.string().min(2).max(80),
     description: z.string().max(2000).optional(),

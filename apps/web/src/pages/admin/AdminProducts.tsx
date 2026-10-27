@@ -6,6 +6,9 @@ import { ErrorBanner, Field, Modal, SkeletonTable, StatusBadge, Badge } from '..
 const EMPTY = {
   code: '', name: '', description: '', clientType: 'INDIVIDUAL', minAge: 0, maxAge: 65,
   basePremiumAnnual: 0, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
+  // Forfait familial + option de rachat : défauts neutres (aucune inclusion
+  // au-delà de l'assuré principal, option de carence non proposée).
+  includedAdults: 1, includedChildren: 0, carenceBuyoutRate: 0,
   waitingPeriodDays: 30, globalAnnualCap: 5000000, oopAnnualCap: '' as any,
   status: 'DRAFT', sortOrder: 0, thirdPartyAuthThreshold: '' as any,
   spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 6,
@@ -138,7 +141,47 @@ export default function AdminProducts() {
   );
 }
 
-function ProductEditor({ product, partners, onClose, onSaved }: any) {
+/**
+ * Corps envoyé à POST/PATCH /admin/products. Extrait du composant pour que le
+ * contrat de l'écran (quels champs partent réellement au serveur) soit testable
+ * sans navigateur.
+ */
+export function buildProductPayload(form: any) {
+  return {
+    code: form.code,
+    name: form.name,
+    description: form.description || undefined,
+    clientType: form.clientType,
+    minAge: Number(form.minAge),
+    maxAge: Number(form.maxAge),
+    basePremiumAnnual: Number(form.basePremiumAnnual),
+    // Composition incluse dans la cotisation de base (forfait familial) :
+    // au-delà, ce sont les suppléments ci-dessous qui s'appliquent.
+    includedAdults: Number(form.includedAdults ?? 1),
+    includedChildren: Number(form.includedChildren ?? 0),
+    pricePerAdditionalAdultAnnual: Number(form.pricePerAdditionalAdultAnnual),
+    pricePerChildAnnual: Number(form.pricePerChildAnnual),
+    // Surprime du rachat de carence hospitalisation, en % (0 = non proposé).
+    carenceBuyoutRate: Number(form.carenceBuyoutRate ?? 0),
+    waitingPeriodDays: Number(form.waitingPeriodDays),
+    status: form.status,
+    sortOrder: Number(form.sortOrder ?? 0),
+    thirdPartyAuthThreshold: form.thirdPartyAuthThreshold === '' || form.thirdPartyAuthThreshold == null ? null : Number(form.thirdPartyAuthThreshold),
+    globalAnnualCap: Number(form.globalAnnualCap ?? 5000000),
+    oopAnnualCap: form.oopAnnualCap === '' || form.oopAnnualCap == null ? null : Number(form.oopAnnualCap),
+    insurerPartnerId: form.insurerPartnerId || undefined,
+    beneficiaryRules: { spouse: form.spouse, childMaxAge: Number(form.childMaxAge), otherAllowed: form.otherAllowed, maxBeneficiaries: Number(form.maxBeneficiaries) },
+    guarantees: (form.guarantees ?? []).filter((g: any) => g.enabled).map((g: any) => ({
+      guaranteeId: g.guaranteeId,
+      annualLimit: g.annualLimit === '' || g.annualLimit == null ? null : Number(g.annualLimit),
+      rate: Number(g.rate),
+      copayRate: Number(g.copayRate ?? 15),
+    })),
+    exclusions: String(form.exclusionsText ?? '').split('\n').map((s: string) => s.trim()).filter(Boolean).map((description: any) => ({ description })),
+  };
+}
+
+export function ProductEditor({ product, partners, onClose, onSaved }: any) {
   const [form, setForm] = useState(product);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -151,32 +194,7 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
     setBusy(true);
     setError(null);
     try {
-      const payload = {
-        code: form.code,
-        name: form.name,
-        description: form.description || undefined,
-        clientType: form.clientType,
-        minAge: Number(form.minAge),
-        maxAge: Number(form.maxAge),
-        basePremiumAnnual: Number(form.basePremiumAnnual),
-        pricePerAdditionalAdultAnnual: Number(form.pricePerAdditionalAdultAnnual),
-        pricePerChildAnnual: Number(form.pricePerChildAnnual),
-        waitingPeriodDays: Number(form.waitingPeriodDays),
-        status: form.status,
-        sortOrder: Number(form.sortOrder ?? 0),
-        thirdPartyAuthThreshold: form.thirdPartyAuthThreshold === '' || form.thirdPartyAuthThreshold == null ? null : Number(form.thirdPartyAuthThreshold),
-        globalAnnualCap: Number(form.globalAnnualCap ?? 5000000),
-        oopAnnualCap: form.oopAnnualCap === '' || form.oopAnnualCap == null ? null : Number(form.oopAnnualCap),
-        insurerPartnerId: form.insurerPartnerId || undefined,
-        beneficiaryRules: { spouse: form.spouse, childMaxAge: Number(form.childMaxAge), otherAllowed: form.otherAllowed, maxBeneficiaries: Number(form.maxBeneficiaries) },
-        guarantees: form.guarantees.filter((g: any) => g.enabled).map((g: any) => ({
-          guaranteeId: g.guaranteeId,
-          annualLimit: g.annualLimit === '' || g.annualLimit == null ? null : Number(g.annualLimit),
-          rate: Number(g.rate),
-          copayRate: Number(g.copayRate ?? 15),
-        })),
-        exclusions: form.exclusionsText.split('\n').map((s: string) => s.trim()).filter(Boolean).map((description: any) => ({ description })),
-      };
+      const payload = buildProductPayload(form);
       if (isNew) await api.post('/admin/products', payload);
       else await api.patch(`/admin/products/${form.id}`, payload);
       onSaved();
@@ -223,6 +241,20 @@ function ProductEditor({ product, partners, onClose, onSaved }: any) {
           <Field label="Cotisation de base/an"><input type="number" className="input" value={form.basePremiumAnnual} onChange={set('basePremiumAnnual')} /></Field>
           <Field label="Adulte supp./an"><input type="number" className="input" value={form.pricePerAdditionalAdultAnnual} onChange={set('pricePerAdditionalAdultAnnual')} /></Field>
           <Field label="Enfant/an"><input type="number" className="input" value={form.pricePerChildAnnual} onChange={set('pricePerChildAnnual')} /></Field>
+        </div>
+        {/* Forfait familial : les personnes déjà couvertes par la cotisation de
+            base. Seules celles AU-DELÀ sont facturées aux prix unitaires ci-dessus
+            — une inclusion à 1 adulte / 0 enfant laisse la formule inchangée. */}
+        <div className="grid grid-cols-3 gap-3 sm:col-span-2">
+          <Field label="Adultes inclus (forfait)" hint="1 = assuré principal seul">
+            <input type="number" className="input" value={form.includedAdults ?? 1} onChange={set('includedAdults')} />
+          </Field>
+          <Field label="Enfants inclus (forfait)" hint="0 = chaque enfant facturé">
+            <input type="number" className="input" value={form.includedChildren ?? 0} onChange={set('includedChildren')} />
+          </Field>
+          <Field label="Rachat de carence (surprime %)" hint="0 = option non proposée">
+            <input type="number" className="input" value={form.carenceBuyoutRate ?? 0} onChange={set('carenceBuyoutRate')} />
+          </Field>
         </div>
         <div className="sm:col-span-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.spouse} onChange={e => setForm((f: any) => ({ ...f, spouse: e.target.checked }))} /> Conjoint</label>

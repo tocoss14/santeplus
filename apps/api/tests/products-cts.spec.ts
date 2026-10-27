@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ProductsService, ctsConfigSchema } from '../src/modules/products/products.controller';
+import { ProductsService, ctsConfigSchema, productBaseSchema } from '../src/modules/products/products.controller';
 
 // P12 : ctsConfig produit (validation + persistance) et familyLimit garantie.
 
@@ -100,5 +100,50 @@ describe('ProductsService.create/update (P12)', () => {
     expect(JSON.parse(store.products[id].ctsConfig).managementRate).toBe(10);
     await svc.update(id, { ctsConfig: JSON.stringify({ managementRate: 12 }) });
     expect(JSON.parse(store.products[id].ctsConfig).managementRate).toBe(12);
+  });
+});
+
+// Écran d'administration des formules : forfait familial (composition incluse
+// + suppléments par personne) et surprime du rachat de carence. Le PATCH passe
+// par productBaseSchema.partial() — ces champs doivent être acceptés et bornés.
+describe('productBaseSchema — grille éditable depuis l’administration', () => {
+  const adminFields = { includedAdults: 2, includedChildren: 3, carenceBuyoutRate: 25 };
+
+  it('accepte la composition du forfait et la surprime de rachat', () => {
+    const parsed = productBaseSchema.partial().parse(adminFields);
+    expect(parsed).toMatchObject(adminFields);
+  });
+
+  it('un PATCH qui ne les mentionne pas ne les réécrit pas', () => {
+    const parsed = productBaseSchema.partial().parse({ name: 'Santé Famille' });
+    for (const key of Object.keys(adminFields)) expect(key in parsed).toBe(false);
+  });
+
+  it('refuse les valeurs hors bornes', () => {
+    expect(() => productBaseSchema.partial().parse({ includedAdults: 11 })).toThrow();
+    expect(() => productBaseSchema.partial().parse({ includedChildren: 16 })).toThrow();
+    expect(() => productBaseSchema.partial().parse({ carenceBuyoutRate: 201 })).toThrow();
+    expect(() => productBaseSchema.partial().parse({ carenceBuyoutRate: -1 })).toThrow();
+    expect(() => productBaseSchema.partial().parse({ includedAdults: 2.5 })).toThrow();
+  });
+
+  it('les défauts laissent les formules existantes inchangées (1 adulte, 0 enfant, option non proposée)', () => {
+    const parsed = productBaseSchema.parse({ code: 'TST', name: 'Test', basePremiumAnnual: 100_000 });
+    expect(parsed).toMatchObject({ includedAdults: 1, includedChildren: 0, carenceBuyoutRate: 0 });
+  });
+
+  it('update persiste la grille modifiée par l’administration', async () => {
+    const { prisma, store } = makePrisma();
+    const svc = new ProductsService(prisma);
+    const id = await svc.create({ ...baseDto(), ...adminFields });
+    expect(store.products[id]).toMatchObject(adminFields);
+    await svc.update(id, { includedAdults: 4, pricePerAdditionalAdultAnnual: 30_000, carenceBuyoutRate: 40 });
+    expect(store.products[id]).toMatchObject({
+      includedAdults: 4,
+      // Les champs non transmis restent intacts : le PATCH est partiel.
+      includedChildren: 3,
+      pricePerAdditionalAdultAnnual: 30_000,
+      carenceBuyoutRate: 40,
+    });
   });
 });

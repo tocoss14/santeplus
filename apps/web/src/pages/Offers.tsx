@@ -41,7 +41,7 @@ export default function Offers() {
               <tbody>
                 <tr className="border-t border-mist"><td className="py-2 font-semibold">Essentielle</td><td>À partir de 25 000 FCFA</td><td>2 100 FCFA</td><td>600 000 FCFA</td><td>Étudiants, jeunes actifs informels</td></tr>
                 <tr className="border-t border-mist"><td className="py-2 font-semibold">Confort</td><td>À partir de 28 000 FCFA</td><td>2 350 FCFA</td><td>1 800 000 FCFA</td><td>TPE/PME, professions libérales</td></tr>
-                <tr className="border-t border-mist"><td className="py-2 font-semibold">Famille</td><td>À partir de 75 000 FCFA</td><td>6 250 FCFA</td><td>3 000 000 FCFA</td><td>Ménages (2 adultes + 3 enfants max)</td></tr>
+                <tr className="border-t border-mist"><td className="py-2 font-semibold">Famille</td><td>À partir de 75 000 FCFA</td><td>6 250 FCFA</td><td>3 000 000 FCFA</td><td>Ménages : forfait 2 adultes + 3 enfants, suppléments au-delà (30 000 FCFA/adulte, 18 000 FCFA/enfant)</td></tr>
                 <tr className="border-t border-mist"><td className="py-2 font-semibold">Entreprise</td><td>À partir de 19 000 FCFA/adhérent</td><td>Sur devis</td><td>Personnalisable</td><td>Entreprises ≥ 10 salariés</td></tr>
               </tbody>
             </table>
@@ -118,6 +118,13 @@ export default function Offers() {
               </tbody>
             </table>
           </div>
+          <p className="mt-3 text-xs leading-relaxed text-slate-600">
+            <b>Option payante — rachat de carence hospitalisation</b> : sur les formules individuelles,
+            le délai de 90 jours peut être levé dès l’activation contre une surprime de 25 % de la
+            cotisation annuelle et une déclaration de santé. La maternité, le dentaire et l’optique
+            conservent leur délai : ce sont les postes les plus prévisibles, donc les plus exposés à
+            l’anti-sélection.
+          </p>
         </div>
 
         <div className="card-p">

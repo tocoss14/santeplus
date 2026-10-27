@@ -219,6 +219,11 @@ const COST_CONTROL_MECHANISMS = [
     detail: 'Soins externes : 30 jours (15 jours en Entreprise) · Hospitalisation : 90 jours · Maternité : 10 mois (Confort, Entreprise), 9 mois sur la Famille. La maternité n\'est pas couverte sur l\'Essentielle.'
   },
   {
+    title: '🚑 Rachat de carence hospitalisation (option payante)',
+    description: "Sur les formules individuelles, l'assuré peut lever le délai de carence hospitalisation dès l'activation du contrat, contre une surprime de 25 % de la cotisation annuelle et une déclaration de santé signée à la souscription.",
+    detail: "La déclaration est horodatée sur le contrat. Les affections préexistantes non déclarées restent exclues, et aucune hospitalisation en cours ou déjà programmée à la souscription n'est prise en charge. La maternité, le dentaire et l'optique conservent leur délai : ce sont les postes les plus prévisibles, donc les plus exposés à l'anti-sélection.",
+  },
+  {
     title: '📝 Entente préalable',
     description: "Pour tout acte coûteux (hospitalisation programmée, scanner, IRM, chirurgie), le médecin-conseil de la mutuelle doit valider l'acte AVANT sa réalisation.",
     detail: "Sans entente préalable, la mutuelle peut refuser le remboursement (sauf urgences vitales certifiées). C'est obligatoire sur Cadre/VIP et au-delà de 150 000 FCFA sur Entreprise Performance.",

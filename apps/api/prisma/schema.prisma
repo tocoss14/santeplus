@@ -123,8 +123,17 @@ model Product {
   maxAge                        Int             @default(65)
   beneficiaryRules              String          @default("{}")
   basePremiumAnnual             Int
+  // Composition incluse dans la cotisation de base : 1 adulte par défaut
+  // (l'assuré principal). Une formule forfaitaire (Famille) y inclut le
+  // conjoint et les enfants ; les membres au-delà sont facturés au prix
+  // unitaire ci-dessous.
+  includedAdults                Int             @default(1)
+  includedChildren              Int             @default(0)
   pricePerAdditionalAdultAnnual Int             @default(0)
   pricePerChildAnnual           Int             @default(0)
+  // Surprime de rachat de la carence hospitalisation, en % de la cotisation
+  // annuelle (0 = option non proposée sur ce produit).
+  carenceBuyoutRate             Int             @default(0)
   frequencyFactors              String          @default("{\"ANNUAL\":1,\"QUARTERLY\":1.03,\"MONTHLY\":1.08}")
   waitingPeriodDays             Int             @default(30)
   eligibilityConditions         String?
@@ -220,6 +229,11 @@ model Contract {
   financialModelVersion   FinancialModelVersion? @relation(fields: [financialModelVersionId], references: [id])
   // MIGRATION_PENDING | MIGRATED_TO_V2 | null (jamais migré)
   migrationStatus         String?
+
+  // Rachat de carence hospitalisation (option payante) : le délai de carence
+  // hospitalisation du produit n'est pas opposé à ce contrat. La déclaration
+  // de santé signée à la souscription est horodatée dans `quote`.
+  carenceBuyout      Boolean   @default(false)
 
   startDate          DateTime?
   endDate            DateTime?

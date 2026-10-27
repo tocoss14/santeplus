@@ -534,6 +534,11 @@ export class CtsService {
     const p = product as any;
     const pricing: ProductPricing = {
       basePremiumAnnual: p.basePremiumAnnual,
+      // Forfait familial : sans ces deux bornes, le simulateur commercial
+      // facturait tous les enfants et chaque adulte au-delà d'un seul, alors que
+      // la souscription les inclut — deux prix pour la même famille.
+      includedAdults: p.includedAdults ?? 1,
+      includedChildren: p.includedChildren ?? 0,
       pricePerAdditionalAdultAnnual: p.pricePerAdditionalAdultAnnual ?? 0,
       pricePerChildAnnual: p.pricePerChildAnnual ?? 0,
       frequencyFactors: typeof p.frequencyFactors === 'string' ? JSON.parse(p.frequencyFactors) : (p.frequencyFactors ?? {}),

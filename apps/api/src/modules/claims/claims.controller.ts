@@ -9,7 +9,7 @@ import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../common/prisma.module';
 import { ref } from '../../common/utils';
 import { sha256 } from '../../common/crypto';
-import { estimateClaim, CoverageRule, EstimationResult, CLAIM_STATUSES_CONSUMING_CAPS } from '../../domain/engine';
+import { estimateClaim, CoverageRule, EstimationResult, CLAIM_STATUSES_CONSUMING_CAPS, CARENCE_BUYOUT_CATEGORIES } from '../../domain/engine';
 import {
   assertClaimTransition,
   autoApprovalAuditSample,
@@ -121,6 +121,14 @@ export class ClaimsService {
       }
     }
 
+    // Rachat de carence hospitalisation souscrit sur le contrat : la catégorie
+    // rachetée échappe au délai global ET à son délai spécifique de produit.
+    // Les autres carences (maternité, dentaire, optique) restent opposables.
+    const boughtOutCategories: string[] = (contract as any).carenceBuyout
+      ? [...CARENCE_BUYOUT_CATEGORIES]
+      : [];
+    for (const cat of boughtOutCategories) delete categoryWaitingPeriods[cat];
+
     // Compteur de consultations spécialiste utilisées cette année
     let specialistConsultationsUsed = 0;
     if (eligibility.specialistConsultationsPerYear) {
@@ -154,6 +162,7 @@ export class ClaimsService {
         oopAnnualCap: contract.product.oopAnnualCap ?? undefined,
         usedOop,
         categoryWaitingPeriods: Object.keys(categoryWaitingPeriods).length > 0 ? categoryWaitingPeriods : undefined,
+        globalWaitingExemptCategories: boughtOutCategories.length > 0 ? boughtOutCategories : undefined,
         specialistConsultationsUsed,
         specialistConsultationsPerYear: eligibility.specialistConsultationsPerYear ?? null,
       },

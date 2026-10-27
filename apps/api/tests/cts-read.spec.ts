@@ -331,6 +331,31 @@ describe('simulate (§32, estimation seule)', () => {
     expect(r.projectedResult).toBe(122_800);
   });
 
+  it('forfait Famille : le simulateur commercial retient le prix de la souscription', async () => {
+    // Grille Santé Famille (migration 20261027000000) : forfait 2 adultes +
+    // 3 enfants, puis 30 000 FCFA par adulte et 18 000 FCFA par enfant au-delà.
+    const fam = {
+      ...product,
+      id: 'p-fam', name: 'Santé Famille', code: 'FAM',
+      basePremiumAnnual: 75_000, includedAdults: 2, includedChildren: 3,
+      pricePerAdditionalAdultAnnual: 30_000, pricePerChildAnnual: 18_000,
+      globalAnnualCap: 3_000_000,
+    };
+    const db = baseDb();
+    db.products = { 'p-fam': fam };
+    const svc = makeService(db);
+    const dansLeForfait = await (svc as any).simulate({
+      productId: 'p-fam', principalAge: 35, spouseAge: 33, childrenAges: [4, 7, 10],
+      frequency: 'ANNUAL', assumedAnnualConsumption: 50_000,
+    });
+    expect(dansLeForfait.prime).toBe(75_000);
+    const horsForfait = await (svc as any).simulate({
+      productId: 'p-fam', principalAge: 35, spouseAge: 33, childrenAges: [4, 7, 10, 13],
+      frequency: 'ANNUAL', assumedAnnualConsumption: 50_000,
+    });
+    expect(horsForfait.prime).toBe(93_000); // 75 000 + 1 enfant au-delà
+  });
+
   it('conso > budget : épuisement projeté chiffré', async () => {
     const db = baseDb();
     db.products = { 'p-ess': product };

@@ -213,6 +213,8 @@ const PRODUCTS = [
     description: "Gestion du risque de base : consultations, pharmacie, analyses et hospitalisation courte. Ticket modérateur de 30% pour responsabiliser l’assuré.",
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
     basePremiumAnnual: 15000, pricePerAdditionalAdultAnnual: 15000, pricePerChildAnnual: 4000,
+    // Rachat de la carence hospitalisation : surprime de 25 % (option).
+    carenceBuyoutRate: 25,
     thirdPartyAuthThreshold: 120000, globalAnnualCap: 500000, oopAnnualCap: 200000,
     ageLoadings: [{ minAge: 15, maxAge: 29, factor: 1.0 }, { minAge: 30, maxAge: 39, factor: 1.13 }, { minAge: 40, maxAge: 49, factor: 1.33 }, { minAge: 50, maxAge: 59, factor: 1.6 }, { minAge: 60, maxAge: 120, factor: 1.87 }],
     beneficiaryRules: { spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 6 },
@@ -235,6 +237,8 @@ const PRODUCTS = [
     description: 'Équilibre entre couverture et rentabilité : consultations, spécialistes, maternité, dentaire et optique. Ticket modérateur 20%.',
     minAge: 0, maxAge: 65, waitingPeriodDays: 30,
     basePremiumAnnual: 25000, pricePerAdditionalAdultAnnual: 25000, pricePerChildAnnual: 7000,
+    // Rachat de la carence hospitalisation : surprime de 25 % (option).
+    carenceBuyoutRate: 25,
     thirdPartyAuthThreshold: 200000, globalAnnualCap: 1500000, oopAnnualCap: 150000,
     ageLoadings: [{ minAge: 15, maxAge: 29, factor: 1.0 }, { minAge: 30, maxAge: 39, factor: 1.13 }, { minAge: 40, maxAge: 49, factor: 1.33 }, { minAge: 50, maxAge: 59, factor: 1.6 }, { minAge: 60, maxAge: 120, factor: 1.87 }],
     beneficiaryRules: { spouse: true, childMaxAge: 25, otherAllowed: false, maxBeneficiaries: 8 },
@@ -260,10 +264,19 @@ const PRODUCTS = [
     // Grille prudente d'octobre 2026 (migration 20261021000000) : 75 000 FCFA
     // de forfait et 3 000 000 de plafond global. Le catalogue s'aligne sur la
     // base pour qu'une réinstallation ne réintroduise pas l'ancienne grille.
-    basePremiumAnnual: 75000, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
+    // Forfait familial (migration 20261027000000) : la cotisation de base couvre
+    // 2 adultes + 3 enfants. Au-delà, chaque adulte supplémentaire est facturé
+    // 30 000 FCFA/an et chaque enfant 18 000 FCFA/an — sans ça, un foyer de 5
+    // personnes payait le même prix qu'un foyer de 1 et l'accueil d'un membre
+    // était gratuit (fuite actuarielle constatée en production).
+    basePremiumAnnual: 75000,
+    includedAdults: 2, includedChildren: 3,
+    pricePerAdditionalAdultAnnual: 30000, pricePerChildAnnual: 18000,
+    // Rachat de la carence hospitalisation : surprime de 25 % (option).
+    carenceBuyoutRate: 25,
     thirdPartyAuthThreshold: 200000, globalAnnualCap: 3000000, oopAnnualCap: 200000,
     ageLoadings: [],
-    beneficiaryRules: { spouse: true, childMaxAge: 21, otherAllowed: false, maxBeneficiaries: 5 },
+    beneficiaryRules: { spouse: true, childMaxAge: 21, otherAllowed: true, maxBeneficiaries: 10 },
     eligibilityConditions: { waitingPeriodDays: { default: 30, hospitalization: 90, maternity: 270 }, copayRate: 10 },
     guarantees: [
       { category: 'HOSPITALIZATION', limit: 800000, rate: 85, copayRate: 15, maxUnitPrice: 45000 },

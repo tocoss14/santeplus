@@ -79,8 +79,17 @@ export default function Landing() {
   // Filtrer les produits individuels (pas entreprise)
   const individualProducts = products.filter(p => p.clientType === 'INDIVIDUAL');
   const simProduct = individualProducts[simIndex] || individualProducts[1] || individualProducts[0];
+  // Inclusions du forfait : la cotisation de base de Santé Famille couvre déjà
+  // 2 adultes + 3 enfants. Seuls les membres AU-DELÀ sont facturés — sans cette
+  // borne, le simulateur annonçait le même montant pour 1 et pour 6 personnes.
+  const includedAdults = simProduct?.includedAdults ?? 1;
+  const includedChildren = simProduct?.includedChildren ?? 0;
   const simTotal = simProduct
-    ? Math.round(simProduct.basePremiumAnnual + Math.max(0, adults - 1) * (simProduct.pricePerAdditionalAdultAnnual || 0) + children * (simProduct.pricePerChildAnnual || 0))
+    ? Math.round(
+        simProduct.basePremiumAnnual
+        + Math.max(0, adults - includedAdults) * (simProduct.pricePerAdditionalAdultAnnual || 0)
+        + Math.max(0, children - includedChildren) * (simProduct.pricePerChildAnnual || 0),
+      )
     : 0;
 
   return (
@@ -211,6 +220,11 @@ export default function Landing() {
                       <span className="text-sm font-bold text-white">/ mois</span>
                     </div>
                     <p className="mt-1 font-mono text-xs text-white">soit {simProduct ? fcfa(simTotal) : '—'} / an · Famille {adults} adulte{adults > 1 ? 's' : ''}{children ? ` + ${children} enfant${children > 1 ? 's' : ''}` : ''}</p>
+                    {simProduct && (includedAdults > 1 || includedChildren > 0) && (
+                      <p className="mt-1 font-mono text-[10px] leading-snug text-white/80">
+                        Forfait : {includedAdults} adulte{includedAdults > 1 ? 's' : ''} + {includedChildren} enfant{includedChildren > 1 ? 's' : ''} inclus, suppléments au-delà
+                      </p>
+                    )}
                   </div>
                   <Link to={simProduct ? `/register?productId=${simProduct.id}` : '/register'} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-sm font-bold text-ink hover:bg-sand transition">
                     Souscrire cette formule <span aria-hidden>→</span>

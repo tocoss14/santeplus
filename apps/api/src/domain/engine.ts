@@ -28,8 +28,18 @@ export interface BeneficiaryRules {
 
 export interface ProductPricing {
   basePremiumAnnual: number;
+  /**
+   * Personnes déjà couvertes par la cotisation de base. 1 adulte (l'assuré
+   * principal) et 0 enfant par défaut ; une formule forfaitaire comme
+   * Santé Famille y inclut le conjoint et les enfants. Les personnes
+   * au-delà de ces inclusions sont facturées au prix unitaire.
+   */
+  includedAdults?: number;
+  includedChildren?: number;
   pricePerAdditionalAdultAnnual: number;
   pricePerChildAnnual: number;
+  /** Surprime de rachat de la carence hospitalisation, en % (0 = non proposé). */
+  carenceBuyoutRate?: number;
   frequencyFactors: Partial<Record<Frequency, number>>;
   minAge: number;
   maxAge: number;
@@ -67,6 +77,20 @@ export interface SelectedGuarantee {
   annualLimit: number;
 }
 
+/**
+ * Catégories dont le délai de carence est levé par le rachat de carence
+ * (option payante). La maternité, le dentaire et l'optique restent soumis à
+ * leur délai : ce sont les postes les plus prévisibles, donc ceux où
+ * l'anti-sélection coûterait le plus cher au fonds.
+ */
+export const CARENCE_BUYOUT_CATEGORIES = ['HOSPITALIZATION'] as const;
+
+/** Options commerciales facultatives attachées à un devis. */
+export interface QuoteOptions {
+  /** Rachat de la carence hospitalisation (surprime + déclaration de santé). */
+  carenceBuyout?: boolean;
+}
+
 /** Résultat du calcul de prime flexible */
 export interface FlexibleQuoteResult {
   basePremium: number;
@@ -74,6 +98,9 @@ export interface FlexibleQuoteResult {
   guaranteeCosts: { categoryId: string; label: string; cost: number; rate: number; limit: number }[];
   ageLoading: number;
   ageLoadingFactor: number;
+  /** Rachat de carence hospitalisation souscrit sur ce devis. */
+  carenceBuyout?: boolean;
+  carenceBuyoutFee?: number;
   subtotal: number;
   frequency: Frequency;
   frequencyFactor: number;
@@ -144,10 +171,11 @@ export function computeQuote(
       if (a > maxAdultAge) maxAdultAge = a;
     }
   }
-  const adultExtras = Math.max(0, adults - 1);
+  const adultExtras = Math.max(0, adults - (pricing.includedAdults ?? 1));
+  const childExtras = Math.max(0, children - (pricing.includedChildren ?? 0));
   const base = pricing.basePremiumAnnual;
   const extraAdultsCost = adultExtras * pricing.pricePerAdditionalAdultAnnual;
-  const childrenCost = children * pricing.pricePerChildAnnual;
+  const childrenCost = childExtras * pricing.pricePerChildAnnual;
   let subtotal = base + extraAdultsCost + childrenCost;
 
   // Chargement par âge : appliquer le facteur de l'âge le plus élevé du foyer
@@ -167,7 +195,7 @@ export function computeQuote(
   lines.push({ label: 'Cotisation de base (assuré principal)', amount: base });
   if (adultExtras > 0)
     lines.push({ label: `Ayants droit adultes supplémentaires (${adultExtras})`, amount: extraAdultsCost });
-  if (children > 0) lines.push({ label: `Enfants (${children})`, amount: childrenCost });    if (factor !== 1) lines.push({ label: `Fractionnement ${frequency.toLowerCase()} (×${factor})`, amount: totalAnnual - subtotal });
+  if (childExtras > 0) lines.push({ label: `Enfants supplémentaires (${childExtras})`, amount: childrenCost });    if (factor !== 1) lines.push({ label: `Fractionnement ${frequency.toLowerCase()} (×${factor})`, amount: totalAnnual - subtotal });
     if (pricing.ageLoadings && pricing.ageLoadings.length > 0) {
       const loading = pricing.ageLoadings.find(l => maxAdultAge >= l.minAge && maxAdultAge <= l.maxAge);
       if (loading && loading.factor !== 1) {
@@ -211,6 +239,7 @@ export function computeFlexibleQuote(
   persons: QuotePerson[],
   frequency: Frequency,
   selectedGuarantees?: SelectedGuarantee[],
+  options?: QuoteOptions,
 ): { errors: string[]; quote?: QuoteResult; flexibleDetails?: FlexibleQuoteResult } {
   const errors: string[] = [];
   const now = new Date();
@@ -247,9 +276,10 @@ export function computeFlexibleQuote(
     }
   }
 
-  const adultExtras = Math.max(0, adults - 1);
+  const adultExtras = Math.max(0, adults - (pricing.includedAdults ?? 1));
+  const childExtras = Math.max(0, children - (pricing.includedChildren ?? 0));
   const basePremium = pricing.basePremiumAnnual;
-  const beneficiaryCost = adultExtras * pricing.pricePerAdditionalAdultAnnual + children * pricing.pricePerChildAnnual;
+  const beneficiaryCost = adultExtras * pricing.pricePerAdditionalAdultAnnual + childExtras * pricing.pricePerChildAnnual;
 
   // Déterminer le facteur d'âge
   let ageLoadingFactor = 1;
@@ -293,7 +323,16 @@ export function computeFlexibleQuote(
   }
 
   const totalGuaranteeCost = guaranteeCosts.reduce((a, g) => a + g.cost, 0);
-  let subtotal = basePremium + beneficiaryCost + totalGuaranteeCost;
+
+  // Rachat de carence : surprime proportionnelle à la cotisation avant âge et
+  // fractionnement, comme la couverture qu'elle achète (l'hospitalisation).
+  const carenceBuyoutRate = pricing.carenceBuyoutRate ?? 0;
+  const carenceBuyout = Boolean(options?.carenceBuyout) && carenceBuyoutRate > 0;
+  const carenceBuyoutFee = carenceBuyout
+    ? Math.round((basePremium + beneficiaryCost + totalGuaranteeCost) * (carenceBuyoutRate / 100))
+    : 0;
+
+  let subtotal = basePremium + beneficiaryCost + totalGuaranteeCost + carenceBuyoutFee;
 
   // Facteur âge
   let ageLoadingAmount = 0;
@@ -311,7 +350,8 @@ export function computeFlexibleQuote(
   // Lignes de devis
   if (lines.length) lines.unshift({ label: 'Cotisation de base', amount: basePremium });
   else lines.push({ label: 'Cotisation de base (assuré principal)', amount: basePremium });
-  if (beneficiaryCost > 0) lines.push({ label: `Ayants droit (${adultExtras} adulte${adultExtras > 1 ? 's' : ''} + ${children} enfant${children > 1 ? 's' : ''})`, amount: beneficiaryCost });
+  if (beneficiaryCost > 0) lines.push({ label: `Ayants droit (${adultExtras} adulte${adultExtras > 1 ? 's' : ''} + ${childExtras} enfant${childExtras > 1 ? 's' : ''})`, amount: beneficiaryCost });
+  if (carenceBuyoutFee > 0) lines.push({ label: `Rachat de carence hospitalisation (surprime ${carenceBuyoutRate} %)`, amount: carenceBuyoutFee });
   if (ageLoadingAmount > 0) lines.push({ label: `Surcharge âge (${maxAdultAge} ans, ×${ageLoadingFactor})`, amount: ageLoadingAmount });
   if (factor !== 1) lines.push({ label: `Fractionnement ${frequency.toLowerCase()} (×${factor})`, amount: totalAnnual - subtotal });
 
@@ -321,6 +361,8 @@ export function computeFlexibleQuote(
     guaranteeCosts,
     ageLoading: ageLoadingAmount,
     ageLoadingFactor,
+    carenceBuyout,
+    carenceBuyoutFee,
     subtotal: subtotal,
     frequency,
     frequencyFactor: factor,
@@ -387,6 +429,13 @@ export interface ClaimCtx {
   startDate: Date;
   endDate: Date;
   waitingPeriodDays: number;
+  /**
+   * Catégories exemptées du délai de carence GLOBAL (rachat de carence
+   * souscrit sur le contrat). Les blocages durs (contrat inactif, hors
+   * période) restent opposables, ainsi que les carences spécifiques de
+   * catégorie non rachetées (maternité, dentaire, optique).
+   */
+  globalWaitingExemptCategories?: string[];
   excludedCategories: string[];
   rules: CoverageRule[];
   usedPerCategory: Record<string, number>;
@@ -462,24 +511,27 @@ export function estimateClaim(
   duplicateSuspect = false,
 ): EstimationResult {
   const flags: string[] = [];
-  let blocked = false;
+  let hardBlocked = false;
 
   if (ctx.contractStatus !== 'ACTIVE') {
     flags.push('CONTRACT_INACTIVE');
-    blocked = true;
+    hardBlocked = true;
   }
   if ((ctx.startDate && careDate < ctx.startDate) || (ctx.endDate && careDate > ctx.endDate)) {
     flags.push('OUT_OF_PERIOD');
-    blocked = true;
+    hardBlocked = true;
   }
   // Délai de carence global (par défaut)
   const defaultWaitEnd = ctx.startDate && ctx.waitingPeriodDays > 0
     ? addDaysSafe(ctx.startDate, ctx.waitingPeriodDays)
     : null;
-  if (defaultWaitEnd && careDate < defaultWaitEnd) {
-    flags.push(`WAITING_PERIOD:${fmt(defaultWaitEnd)}`);
-    blocked = true;
-  }
+  const globalWaitBlocked = Boolean(defaultWaitEnd && careDate < defaultWaitEnd);
+  if (globalWaitBlocked) flags.push(`WAITING_PERIOD:${fmt(defaultWaitEnd!)}`);
+  // Rachat de carence : les catégories rachetées échappent au délai global.
+  // Le flag laisse une trace auditable du rachat dans l'estimation.
+  const exemptCategories = ctx.globalWaitingExemptCategories ?? [];
+  if (globalWaitBlocked && exemptCategories.length > 0)
+    flags.push(`CARENCE_RACHETEE:${exemptCategories.join(',')}`);
   if (duplicateSuspect) flags.push('DUPLICATE_SUSPECT');
 
   // Cumul du reste à charge supporté sur l'année pour des soins éligibles.
@@ -494,7 +546,9 @@ export function estimateClaim(
     const quantity = normalizeQuantity(raw.quantity);
     const unit = claimUnit(raw.categoryId);
     const item = { ...raw, quantity, unit };
-    if (blocked) {
+    // Le rachat de carence écarte le délai GLOBAL pour les catégories
+    // rachetées — jamais les blocages durs ni les carences de catégorie.
+    if (hardBlocked || (globalWaitBlocked && !exemptCategories.includes(item.categoryId))) {
       return {
         ...item,
         amountEligible: 0,

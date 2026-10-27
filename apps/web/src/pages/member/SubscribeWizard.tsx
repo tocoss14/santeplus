@@ -107,6 +107,9 @@ export default function SubscribeWizard() {
   const [guaranteeRequestBusy, setGuaranteeRequestBusy] = useState(false);
   const [quote, setQuote] = useState<any>(null);
   const [flexibleDetails, setFlexibleDetails] = useState<any>(null);
+  // Rachat de la carence hospitalisation (option payante du produit).
+  const [carenceBuyout, setCarenceBuyout] = useState(false);
+  const [declarationAccepted, setDeclarationAccepted] = useState(false);
   const [adhesion, setAdhesion] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
@@ -244,7 +247,10 @@ export default function SubscribeWizard() {
     }));
   }, [product]);
 
-  async function computeQuote(bens: BenefDraft[]) {
+  async function computeQuote(
+    bens: BenefDraft[],
+    options?: { carenceBuyout?: boolean; declarationAccepted?: boolean },
+  ) {
     setError(null);
     try {
       const res = await api.post('/subscription/quote', {
@@ -252,6 +258,8 @@ export default function SubscribeWizard() {
         frequency,
         beneficiaries: bens.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
         selectedGuarantees: [],
+        carenceBuyout: options?.carenceBuyout ?? carenceBuyout,
+        declarationAccepted: options?.declarationAccepted ?? declarationAccepted,
       });
       setQuote(res.quote);
       setFlexibleDetails(res.flexibleDetails);
@@ -585,6 +593,36 @@ export default function SubscribeWizard() {
     }
   };
 
+  // Délai de carence hospitalisation du produit, tel qu'il sera opposé au
+  // sinistre : eligibilityConditions.waitingPeriodDays.hospitalization,
+  // sinon waitingPeriodDays global.
+  const hospitalizationWaitDays = useMemo(() => {
+    try {
+      const eligibility = JSON.parse(product?.eligibilityConditions ?? '{}');
+      const days = eligibility?.waitingPeriodDays?.hospitalization;
+      if (typeof days === 'number' && days > 0) return days;
+    } catch {
+      /* champ libre côté admin : repli sur le délai global */
+    }
+    return product?.waitingPeriodDays ?? 0;
+  }, [product]);
+
+  // Chaque changement d'option re-chiffre le devis : le prix affiché à l'étape 6
+  // doit toujours être celui qui sera facturé.
+  const toggleCarenceBuyout = async (checked: boolean) => {
+    setCarenceBuyout(checked);
+    if (!checked) setDeclarationAccepted(false);
+    await computeQuote(beneficiaries, {
+      carenceBuyout: checked,
+      declarationAccepted: checked ? declarationAccepted : false,
+    });
+  };
+
+  const toggleDeclaration = async (checked: boolean) => {
+    setDeclarationAccepted(checked);
+    await computeQuote(beneficiaries, { carenceBuyout, declarationAccepted: checked });
+  };
+
   const subscribe = async () => {
     setBusy(true);
     setError(null);
@@ -595,6 +633,8 @@ export default function SubscribeWizard() {
         beneficiaries,
         selectedGuarantees: [],
         riskModel,
+        carenceBuyout,
+        declarationAccepted,
       });
       setSubscription(res);
       setQuote(res.quote);
@@ -1199,6 +1239,54 @@ export default function SubscribeWizard() {
             </div>
           </div>
 
+          {/* Rachat de carence — option payante du produit. La déclaration de
+              santé est obligatoire : c'est elle qui rend la levée de carence
+              opposable en cas de sinistre précoce. */}
+          {product && (product.carenceBuyoutRate ?? 0) > 0 && (
+            <div className="card-p">
+              <h4 className="text-sm font-semibold text-slate-700">Délai de carence hospitalisation</h4>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                Sur cette formule, l’hospitalisation n’est prise en charge qu’après{' '}
+                <b>{hospitalizationWaitDays} jours</b> de contrat. Le rachat lève ce délai dès
+                l’activation, contre une surprime de <b>{product.carenceBuyoutRate} %</b> de la
+                cotisation annuelle
+                {carenceBuyout && flexibleDetails?.carenceBuyoutFee
+                  ? ` (${fcfa(flexibleDetails.carenceBuyoutFee)})`
+                  : ''}
+                . La maternité, le dentaire et l’optique conservent leur délai.
+              </p>
+              <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={carenceBuyout}
+                  onChange={e => toggleCarenceBuyout(e.target.checked)}
+                />
+                <span className="font-semibold">Racheter la carence hospitalisation (+{product.carenceBuyoutRate} %)</span>
+              </label>
+              {carenceBuyout && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  <p className="font-semibold">Déclaration de santé — obligatoire</p>
+                  <p className="mt-1 leading-relaxed">
+                    Je déclare n’avoir, à la date de la souscription, aucune hospitalisation programmée
+                    ni prise en charge hospitalière en cours, et j’accepte que les affections
+                    préexistantes non déclarées restent exclues. Une fausse déclaration entraîne
+                    l’annulation du rachat et le remboursement des prestations servies.
+                  </p>
+                  <label className="mt-2 flex cursor-pointer items-start gap-2 font-semibold">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={declarationAccepted}
+                      onChange={e => toggleDeclaration(e.target.checked)}
+                    />
+                    <span>J’accepte cette déclaration</span>
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Détails des garanties sélectionnées */}
           {flexibleDetails?.guaranteeCosts?.length > 0 && (
             <div className="card-p">
@@ -1235,7 +1323,13 @@ export default function SubscribeWizard() {
           </div>
           <div className="flex gap-2">
             <button className="btn-outline flex-1" onClick={() => setStep(5)}>Retour</button>
-            <button className="btn-primary flex-[2]" disabled={busy} onClick={subscribe}>{busy ? 'Création…' : 'Valider ma souscription'}</button>
+            <button
+              className="btn-primary flex-[2]"
+              disabled={busy || (carenceBuyout && !declarationAccepted)}
+              onClick={subscribe}
+            >
+              {busy ? 'Création…' : 'Valider ma souscription'}
+            </button>
           </div>
         </div>
       )}

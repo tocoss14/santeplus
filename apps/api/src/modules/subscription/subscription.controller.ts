@@ -23,11 +23,22 @@ const selectedGuaranteeSchema = z.object({
   annualLimit: z.number().int().min(0),
 });
 
+/**
+ * Rachat de carence : `declarationAccepted` est la déclaration de santé
+ * signée par le souscripteur. Elle est horodatée sur le contrat ; sans elle
+ * le rachat est refusé (l'absence de carence ne serait pas opposable).
+ */
+const carenceBuyoutSchema = {
+  carenceBuyout: z.boolean().default(false),
+  declarationAccepted: z.boolean().default(false),
+};
+
 const quoteSchema = z.object({
   productId: z.string().min(5),
   frequency: z.enum(['ANNUAL', 'QUARTERLY', 'MONTHLY']),
   beneficiaries: z.array(z.object({ birthDate: z.coerce.date(), relation: z.enum(['SPOUSE', 'CHILD', 'OTHER']) })).default([]),
   selectedGuarantees: z.array(selectedGuaranteeSchema).optional(),
+  ...carenceBuyoutSchema,
 });
 
 export const riskModelSchema = z.enum(['MUTUALITE', 'INDIVIDUEL']);
@@ -38,6 +49,7 @@ const subscribeIndividualSchema = z.object({
   beneficiaries: z.array(beneficiaryDraftSchema).default([]),
   selectedGuarantees: z.array(selectedGuaranteeSchema).optional(),
   riskModel: riskModelSchema.default('MUTUALITE'),
+  ...carenceBuyoutSchema,
 });
 
 const subscribeCompanySchema = z.object({
@@ -69,12 +81,18 @@ export class SubscriptionController {
 
   @Post('quote')
   quote(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(quoteSchema)) dto: any) {
-    return this.subscription.quoteForUser(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees);
+    return this.subscription.quoteForUser(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees, {
+      carenceBuyout: dto.carenceBuyout,
+      declarationAccepted: dto.declarationAccepted,
+    });
   }
 
   @Post('subscribe')
   subscribe(@CurrentUser() auth: AuthUser, @Body(new ZodPipe(subscribeIndividualSchema)) dto: any) {
-    return this.subscription.subscribeIndividual(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees, dto.riskModel);
+    return this.subscription.subscribeIndividual(auth.id, dto.productId, dto.frequency, dto.beneficiaries, dto.selectedGuarantees, dto.riskModel, {
+      carenceBuyout: dto.carenceBuyout,
+      declarationAccepted: dto.declarationAccepted,
+    });
   }
 
   @Post('guarantee-change-requests')

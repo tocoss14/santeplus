@@ -16,6 +16,18 @@ export interface BeneficiaryDraft {
   relation: 'SPOUSE' | 'CHILD' | 'OTHER';
 }
 
+/**
+ * Options commerciales facultatives d'un devis / d'une souscription.
+ * carenceBuyout : rachat de la carence hospitalisation (surprime tarifée sur
+ * le produit). declarationAccepted : déclaration de santé acceptée — sans
+ * elle le rachat est refusé, parce que c'est cette pièce qui rend l'absence
+ * de carence opposable en cas de sinistre précoce.
+ */
+export interface SubscriptionOptions {
+  carenceBuyout?: boolean;
+  declarationAccepted?: boolean;
+}
+
 export interface GuaranteeChangeEstimateInput {
   productId: string;
   categoryId: string;
@@ -71,8 +83,11 @@ export class SubscriptionService {
   private parseProduct(product: any) {
     return {
       basePremiumAnnual: product.basePremiumAnnual,
+      includedAdults: product.includedAdults ?? 1,
+      includedChildren: product.includedChildren ?? 0,
       pricePerAdditionalAdultAnnual: product.pricePerAdditionalAdultAnnual,
       pricePerChildAnnual: product.pricePerChildAnnual,
+      carenceBuyoutRate: product.carenceBuyoutRate ?? 0,
       frequencyFactors: JSON.parse(product.frequencyFactors || '{}'),
       minAge: product.minAge,
       maxAge: product.maxAge,
@@ -98,14 +113,71 @@ export class SubscriptionService {
     };
   }
 
-  async quote(productId: string, principalBirthDate: Date, beneficiaries: BeneficiaryDraft[], frequency: Frequency, selectedGuarantees?: SelectedGuarantee[]) {
+  /**
+   * Règles d'ayants droit du produit (quota, conjoint, autres, âge enfant).
+   * Partagées par le devis ET la souscription : sans ça, le devis annonçait
+   * un prix pour un foyer que la souscription refusait ensuite.
+   */
+  private assertBeneficiaryRules(
+    product: any,
+    people: Array<{ birthDate: Date; relation: string; firstName?: string }>,
+  ) {
+    const rules = JSON.parse(product.beneficiaryRules || '{}') as {
+      spouse?: boolean;
+      childMaxAge?: number;
+      otherAllowed?: boolean;
+      maxBeneficiaries?: number;
+    };
+    if (rules.maxBeneficiaries != null && people.length > rules.maxBeneficiaries)
+      throw new BadRequestException(`Nombre maximum d'ayants droit : ${rules.maxBeneficiaries}`);
+    if (people.some(b => b.relation === 'SPOUSE') && rules.spouse === false)
+      throw new BadRequestException('Ce produit ne couvre pas le conjoint');
+    if (people.some(b => b.relation === 'OTHER') && rules.otherAllowed !== true)
+      throw new BadRequestException('Ce produit ne permet pas les autres ayants droit');
+    if (people.filter(b => b.relation === 'SPOUSE').length > 1)
+      throw new BadRequestException("Un seul conjoint est autorisé");
+    const childMax = rules.childMaxAge ?? 21;
+    for (const b of people) {
+      if (b.relation !== 'CHILD') continue;
+      const age = Math.floor((Date.now() - new Date(b.birthDate).getTime()) / (365.25 * 86400000));
+      if (age >= childMax) {
+        const who = b.firstName ? ` ${b.firstName}` : '';
+        throw new BadRequestException(`Enfant${who} : doit avoir moins de ${childMax} ans`);
+      }
+    }
+  }
+
+  /**
+   * L'option de rachat de carence doit exister sur le produit avant d'être
+   * facturée. La déclaration de santé n'est exigée qu'à la souscription : le
+   * devis doit pouvoir chiffrer l'option avant que l'assuré l'accepte.
+   */
+  private assertCarenceBuyoutOffered(product: any, options?: SubscriptionOptions) {
+    if (!options?.carenceBuyout) return;
+    if ((product.carenceBuyoutRate ?? 0) <= 0) {
+      throw new BadRequestException("Le rachat de carence n'est pas proposé sur cette formule");
+    }
+  }
+
+  async quote(
+    productId: string,
+    principalBirthDate: Date,
+    beneficiaries: BeneficiaryDraft[],
+    frequency: Frequency,
+    selectedGuarantees?: SelectedGuarantee[],
+    options?: SubscriptionOptions,
+  ) {
     const product = await this.getActiveProduct(productId);
+    this.assertCarenceBuyoutOffered(product, options);
+    this.assertBeneficiaryRules(product, beneficiaries);
     const persons: QuotePerson[] = [
       { birthDate: principalBirthDate, relation: 'PRINCIPAL' },
       ...beneficiaries.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
     ];
     const pricing = this.parseProduct(product);
-    const { errors, quote, flexibleDetails } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees);
+    const { errors, quote, flexibleDetails } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees, {
+      carenceBuyout: options?.carenceBuyout,
+    });
     if (errors.length) throw new BadRequestException({ message: errors[0], errors });
     const { perPerson } = await this.adhesionConfig();
     const adhesionFee = persons.length * perPerson;
@@ -113,10 +185,17 @@ export class SubscriptionService {
     return { product: { id: product.id, name: product.name, code: product.code }, quote, flexibleDetails, adhesion: adhesionDetails };
   }
 
-  async quoteForUser(userId: string, productId: string, frequency: Frequency, beneficiaries: { birthDate: Date; relation: string }[], selectedGuarantees?: SelectedGuarantee[]) {
+  async quoteForUser(
+    userId: string,
+    productId: string,
+    frequency: Frequency,
+    beneficiaries: { birthDate: Date; relation: string }[],
+    selectedGuarantees?: SelectedGuarantee[],
+    options?: SubscriptionOptions,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.birthDate) throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de simuler');
-    return this.quote(productId, user.birthDate, beneficiaries as BeneficiaryDraft[], frequency, selectedGuarantees);
+    return this.quote(productId, user.birthDate, beneficiaries as BeneficiaryDraft[], frequency, selectedGuarantees, options);
   }
 
   async requestGuaranteeChange(userId: string, input: GuaranteeChangeEstimateInput) {
@@ -237,6 +316,7 @@ export class SubscriptionService {
     beneficiaries: BeneficiaryDraft[],
     selectedGuarantees?: SelectedGuarantee[],
     riskModel: 'MUTUALITE' | 'INDIVIDUEL' = 'MUTUALITE',
+    options?: SubscriptionOptions,
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.birthDate) throw new BadRequestException('Renseignez votre date de naissance dans votre profil avant de souscrire');
@@ -253,27 +333,14 @@ export class SubscriptionService {
 
     const product = await this.getActiveProduct(productId);
     if (product.clientType !== 'INDIVIDUAL') throw new BadRequestException('Produit réservé aux entreprises');
-
-    const rules = JSON.parse(product.beneficiaryRules || '{}') as {
-      spouse?: boolean;
-      childMaxAge?: number;
-      otherAllowed?: boolean;
-      maxBeneficiaries?: number;
-    };
-    if (rules.maxBeneficiaries != null && beneficiaries.length > rules.maxBeneficiaries)
-      throw new BadRequestException(`Nombre maximum d'ayants droit : ${rules.maxBeneficiaries}`);
-    if (beneficiaries.some(b => b.relation === 'SPOUSE') && rules.spouse === false)
-      throw new BadRequestException('Ce produit ne couvre pas le conjoint');
-    if (beneficiaries.some(b => b.relation === 'OTHER') && rules.otherAllowed !== true)
-      throw new BadRequestException('Ce produit ne permet pas les autres ayants droit');
-    if (beneficiaries.filter(b => b.relation === 'SPOUSE').length > 1)
-      throw new BadRequestException("Un seul conjoint est autorisé");
+    this.assertCarenceBuyoutOffered(product, options);
+    // La déclaration de santé est la contrepartie du rachat : sans elle, la
+    // levée de carence ne serait pas opposable en cas de sinistre précoce.
+    if (options?.carenceBuyout && options.declarationAccepted !== true) {
+      throw new BadRequestException('Déclaration de santé du rachat de carence non acceptée');
+    }
+    this.assertBeneficiaryRules(product, beneficiaries);
     for (const b of beneficiaries) {
-      if (b.relation === 'CHILD') {
-        const childMax = rules.childMaxAge ?? 21;
-        const age = Math.floor((Date.now() - new Date(b.birthDate).getTime()) / (365.25 * 86400000));
-        if (age >= childMax) throw new BadRequestException(`Enfant ${b.firstName} : doit avoir moins de ${childMax} ans`);
-      }
       if (!b.firstName || !b.lastName) throw new BadRequestException('Nom et prénom requis pour chaque ayant droit');
     }
     const pricing = this.parseProduct(product);
@@ -281,8 +348,14 @@ export class SubscriptionService {
       { birthDate: user.birthDate, relation: 'PRINCIPAL' },
       ...beneficiaries.map(b => ({ birthDate: b.birthDate, relation: b.relation })),
     ];
-    const { errors, quote } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees);
+    const { errors, quote, flexibleDetails } = computeFlexibleQuote(pricing, persons, frequency, selectedGuarantees, {
+      carenceBuyout: options?.carenceBuyout,
+    });
     if (errors.length || !quote) throw new BadRequestException({ message: errors[0] ?? 'Devis invalide', errors });
+    const carenceBuyout = Boolean(flexibleDetails?.carenceBuyout);
+    // Horodatage de la déclaration de santé : c'est la preuve d'acceptation
+    // exigée pour opposer l'absence de carence en cas de sinistre précoce.
+    const carenceBuyoutDeclarationAt = carenceBuyout ? new Date().toISOString() : null;
 
     const today = startOfDay(new Date());
     const schedule = buildSchedule(quote.totalAnnual, frequency, today);
@@ -307,10 +380,11 @@ export class SubscriptionService {
           insurerPartnerId: product.insurerPartnerId,
           premiumAnnual: quote.totalAnnual,
           frequency,
+          carenceBuyout,
           riskModel,
           riskModelSince: new Date(),
           financialModelVersionId: financialModel.financialModelVersionId,
-          quote: JSON.stringify({ ...quote, adhesionFee, adhesionPerPerson: perPerson }),
+          quote: JSON.stringify({ ...quote, adhesionFee, adhesionPerPerson: perPerson, carenceBuyout, carenceBuyoutDeclarationAt }),
           cardToken: secureToken(16),
           distributorId: distributor?.id ?? null,
           adhesionFee,
@@ -400,7 +474,8 @@ export class SubscriptionService {
     return {
       contractId: contract.id,
       number: contract.number,
-      quote: { ...quote, adhesionFee, adhesionPerPerson: perPerson },
+      quote: { ...quote, adhesionFee, adhesionPerPerson: perPerson, carenceBuyout, carenceBuyoutDeclarationAt },
+      carenceBuyout,
       contributions: schedule,
       firstPayment: { ...schedule[0], adhesionFee, totalFirstPayment: schedule[0].amount + adhesionFee },
       adhesion: { perPerson, personsCount: 1 + beneficiaries.length, adhesionFee },

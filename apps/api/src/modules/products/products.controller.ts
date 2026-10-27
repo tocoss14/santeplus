@@ -37,8 +37,13 @@ const productBaseSchema = z
     minAge: z.number().int().min(0).max(100).default(0),
     maxAge: z.number().int().min(0).max(100).default(65),
     basePremiumAnnual: z.number().int().min(0),
+    // Personnes couvertes par la cotisation de base (forfait familial).
+    includedAdults: z.number().int().min(0).max(10).default(1),
+    includedChildren: z.number().int().min(0).max(15).default(0),
     pricePerAdditionalAdultAnnual: z.number().int().min(0).default(0),
     pricePerChildAnnual: z.number().int().min(0).default(0),
+    // Surprime (%) de rachat de la carence hospitalisation ; 0 = non proposé.
+    carenceBuyoutRate: z.number().int().min(0).max(200).default(0),
     frequencyFactors: z.record(z.number()).optional(),
     waitingPeriodDays: z.number().int().min(0).max(365).default(0),
     globalAnnualCap: z.number().int().min(0).default(5000000),

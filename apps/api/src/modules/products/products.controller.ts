@@ -81,8 +81,39 @@ export const productBaseSchema = z
     exclusions: z.array(z.object({ categoryId: z.string().optional(), description: z.string() })).optional(),
   });
 
+/**
+ * Cohérence du forfait familial : inclure des personnes dans la cotisation de
+ * base n'a de sens que si les personnes AU-DELÀ sont facturées. Avec un prix
+ * unitaire à 0, tout membre supplémentaire est couvert gratuitement — c'est
+ * exactement la fuite qui faisait payer 75 000 FCFA un foyer de 1 comme de 5
+ * (migration 20261027000000).
+ *
+ * Les formules collectives sont hors champ : leur cotisation est un tarif par
+ * salarié (basePremiumAnnual), la composition du foyer n'y entre pas.
+ *
+ * Renvoie le message d'erreur, ou null si la grille est cohérente.
+ */
+export function forfaitPricingIssue(p: {
+  clientType?: string;
+  includedAdults?: number;
+  includedChildren?: number;
+  pricePerAdditionalAdultAnnual?: number;
+  pricePerChildAnnual?: number;
+}): string | null {
+  if (p.clientType === 'COMPANY') return null;
+  if ((p.includedAdults ?? 1) > 1 && (p.pricePerAdditionalAdultAnnual ?? 0) <= 0) {
+    return 'Forfait incohérent : des adultes sont inclus dans la cotisation de base, mais le supplément par adulte est à 0 FCFA — les adultes au-delà du forfait seraient couverts gratuitement.';
+  }
+  if ((p.includedChildren ?? 0) > 0 && (p.pricePerChildAnnual ?? 0) <= 0) {
+    return 'Forfait incohérent : des enfants sont inclus dans la cotisation de base, mais le supplément par enfant est à 0 FCFA — les enfants au-delà du forfait seraient couverts gratuitement.';
+  }
+  return null;
+}
+
 const productSchema = productBaseSchema.superRefine((p, ctx) => {
   if (p.maxAge < p.minAge) ctx.addIssue({ code: 'custom', message: 'maxAge < minAge' });
+  const forfaitIssue = forfaitPricingIssue(p);
+  if (forfaitIssue) ctx.addIssue({ code: 'custom', message: forfaitIssue });
 });
 
 const guaranteeCatalogSchema = z.object({
@@ -134,6 +165,16 @@ export class ProductsService {
     return p;
   }
 
+  /**
+   * Le PATCH est partiel : la cohérence du forfait se juge sur l'état fusionné
+   * (produit existant + champs reçus), sinon un simple « includedChildren: 3 »
+   * passerait la validation alors que le supplément enfant du produit est à 0.
+   */
+  private assertForfaitPricing(product: any) {
+    const issue = forfaitPricingIssue(product ?? {});
+    if (issue) throw new BadRequestException(issue);
+  }
+
   private assertOopCap(oopAnnualCap: number | null | undefined, globalAnnualCap: number) {
     if (oopAnnualCap === undefined || oopAnnualCap === null) return;
     if (!Number.isInteger(oopAnnualCap) || oopAnnualCap <= 0) {
@@ -146,6 +187,7 @@ export class ProductsService {
 
   async create(dto: any) {
     await this.assertCodeFree(dto.code);
+    this.assertForfaitPricing(dto);
     this.assertOopCap(dto.oopAnnualCap, dto.globalAnnualCap ?? 5000000);
     const { guarantees, exclusions, frequencyFactors, beneficiaryRules, ctsConfig, ...rest } = dto;
     return this.prisma.$transaction(async tx => {
@@ -169,6 +211,7 @@ export class ProductsService {
 
   async update(id: string, dto: any) {
     const existing = await this.getForAdmin(id);
+    this.assertForfaitPricing({ ...(existing as any), ...dto });
     if (dto.oopAnnualCap !== undefined || dto.globalAnnualCap !== undefined) {
       this.assertOopCap(
         dto.oopAnnualCap !== undefined ? dto.oopAnnualCap : (existing as any).oopAnnualCap,

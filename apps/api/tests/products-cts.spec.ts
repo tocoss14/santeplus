@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ProductsService, ctsConfigSchema, productBaseSchema } from '../src/modules/products/products.controller';
+import { ProductsService, ctsConfigSchema, forfaitPricingIssue, productBaseSchema } from '../src/modules/products/products.controller';
 
 // P12 : ctsConfig produit (validation + persistance) et familyLimit garantie.
 
@@ -132,10 +132,55 @@ describe('productBaseSchema — grille éditable depuis l’administration', () 
     expect(parsed).toMatchObject({ includedAdults: 1, includedChildren: 0, carenceBuyoutRate: 0 });
   });
 
+  it('refuse un forfait qui couvrirait gratuitement les membres au-delà', async () => {
+    expect(forfaitPricingIssue({ includedAdults: 2, pricePerAdditionalAdultAnnual: 0 })).toMatch(/supplément par adulte/);
+    expect(forfaitPricingIssue({ includedChildren: 3, pricePerChildAnnual: 0 })).toMatch(/supplément par enfant/);
+
+    const { prisma } = makePrisma();
+    const svc = new ProductsService(prisma);
+    await expect(
+      svc.create({ code: 'TST', name: 'Test', basePremiumAnnual: 75_000, includedAdults: 2 }),
+    ).rejects.toThrow(/supplément par adulte/);
+
+    // Suppléments tarifés : la grille passe.
+    await expect(
+      svc.create({
+        code: 'TST2', name: 'Test 2', basePremiumAnnual: 75_000,
+        includedAdults: 2, includedChildren: 3,
+        pricePerAdditionalAdultAnnual: 30_000, pricePerChildAnnual: 18_000,
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it('une formule collective n’est pas concernée (tarif par salarié)', async () => {
+    expect(forfaitPricingIssue({ clientType: 'COMPANY', includedChildren: 3, pricePerChildAnnual: 0 })).toBeNull();
+    const { prisma } = makePrisma();
+    const svc = new ProductsService(prisma);
+    await expect(
+      svc.create({
+        code: 'ENT', name: 'Entreprise', basePremiumAnnual: 300_000, clientType: 'COMPANY',
+        includedAdults: 2, includedChildren: 3, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0,
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it('update partiel : la cohérence se juge sur l’état fusionné, pas sur le corps reçu', async () => {
+    const { prisma, store } = makePrisma();
+    const svc = new ProductsService(prisma);
+    const id = await svc.create({ ...baseDto(), includedAdults: 1, pricePerAdditionalAdultAnnual: 0 });
+    // Le corps ne porte qu'une inclusion : c'est le supplément (déjà à 0 en base)
+    // qui rend la grille incohérente — le service doit le voir.
+    await expect(svc.update(id, { includedAdults: 2 })).rejects.toThrow(/supplément par adulte/);
+    expect(store.products[id].includedAdults).toBe(1);
+    // En tarifant le supplément dans la même requête, la grille devient valide.
+    await svc.update(id, { includedAdults: 2, pricePerAdditionalAdultAnnual: 30_000 });
+    expect(store.products[id]).toMatchObject({ includedAdults: 2, pricePerAdditionalAdultAnnual: 30_000 });
+  });
+
   it('update persiste la grille modifiée par l’administration', async () => {
     const { prisma, store } = makePrisma();
     const svc = new ProductsService(prisma);
-    const id = await svc.create({ ...baseDto(), ...adminFields });
+    const id = await svc.create({ ...baseDto(), ...adminFields, pricePerAdditionalAdultAnnual: 15_000, pricePerChildAnnual: 10_000 });
     expect(store.products[id]).toMatchObject(adminFields);
     await svc.update(id, { includedAdults: 4, pricePerAdditionalAdultAnnual: 30_000, carenceBuyoutRate: 40 });
     expect(store.products[id]).toMatchObject({

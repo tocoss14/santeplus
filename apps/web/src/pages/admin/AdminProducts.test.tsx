@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { buildProductPayload, ProductEditor } from './AdminProducts';
+import { buildProductPayload, forfaitPricingIssue, ProductEditor } from './AdminProducts';
 
 /**
  * P12 — l'écran d'administration des formules doit piloter la grille que le
@@ -68,6 +68,28 @@ describe('buildProductPayload', () => {
   });
 });
 
+describe('forfaitPricingIssue (doublure de la règle serveur)', () => {
+  it('signale un forfait adulte sans supplément tarifé', () => {
+    expect(forfaitPricingIssue({ clientType: 'INDIVIDUAL', includedAdults: 2, pricePerAdditionalAdultAnnual: 0 })).toMatch(
+      /supplément par adulte/,
+    );
+    expect(forfaitPricingIssue({ includedAdults: '3', pricePerAdditionalAdultAnnual: '0' })).toMatch(/supplément par adulte/);
+  });
+
+  it('signale un forfait enfant sans supplément tarifé', () => {
+    expect(forfaitPricingIssue({ includedChildren: 3, pricePerChildAnnual: 0 })).toMatch(/supplément par enfant/);
+  });
+
+  it('accepte la grille Famille réellement servie et les défauts neutres', () => {
+    expect(forfaitPricingIssue(produitFamille)).toBeNull();
+    expect(forfaitPricingIssue({ includedAdults: 1, includedChildren: 0, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0 })).toBeNull();
+  });
+
+  it('laisse les formules collectives tranquilles', () => {
+    expect(forfaitPricingIssue({ clientType: 'COMPANY', includedAdults: 2, includedChildren: 3, pricePerAdditionalAdultAnnual: 0, pricePerChildAnnual: 0 })).toBeNull();
+  });
+});
+
 describe('ProductEditor', () => {
   it('expose les trois champs en saisie, garnis des valeurs du produit', () => {
     const html = renderToString(
@@ -83,6 +105,31 @@ describe('ProductEditor', () => {
     expect(html).toContain('Adulte supp./an');
     expect(html).toContain('value="30000"');
     expect(html).toContain('value="18000"');
+  });
+
+  it('bloque l’enregistrement d’un forfait non tarifé au-delà, en expliquant pourquoi', () => {
+    const html = renderToString(
+      <ProductEditor
+        product={{ ...produitFamille, includedChildren: 3, pricePerChildAnnual: 0, guarantees: [] }}
+        partners={[]}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+    );
+    expect(html).toContain('Forfait incohérent');
+    expect(html).toMatch(/Enregistrer<\/button>/);
+    // Le bouton d'enregistrement est désactivé tant que la grille est incohérente.
+    const bouton = html.slice(html.lastIndexOf('<button'));
+    expect(bouton).toContain('disabled');
+  });
+
+  it('laisse l’enregistrement possible sur la grille Famille servie', () => {
+    const html = renderToString(
+      <ProductEditor product={produitFamille} partners={[]} onClose={() => {}} onSaved={() => {}} />,
+    );
+    expect(html).not.toContain('Forfait incohérent');
+    const bouton = html.slice(html.lastIndexOf('<button'));
+    expect(bouton).not.toContain('disabled');
   });
 
   it('affiche les défauts neutres sur un produit sans forfait', () => {

@@ -142,6 +142,29 @@ export default function AdminProducts() {
 }
 
 /**
+ * Cohérence du forfait familial, doublure exacte de la règle serveur
+ * (forfaitPricingIssue dans apps/api/src/modules/products/products.controller.ts).
+ * Inclure des personnes dans la cotisation de base alors que le supplément
+ * correspondant est à 0 FCFA revient à couvrir gratuitement les membres
+ * au-delà du forfait : c'est la fuite qui faisait payer 75 000 FCFA un foyer de
+ * 1 comme de 5. Le formulaire le signale et bloque l'enregistrement avant que
+ * le serveur ne refuse.
+ *
+ * Les formules collectives sont hors champ : leur cotisation est un tarif par
+ * salarié, la composition du foyer n'y entre pas.
+ */
+export function forfaitPricingIssue(form: any): string | null {
+  if (form?.clientType === 'COMPANY') return null;
+  if (Number(form?.includedAdults ?? 1) > 1 && Number(form?.pricePerAdditionalAdultAnnual ?? 0) <= 0) {
+    return 'Forfait incohérent : des adultes sont inclus dans la cotisation de base, mais le supplément par adulte est à 0 FCFA — les adultes au-delà du forfait seraient couverts gratuitement.';
+  }
+  if (Number(form?.includedChildren ?? 0) > 0 && Number(form?.pricePerChildAnnual ?? 0) <= 0) {
+    return 'Forfait incohérent : des enfants sont inclus dans la cotisation de base, mais le supplément par enfant est à 0 FCFA — les enfants au-delà du forfait seraient couverts gratuitement.';
+  }
+  return null;
+}
+
+/**
  * Corps envoyé à POST/PATCH /admin/products. Extrait du composant pour que le
  * contrat de l'écran (quels champs partent réellement au serveur) soit testable
  * sans navigateur.
@@ -186,6 +209,9 @@ export function ProductEditor({ product, partners, onClose, onSaved }: any) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const isNew = !product.id;
+  // Recouvre la même règle que le serveur : le bouton ne peut pas enregistrer
+  // une grille qui couvrirait gratuitement les membres au-delà du forfait.
+  const forfaitIssue = forfaitPricingIssue(form);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f: any) => ({ ...f, [k]: e.target.value }));
@@ -256,6 +282,11 @@ export function ProductEditor({ product, partners, onClose, onSaved }: any) {
             <input type="number" className="input" value={form.carenceBuyoutRate ?? 0} onChange={set('carenceBuyoutRate')} />
           </Field>
         </div>
+        {forfaitIssue && (
+          <p className="sm:col-span-2 -mt-1 text-xs leading-relaxed text-red-600" role="alert">
+            {forfaitIssue}
+          </p>
+        )}
         <div className="sm:col-span-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.spouse} onChange={e => setForm((f: any) => ({ ...f, spouse: e.target.checked }))} /> Conjoint</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.otherAllowed} onChange={e => setForm((f: any) => ({ ...f, otherAllowed: e.target.checked }))} /> Autres</label>
@@ -297,7 +328,7 @@ export function ProductEditor({ product, partners, onClose, onSaved }: any) {
         <textarea rows={2} className="input" value={form.exclusionsText} onChange={set('exclusionsText')} />
       </Field>
 
-      <button className="btn-primary w-full mt-2" disabled={busy || !form.code || !form.name} onClick={save}>
+      <button className="btn-primary w-full mt-2" disabled={busy || !form.code || !form.name || !!forfaitIssue} onClick={save}>
         {busy ? 'Enregistrement…' : isNew ? 'Créer le produit' : 'Enregistrer'}
       </button>
     </Modal>

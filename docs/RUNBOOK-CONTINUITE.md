@@ -60,7 +60,33 @@ End-to-end réel sur l'API prod :
 | `WEB_ORIGIN` | Render (secret) | Dashboard Render. Valeur : `https://santeplus.pages.dev`. | Affecte CORS + les liens d'e-mail (`/app/contrat`, `/reinitialiser-mot-de-passe`). Si erroné, les liens d'e-mail mènent à 404. **Ne pas mettre l'URL de l'API ici** (cf. commentaire `config.ts`). |
 | `APP_URL` | Render (secret) | Dashboard Render. URL publique de l'API (callbacks PSP). | Si erroné, les webhooks PSP et certains callbacks peuvent échouer. |
 | `S3_*` (4 vars) | Render (secret) | Dashboard Render. | Si manquant → bascule disque local → perte des uploads au redéploiement. |
+| `PRODUCTS_CHECK_EMAIL`, `PRODUCTS_CHECK_PASSWORD` | GitHub Actions (secrets, dépôt) | Voir « Compte de service CI » ci-dessous. | Compte absent, suspendu ou mot de passe périmé → job `verify-guardrails` en échec code 2 ; ce n'est pas une régression métier. 5 connexions ratées bloquent le compte 15 minutes. |
 | `MOCK_PAYMENTS`, `PAY_PROVIDERS` | Render (var, valeur fixe) | Dashboard Render (ou `render.yaml`). | `MOCK_PAYMENTS=true` en sandbox — les paiements ne passent pas en vrai tant que `fedapaySecretKey`/`cinetpayApiKey` ne sont pas configurés + `MOCK_PAYMENTS=false`. |
+
+### Compte de service CI (vérification des garde-fous produits)
+
+Le job `verify-guardrails` de `.github/workflows/deploy.yml` interroge la production en **lecture seule** après chaque déploiement certifié. Il ne réutilise pas le compte admin d'une personne : il se connecte avec un compte dédié, `ci-gardefous@santeplus.bj`, de rôle `SUPER_ADMIN` (seul rôle portant `products.manage`) et de statut `ACTIVE`.
+
+**Pourquoi un compte à part** : son mot de passe vit dans un secret GitHub Actions, partagé par tous les runs. Il ne doit donc appartenir à personne — une rotation ne doit pas casser la CI, et la désactivation d'un compte humain ne doit pas la casser non plus.
+
+**Création sur la production** (le seed est destructeur et refuse de tourner en `NODE_ENV=production`, donc on utilise le script dédié) :
+
+```bash
+cd apps/api
+DATABASE_URL="postgresql://…" npx tsx scripts/provision-service-account.ts
+# ou : DATABASE_URL="…" npm run provision:service-account
+```
+
+Le script imprime **une seule fois** le mot de passe généré (26 caractères) — il n'est écrit ni en base en clair, ni dans un fichier, ni dans Git. Le déposer aussitôt dans les secrets du dépôt :
+
+- `PRODUCTS_CHECK_EMAIL` = `ci-gardefous@santeplus.bj`
+- `PRODUCTS_CHECK_PASSWORD` = le mot de passe affiché
+
+Tant que ces deux secrets sont absents, le job sort en succès avec une `::notice::` (il ne bloque pas la mise en production) ; dès qu'ils existent, il devient bloquant.
+
+**Rotation** : `… provision-service-account.ts --rotate` génère un mot de passe neuf, révoque les jetons de rafraîchissement du compte (sinon les sessions survivraient 30 jours), puis il faut mettre à jour `PRODUCTS_CHECK_PASSWORD`. Oublier la mise à jour ne casse pas silencieusement le déploiement : au plus tard au 5ᵉ run, l'API verrouille le compte 15 minutes et le job échoue en code 2 avec un message explicite (voir `MAX_ATTEMPTS` dans `auth.service.ts`).
+
+**En développement**, le compte est créé par `prisma/seed.ts` avec le mot de passe des comptes de démo (`Demo1234!`), surchargeable par `SERVICE_ACCOUNT_PASSWORD`. La production n'est jamais touchée par ce chemin.
 
 ### Changer un secret sans downtime
 

@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { encryptMedical } from '../src/common/crypto';
 import { DEFAULT_ROLE_PERMISSIONS } from '../src/common/permissions';
+import { ensureServiceAccount } from './service-account';
 
 const prisma = new PrismaClient();
 
@@ -882,6 +883,17 @@ async function main() {
     ],
   });
 
+  /**
+   * Compte de service de la CI. Il est distinct des comptes de démonstration
+   * parce que son mot de passe finit dans un secret GitHub Actions : il ne doit
+   * appartenir à personne. En développement, il reprend le mot de passe des
+   * autres comptes de démo pour rester manœuvrable à la main ; en production,
+   * ce seed est interdit (garde NODE_ENV ci-dessus) et le compte se crée avec
+   * `npx tsx scripts/provision-service-account.ts`, qui génère le sien.
+   */
+  const motDePasseService = process.env.SERVICE_ACCOUNT_PASSWORD?.trim() || 'Demo1234!';
+  const compteService = await ensureServiceAccount(prisma, { password: motDePasseService });
+
   console.log('Seed terminé.');
   console.log('');
   console.log('Comptes de démonstration (mot de passe : Demo1234!) :');
@@ -893,6 +905,17 @@ async function main() {
   console.log('  fatou@demo.bj              Assurée (Santé Essentielle v2.0)');
   console.log('  kossi@demo.bj              Assuré (souscription à payer)');
   console.log('  prestataire@santeplus.bj   Prestataire (vérification QR)');
+  console.log('');
+  console.log('Compte de service (job CI verify-guardrails, lecture seule) :');
+  console.log(`  ${compteService.email.padEnd(26)} SUPER_ADMIN — droit products.manage`);
+  // On n'imprime le mot de passe que s'il est celui, public, des comptes de
+  // démo : une valeur venue de SERVICE_ACCOUNT_PASSWORD est un secret, et un
+  // secret ne se recopie pas dans un log de build.
+  console.log(
+    process.env.SERVICE_ACCOUNT_PASSWORD
+      ? '  mot de passe : défini par SERVICE_ACCOUNT_PASSWORD'
+      : '  mot de passe : Demo1234! (surchargeable par SERVICE_ACCOUNT_PASSWORD)',
+  );
 }
 
 main()

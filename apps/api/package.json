@@ -12,6 +12,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
     "db:seed:catalogue": "tsx prisma/seed-catalogue.ts",
+    "provision:service-account": "tsx scripts/provision-service-account.ts",
     "db:seed:catalogue:dry": "tsx prisma/seed-catalogue.ts --dry"
   },
   "dependencies": {

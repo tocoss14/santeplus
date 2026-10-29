@@ -193,6 +193,109 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ──────────────────────────────────────────────
+  # Garde-fous « formules » de la production
+  # ──────────────────────────────────────────────
+  # Le commit qui vient d'être certifié peut avoir cassé une garde métier sans
+  # qu'aucun test ne s'en aperçoive : les suites API tournent sur une base de
+  # test, jamais sur le PostgreSQL de Render avec son catalogue réel. C'est
+  # exactement ce qui a laissé passer la fuite du forfait familial (formule qui
+  # inclut 3 enfants et facture 0 FCFA au-delà), corrigée par la migration
+  # 20261027000000. Ce job interroge la production elle-même.
+  #
+  # Mode : LECTURE SEULE (--read-only). Aucune sonde d'écriture, donc aucune
+  # requête POST/PATCH sur la base de production et rien à nettoyer — on lit le
+  # catalogue et on vérifie que les champs du forfait sont bien servis.
+  #
+  # Authentification : connexion automatique, pas de jeton statique. Le script
+  # appelle POST /api/auth/login avec les secrets PRODUCTS_CHECK_EMAIL et
+  # PRODUCTS_CHECK_PASSWORD (compte de service dédié ci-gardefous@santeplus.bj,
+  # SUPER_ADMIN actif — créé par apps/api/scripts/provision-service-account.ts,
+  # cf. docs/RUNBOOK-CONTINUITE.md) et fabrique
+  # un accessToken à chaque run. On supprime ainsi la cause principale de panne
+  # silencieuse : un jeton de 12 h oublié qui transforme la sonde en décor. Le
+  # jeton n'est ni exporté ni journalisé, il meurt avec le process.
+  #
+  # Tant que les deux secrets sont absents, le job se contente d'une ::notice::
+  # et sort en succès : une vérification qui n'a pas les moyens de tourner ne
+  # doit pas bloquer une mise en production. Dès qu'ils sont renseignés, elle
+  # devient bloquante (code de sortie du script respecté).
+  # ──────────────────────────────────────────────
+  verify-guardrails:
+    name: Vérifier les garde-fous produits (lecture seule)
+    runs-on: ubuntu-latest
+    needs: [verify-production]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Aucune dépendance à installer : le script n'utilise que fetch natif.
+      - name: Garde-fous du forfait — sonde en lecture seule
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          PRODUCTS_CHECK_EMAIL: ${{ secrets.PRODUCTS_CHECK_EMAIL }}
+          PRODUCTS_CHECK_PASSWORD: ${{ secrets.PRODUCTS_CHECK_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # `${VAR:-}` et non `${VAR}` : sous `set -u`, un secret totalement
+          # absent laisserait la variable non définie et ferait échouer le job —
+          # exactement le contraire du comportement voulu (non bloquant).
+          if [ -z "${PRODUCTS_CHECK_EMAIL:-}" ] || [ -z "${PRODUCTS_CHECK_PASSWORD:-}" ]; then
+            echo "::notice::Secrets PRODUCTS_CHECK_EMAIL / PRODUCTS_CHECK_PASSWORD absents — sonde des garde-fous ignorée (lecture seule, non bloquante tant que les identifiants ne sont pas configurés)."
+            {
+              echo "## Garde-fous produits : non vérifiés"
+              echo ""
+              echo "Secrets \`PRODUCTS_CHECK_EMAIL\` / \`PRODUCTS_CHECK_PASSWORD\` absents — job volontairement non bloquant."
+              echo "Pour activer la vérification : créer le compte de service puis renseigner les secrets."
+              echo "  1. cd apps/api && DATABASE_URL=\"…\" npx tsx scripts/provision-service-account.ts"
+              echo "  2. Settings → Secrets and variables → Actions → Secrets : \`PRODUCTS_CHECK_EMAIL\` et \`PRODUCTS_CHECK_PASSWORD\`"
+              echo "Compte : \`ci-gardefous@santeplus.bj\`, SUPER_ADMIN actif (droit \`products.manage\`). Voir docs/RUNBOOK-CONTINUITE.md."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "${PRODUCTION_URL}" ]; then
+            echo "::error::Variable repo PRODUCTION_URL absente — impossible de cibler la production."
+            exit 1
+          fi
+          echo "Sonde lecture seule sur ${PRODUCTION_URL}"
+          # Le script écrit son rapport sur la sortie standard : on le duplique
+          # dans le résumé du run pour qu'un échec soit lisible sans ouvrir les logs.
+          set +e
+          # Le script se connecte lui-même (POST /api/auth/login) : le mot de
+          # passe ne sort pas de l'environnement du process, le jeton obtenu
+          # n'est jamais affiché. Il n'y a donc pas de pré-étape « obtenir un
+          # jeton » à coder ici.
+          node scripts-dev/verify-products-prod.mjs \
+            --email "${PRODUCTS_CHECK_EMAIL:-}" \
+            --password "${PRODUCTS_CHECK_PASSWORD:-}" \
+            --api "${PRODUCTION_URL}" \
+            --read-only | tee rapport-garde-fous.txt
+          STATUT=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "## Garde-fous produits — ${PRODUCTION_URL}"
+            echo ""
+            echo '```'
+            cat rapport-garde-fous.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${STATUT}" != "0" ]; then
+            # 1 = garde-fou ou champ manquant (vraie régression métier) ;
+            # 2 = connexion refusée / API injoignable (rien à conclure sur les gardes).
+            if [ "${STATUT}" = "2" ]; then
+              echo "::error::Sonde impossible (code 2) : connexion refusée ou API injoignable. Vérifier PRODUCTS_CHECK_EMAIL / PRODUCTS_CHECK_PASSWORD (compte SUPER_ADMIN actif, mot de passe à jour) avant de conclure à une régression."
+            else
+              echo "::error::La sonde des garde-fous a échoué (code ${STATUT}). Une formule de production n'est plus conforme — voir le rapport ci-dessus."
+            fi
+            exit "${STATUT}"
+          fi
+
+  # ──────────────────────────────────────────────
   # Déploiement du front sur Cloudflare Pages
   # ──────────────────────────────────────────────
   # Historique : le front Pages était déployé à la main (script local

@@ -120,7 +120,10 @@ async function makeProduct(admin, { premium = 1000000, pharmaLimit = 2000000, co
     },
   });
   if (!res.ok()) throw new Error('produit: ' + res.status());
-  const id = (await res.text()).replace(/"/g, '').trim();
+  // JSON { id } depuis que l'API a cessé de renvoyer un cuid en texte brut.
+  const brut = await res.text();
+  let id;
+  try { id = JSON.parse(brut).id; } catch { id = brut.replace(/"/g, '').trim(); }
   p4ProductIds.push(id);
   return { id };
 }

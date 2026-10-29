@@ -395,7 +395,8 @@ async function main() {
       if (res.status >= 200 && res.status < 300) {
         // Garde-fou absent : la ligne existe. Elle est en DRAFT, on l'archive et
         // on la signale pour que l'opérateur la supprime.
-        // POST /admin/products renvoie l'id en corps brut (pas de JSON), d'où le repli.
+        // POST /admin/products renvoie { id } depuis que l'API a cessé de
+        // répondre en texte brut ; le repli couvre un build plus ancien.
         const id = typeof res.json === 'string'
           ? res.json
           : res.json?.id ?? (/^[A-Za-z0-9_-]{6,}$/.test((res.texte ?? '').trim()) ? (res.texte ?? '').trim() : undefined);

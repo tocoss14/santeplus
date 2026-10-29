@@ -312,10 +312,19 @@ export class ProductsController {
     return this.products.getForAdmin(id);
   }
 
+  /**
+   * `{ id }` et non le cuid nu : un corps JSON est ce que le client web sait
+   * lire (`api.post` rejette tout ce qui n'est pas JSON et affiche « Réponse
+   * non JSON de l'API »). Renvoyer une chaîne faisait donc échouer la création
+   * d'une formule depuis l'écran d'administration alors qu'elle était bien
+   * créée en base — la bannière d'erreur restait affichée et la liste ne se
+   * rafraîchissait pas.
+   */
   @Post('admin/products')
   @RequirePermissions('products.manage')
-  create(@Body(new ZodPipe(productSchema)) dto: any) {
-    return this.products.create(dto);
+  async create(@Body(new ZodPipe(productSchema)) dto: any) {
+    const id = await this.products.create(dto);
+    return { id };
   }
 
   @Patch('admin/products/:id')

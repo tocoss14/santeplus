@@ -135,8 +135,12 @@ async function testCts() {
   const prodOk = prodRes.ok();
   record('CTS', 'Produit test 1M créé (admin)', prodOk, prodOk ? '' : `HTTP ${prodRes.status()}`);
   if (!prodOk) { await admin.dispose(); return; }
-  // NB : POST /api/admin/products renvoie le cuid en texte brut (anomalie d'API en soi)
-  const productId2 = (await prodRes.text()).replace(/"/g, '').trim();
+  // POST /api/admin/products renvoie désormais un JSON { id } (l'ancien corps
+  // texte brut cassait le client web, qui exige du JSON). Repli conservé pour
+  // un serveur plus ancien que ce script.
+  const produitBrut = await prodRes.text();
+  let productId2;
+  try { productId2 = JSON.parse(produitBrut).id; } catch { productId2 = produitBrut.replace(/"/g, '').trim(); }
   record('CTS', 'Produit créé renvoie un identifiant', /^[a-z0-9]{10,30}$/i.test(productId2), `body=${productId2.slice(0, 30)}`);
 
   // Membre neuf + souscription directe sur ce produit (sans contrat préexistant)

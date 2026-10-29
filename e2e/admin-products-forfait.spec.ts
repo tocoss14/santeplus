@@ -40,11 +40,35 @@ async function grilleEnBase(code: string) {
     expect(produit, `formule ${code} absente du catalogue seedé`).toBeTruthy();
     return {
       id: produit.id,
+      name: produit.name,
+      status: produit.status,
       includedAdults: produit.includedAdults,
       includedChildren: produit.includedChildren,
       pricePerAdditionalAdultAnnual: produit.pricePerAdditionalAdultAnnual,
       pricePerChildAnnual: produit.pricePerChildAnnual,
+      carenceBuyoutRate: produit.carenceBuyoutRate,
     };
+  } finally {
+    await ctx.dispose();
+  }
+}
+
+/**
+ * Archive une formule de test par son code, sans jamais lever d'exception :
+ * appelé depuis un `finally`, il ne doit pas remplacer l'échec d'origine par
+ * une erreur de nettoyage. L'API n'expose pas de DELETE, l'archivage est le
+ * seul retour en arrière — et il traverse le garde-fou serveur lui aussi.
+ */
+async function archiverParCode(code: string): Promise<boolean> {
+  const ctx = await loginAs(ADMIN_EMAIL, ADMIN_PASSWORD);
+  try {
+    const liste = await (await ctx.get('/api/admin/products')).json();
+    const produit = (Array.isArray(liste) ? liste : liste.items ?? []).find((p: any) => p.code === code);
+    if (!produit) return true; // rien n'a été créé, rien à nettoyer
+    const res = await ctx.patch(`/api/admin/products/${produit.id}`, { data: { status: 'ARCHIVED' } });
+    return res.status() < 300;
+  } catch {
+    return false;
   } finally {
     await ctx.dispose();
   }
@@ -124,5 +148,64 @@ test.describe('Admin — formule à forfait non tarifé', () => {
     const apres = await grilleEnBase('ESS');
     expect(apres.includedAdults).toBe(avant.includedAdults);
     expect(apres.pricePerAdditionalAdultAnnual).toBe(avant.pricePerAdditionalAdultAnnual);
+  });
+
+  /**
+   * Chemin heureux. Sans ce test, un garde-fou trop zélé (qui refuserait TOUTE
+   * grille incluant des ayants droit) passerait la suite au vert : les deux cas
+   * précédents n'exigent qu'un refus. Ici on enregistre une VRAIE grille
+   * familiale — 2 adultes + 2 enfants inclus, les suivants facturés — et on
+   * vérifie qu'elle est acceptée puis réellement persistée.
+   *
+   * La formule est créée plutôt que modifiée : aucun tarif du catalogue ne
+   * bouge, et le chemin de création (POST admin) est couvert.
+   */
+  test('grille cohérente : l’enregistrement aboutit et la grille est persistée', async ({ page }) => {
+    const code = `E2E${Date.now().toString(36).toUpperCase()}`;
+
+    try {
+      await connexionAdmin(page);
+      await page.goto('/admin/products');
+      await expect(page.getByRole('heading', { name: 'Produits & garanties' })).toBeVisible({ timeout: 15_000 });
+      await page.getByRole('button', { name: /Nouveau produit/ }).click();
+
+      const titre = page.getByRole('heading', { name: 'Nouveau produit' });
+      await expect(titre).toBeVisible({ timeout: 15_000 });
+
+      await page.getByLabel('Code').fill(code);
+      await page.getByLabel('Nom').fill(`Formule E2E ${code}`);
+      await page.getByLabel('Cotisation de base/an').fill('120000');
+      await page.getByLabel('Adultes inclus (forfait)').fill('2');
+      await page.getByLabel('Adulte supp./an').fill('30000');
+      await page.getByLabel('Enfants inclus (forfait)').fill('2');
+      await page.getByLabel('Enfant/an').fill('18000');
+      await page.getByLabel('Rachat de carence (surprime %)').fill('25');
+
+      // Grille cohérente : aucun avertissement, et le bouton reste actif.
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      const creer = page.getByRole('button', { name: 'Créer le produit' });
+      await expect(creer).toBeEnabled();
+
+      await creer.click();
+
+      // Fermeture de la modale puis rechargement de la liste (onSaved).
+      await expect(titre).toHaveCount(0, { timeout: 15_000 });
+      await expect(page.locator('li').filter({ hasText: code })).toBeVisible({ timeout: 15_000 });
+
+      // L'affichage ne prouve rien : on relit la grille depuis l'API.
+      const enBase = await grilleEnBase(code);
+      expect(enBase).toMatchObject({
+        includedAdults: 2,
+        includedChildren: 2,
+        pricePerAdditionalAdultAnnual: 30000,
+        pricePerChildAnnual: 18000,
+        carenceBuyoutRate: 25,
+      });
+    } finally {
+      // La formule de test ne doit pas rester au catalogue, même en échec.
+      if (!(await archiverParCode(code))) {
+        console.warn(`[nettoyage] la formule ${code} n'a pas pu être archivée`);
+      }
+    }
   });
 });

@@ -3,13 +3,17 @@ import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
 
 /**
- * Garde-fou : aucune route d'écriture ne doit renvoyer de chaîne brute.
+ * Garde-fou : aucune route d'écriture ne doit renvoyer de chaîne brute ni de
+ * corps vide.
  *
  * Nest sérialise une chaîne en `text/plain` : le client web (`res.json()` dans
  * apps/web/src/api.ts) échoue alors sur « Réponse non JSON de l'API » **alors
  * que la ressource a bien été créée** — l'utilisateur voit une erreur, la ligne
  * existe en base. C'est exactement le bug de POST /admin/products (corrigé en
  * renvoyant `{ id }`).
+ *
+ * Un corps vide est plus sournois : le client reçoit `null` sans erreur, puis
+ * casse sur `res.id` — ou ne rafraîchit rien tout en annonçant un succès.
  *
  * Le contrôle est statique (compilateur TypeScript) et non textuel : un service
  * peut renvoyer un identifiant sans annotation de type, ou au travers d'une
@@ -28,6 +32,8 @@ type Finding = {
   verb: string;
   route: string;
   type: string;
+  /** `chaine` : text/plain illisible pour res.json(). `vide` : null silencieux. */
+  kind: 'chaine' | 'vide';
 };
 
 /** Déballe `Promise<T>` / `Promise<Promise<T>>` sans deviner les types complexes. */
@@ -47,12 +53,54 @@ function unwrapPromise(typeText: string): string {
   }
 }
 
-/** Vrai si le type de retour est `string`, y compris dans une union. */
-function isBareString(typeText: string): boolean {
-  return unwrapPromise(typeText)
+/** Types qui ne produisent aucun corps de réponse. */
+const EMPTY_TYPES = new Set(['void', 'undefined', 'null', 'never']);
+
+/**
+ * Qualifie la réponse d'un handler d'écriture :
+ * - `chaine` : le type contient `string` (y compris dans une union) ;
+ * - `vide` : toutes les branches du type sont vides (void/undefined/null/never) ;
+ * - `null` : corps JSON normal (objet, tableau, nombre…), rien à signaler.
+ *
+ * Une union `{ id: string } | null` reste un corps JSON : on n'exige pas que
+ * toutes les branches soient vides, seulement qu'aucune ne porte de contenu.
+ */
+function responseKind(typeText: string): Finding['kind'] | null {
+  const parts = unwrapPromise(typeText)
     .split('|')
-    .map(part => part.trim())
-    .includes('string');
+    .map(part => part.trim());
+  if (parts.includes('string')) return 'chaine';
+  if (parts.every(part => EMPTY_TYPES.has(part))) return 'vide';
+  return null;
+}
+
+/** Décorateurs d'un nœud (méthode ou paramètre), quelle que soit la version de TS. */
+function decoratorsOf(node: ts.Node): readonly ts.Decorator[] {
+  return ts.canHaveDecorators(node) ? (ts.getDecorators(node) ?? []) : [];
+}
+
+/** Noms des décorateurs appelés, ex. ['Post', 'UseInterceptors']. */
+function decoratorNames(node: ts.Node): string[] {
+  return decoratorsOf(node)
+    .map(d => d.expression)
+    .filter(ts.isCallExpression)
+    .map(call => call.expression.getText());
+}
+
+/**
+ * Statistiques du corps du handler, sans descendre dans les callbacks : un
+ * `return` à l'intérieur d'une transaction Prisma n'est pas un retour du handler.
+ */
+function bodyStats(body: ts.Block): { returns: number; endsWithThrow: boolean } {
+  let returns = 0;
+  const visit = (node: ts.Node) => {
+    if (ts.isReturnStatement(node)) returns++;
+    if (ts.isFunctionLike(node)) return;
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(body, visit);
+  const last = body.statements[body.statements.length - 1];
+  return { returns, endsWithThrow: Boolean(last && ts.isThrowStatement(last)) };
 }
 
 function createProgram(extra?: { fileName: string; content: string }) {
@@ -115,7 +163,27 @@ function rawStringWriteHandlers(program: ts.Program, only?: string): { findings:
         const signature = checker.getSignatureFromDeclaration(member);
         if (!signature) continue;
         const type = checker.typeToString(checker.getReturnTypeOfSignature(signature));
-        if (!isBareString(type)) continue;
+        const kind = responseKind(type);
+        if (!kind) continue;
+
+        if (kind === 'vide') {
+          // Une route qui écrit elle-même la réponse (@Res → res.send) n'a pas de
+          // corps sérialisé par Nest : CSV, PDF, flux binaires.
+          const writesResponse = member.parameters.some(param => decoratorNames(param).includes('Res'));
+          // 204 No Content est un contrat explicite, que le client gère déjà.
+          const noContent = decoratorsOf(member).some(decorator => {
+            if (!ts.isCallExpression(decorator.expression)) return false;
+            const call = decorator.expression;
+            if (call.expression.getText() !== 'HttpCode') return false;
+            const arg = call.arguments[0];
+            return Boolean(arg && ts.isNumericLiteral(arg) && arg.text === '204');
+          });
+          if (writesResponse || noContent) continue;
+          // Un handler qui lève toujours (dernier statement `throw`, aucun return)
+          // ne produit pas de corps : c'est un refus, pas une réponse vide.
+          const { returns, endsWithThrow } = bodyStats(member.body);
+          if (returns === 0 && endsWithThrow) continue;
+        }
 
         const decorator = calls[0];
         const route = decorator.arguments.length && ts.isStringLiteral(decorator.arguments[0])
@@ -128,6 +196,7 @@ function rawStringWriteHandlers(program: ts.Program, only?: string): { findings:
           verb: decorator.expression.getText(),
           route,
           type,
+          kind,
         });
       }
     });
@@ -135,11 +204,20 @@ function rawStringWriteHandlers(program: ts.Program, only?: string): { findings:
   return { findings, inspected };
 }
 
-const describeFinding = (f: Finding) => `@${f.verb}('${f.route}') → ${f.className}.${f.handler} renvoie ${f.type} (${f.file})`;
+const describeFinding = (f: Finding) =>
+  f.kind === 'vide'
+    ? `@${f.verb}('${f.route}') → ${f.className}.${f.handler} renvoie un corps vide (${f.type}) (${f.file})`
+    : `@${f.verb}('${f.route}') → ${f.className}.${f.handler} renvoie ${f.type} (${f.file})`;
+
+const CONSIGNE =
+  'Ces routes ne renvoient pas un corps JSON exploitable : une chaîne est sérialisée en text/plain ' +
+  '(res.json() échoue sur « Réponse non JSON » alors que la ressource est créée), un corps vide ' +
+  'donne `null` sans erreur et casse l’écran qui lit un champ. Renvoyez un objet JSON, ' +
+  'par exemple { id }, ou déclarez explicitement un 204 sans contenu.';
 
 describe('Routes d’écriture — le corps de réponse doit être du JSON', () => {
   it(
-    'aucune route @Post/@Put/@Patch/@Delete ne renvoie de chaîne brute',
+    'aucune route @Post/@Put/@Patch/@Delete ne renvoie de chaîne ni de corps vide',
     () => {
       const { findings, inspected } = rawStringWriteHandlers(createProgram());
       // Plancher, pas égalité stricte : une route ajoutée ne doit pas faire
@@ -147,13 +225,7 @@ describe('Routes d’écriture — le corps de réponse doit être du JSON', () 
       // décorateurs non résolus) tombe sous ce seuil et se signale.
       expect(inspected, 'aucune route d’écriture inspectée — le scan est aveugle').toBeGreaterThanOrEqual(100);
       const liste = findings.map(describeFinding);
-      expect(
-        liste,
-        'Ces routes renvoient une chaîne : Nest la sérialise en text/plain et le client web ' +
-          '(res.json()) échoue sur « Réponse non JSON » alors que la ressource est créée. ' +
-          'Renvoyez un objet JSON, par exemple { id }. Route(s) fautive(s) :\n' +
-          liste.join('\n'),
-      ).toEqual([]);
+      expect(liste, `${CONSIGNE}\nRoute(s) fautive(s) :\n${liste.join('\n')}`).toEqual([]);
     },
     // Marge large : sous forte contention (toute la suite en parallèle), la
     // construction du programme TS peut dépasser la minute.
@@ -161,7 +233,7 @@ describe('Routes d’écriture — le corps de réponse doit être du JSON', () 
   );
 
   it(
-    'le détecteur attrape bien une chaîne et ignore un objet (contre-épreuve)',
+    'le détecteur attrape chaînes et corps vides, et laisse passer les cas légitimes (contre-épreuve)',
     () => {
       // Contre-épreuve : sans elle, un détecteur devenu muet (évolution de l'API
       // de décorateurs, filtre cassé) passerait au vert sans rien vérifier.
@@ -172,19 +244,40 @@ describe('Routes d’écriture — le corps de réponse doit être du JSON', () 
             @Post('sonde-chaine')
             async chaine(): Promise<string> { return 'abcdef012345'; }
 
+            @Post('sonde-union')
+            async union(): Promise<string | null> { return null; }
+
             @Post('sonde-objet')
             async objet(): Promise<{ id: string }> { return { id: 'abcdef012345' }; }
 
-            @Post('sonde-union')
-            async union(): Promise<string | null> { return null; }
+            @Post('sonde-objet-null')
+            async objetNull(): Promise<{ id: string } | null> { return null; }
+
+            @Post('sonde-vide')
+            async vide(): Promise<void> { await Promise.resolve(); }
+
+            @Post('sonde-return-nu')
+            async returnNu(): Promise<void> { if (Date.now() > 0) return; }
+
+            @Post('sonde-jet')
+            async jet(): Promise<void> { throw new Error('toujours'); }
+
+            @Post('sonde-fichier')
+            async fichier(@Res() res: any): Promise<void> { res.send('a;b'); }
+
+            @Delete('sonde-sans-corps')
+            @HttpCode(204)
+            async sansCorps(): Promise<void> { await Promise.resolve(); }
           }
         `,
       });
       const { findings, inspected } = rawStringWriteHandlers(program, path.join(API_ROOT, '.sonde.controller.ts'));
-      expect(inspected).toBe(3);
+      expect(inspected).toBe(9);
       expect(findings.map(describeFinding)).toEqual([
         "@Post('sonde-chaine') → Sonde.chaine renvoie Promise<string> (.sonde.controller.ts)",
         "@Post('sonde-union') → Sonde.union renvoie Promise<string | null> (.sonde.controller.ts)",
+        "@Post('sonde-vide') → Sonde.vide renvoie un corps vide (Promise<void>) (.sonde.controller.ts)",
+        "@Post('sonde-return-nu') → Sonde.returnNu renvoie un corps vide (Promise<void>) (.sonde.controller.ts)",
       ]);
     },
     300_000,

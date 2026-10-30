@@ -419,29 +419,49 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Guard — jeton et identifiants Vercel présents
+      # Tant que le jeton n'est pas en place, le job avertit et s'arrête sans
+      # rendre Deploy rouge : un push qui ne touche pas au front ne doit pas
+      # échouer parce qu'une intégration n'est pas encore configurée. Le
+      # résumé du run, lui, reste explicite sur le fait que l'alias n'a pas
+      # été mis à jour — c'est ce qui évite de recreuser l'écart de deux jours.
+      - name: Guard — configuration Vercel présente
+        id: guard
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          # Même parti pris que deploy-pages : un front non déployé doit faire
-          # échouer le job plutôt que passer sous silence — c'est précisément
-          # l'écart de deux jours que ce job existe pour empêcher.
-          if [ -z "${VERCEL_TOKEN}" ]; then
-            echo "::error::Secret VERCEL_TOKEN absent — front Vercel non déployé. Créer un jeton (Account Settings → Tokens) puis : gh secret set VERCEL_TOKEN"
-            exit 1
+          set -euo pipefail
+          MISSING=""
+          if [ -z "${VERCEL_TOKEN}" ]; then MISSING="VERCEL_TOKEN (secret)"; fi
+          if [ -z "${VERCEL_ORG_ID:-}" ]; then MISSING="${MISSING:+${MISSING}, }VERCEL_ORG_ID (variable)"; fi
+          if [ -z "${VERCEL_PROJECT_ID:-}" ]; then MISSING="${MISSING:+${MISSING}, }VERCEL_PROJECT_ID (variable)"; fi
+          if [ -n "${MISSING}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Configuration Vercel incomplète (${MISSING}) — déploiement ignoré pour ce run, l'alias santeplus-sigma.vercel.app reste sur sa dernière version."
+            {
+              echo "## Front Vercel : non déployé"
+              echo ""
+              echo "Configuration manquante : ${MISSING}."
+              echo "Le job est volontairement non bloquant tant que l'intégration n'est pas branchée."
+              echo "Pour activer le déploiement automatique :"
+              echo "  1. Vercel → Account Settings → Tokens → Create"
+              echo '  2. `gh secret set VERCEL_TOKEN`'
+              echo '  3. Variables : `VERCEL_ORG_ID` et `VERCEL_PROJECT_ID` (voir apps/web/.vercel/project.json)'
+              echo ""
+              echo "L'alias Vercel sert donc encore la dernière version publiée à la main."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-          if [ -z "${VERCEL_ORG_ID}" ] || [ -z "${VERCEL_PROJECT_ID}" ]; then
-            echo "::error::Variables VERCEL_ORG_ID / VERCEL_PROJECT_ID absentes — front Vercel non déployé."
-            exit 1
-          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
       # Version majeure figée : le CLI est appelé plusieurs fois (déploiement
       # puis boucle de certification) et un `npx vercel@latest` à chaque appel
       # retéléchargerait le paquet à chaque itération.
       - name: CLI Vercel
+        if: steps.guard.outputs.ready == 'true'
         run: npm install --global vercel@50
 
       - name: Déploiement Vercel (production, build distant)
+        if: steps.guard.outputs.ready == 'true'
         id: deploy
         working-directory: apps/web
         env:
@@ -499,6 +519,7 @@ jobs:
           echo "Déploiement créé : ${ID:-?} ${URL:-}"
 
       - name: Certification — l'alias Vercel pointe sur le déploiement créé
+        if: steps.guard.outputs.ready == 'true'
         timeout-minutes: 8
         env:
           DEPLOY_ID: ${{ steps.deploy.outputs.id }}

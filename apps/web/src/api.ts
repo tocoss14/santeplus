@@ -101,6 +101,50 @@ export function silentRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
+/**
+ * `api.*` ne lit que du JSON : une route qui sert un fichier (PDF, CSV, image)
+ * renvoie un flux binaire, jamais un objet. Sans cette distinction, l'écran
+ * affiche « vérifiez le routage /api » alors que l'API répond correctement, et
+ * l'utilisateur cherche une panne de proxy au lieu d'ouvrir le document.
+ * Retourne un libellé lisible du fichier, ou null si ce n'est pas un fichier.
+ */
+function binaryLabel(mime: string, body: string): string | null {
+  if (mime === 'application/pdf') return 'un PDF';
+  if (mime === 'text/csv' || mime === 'application/csv') return 'un fichier CSV';
+  if (mime === 'application/zip') return 'une archive ZIP';
+  if (mime === 'application/octet-stream') return 'un fichier binaire';
+  if (mime.startsWith('image/')) return 'une image';
+  if (mime.startsWith('audio/')) return 'un fichier audio';
+  if (mime.startsWith('video/')) return 'une vidéo';
+  if (mime.startsWith('font/')) return 'une police';
+  if (/(sheet|excel|word|officedocument|opendocument)/.test(mime)) return 'un document bureautique';
+  // En-tête absent ou trompeur : on reconnaît la signature du fichier.
+  if (body.startsWith('%PDF-')) return 'un PDF';
+  if (body.startsWith('PK\u0003\u0004')) return 'une archive ZIP';
+  if (body.startsWith('GIF87a') || body.startsWith('GIF89a')) return 'une image GIF';
+  return null;
+}
+
+/** Message d'erreur d'une réponse que `JSON.parse` a refusée. */
+function nonJsonMessage(res: Response, body: string): string {
+  const mime = (res.headers?.get?.('content-type') ?? '').split(';')[0].trim().toLowerCase();
+  const label = binaryLabel(mime, body);
+  if (label) {
+    return (
+      `Réponse non JSON : cette route renvoie ${label} (statut ${res.status}) — ` +
+      `ouvrez-la par un lien ou un téléchargement (window.open, <a download>, fileUrl) ` +
+      `au lieu de l'appeler avec api.*`
+    );
+  }
+  if (mime === 'text/html' || /^\s*(<!doctype html|<html)/i.test(body)) {
+    return `Réponse non JSON de l'API (statut ${res.status}) — vérifiez le routage /api (VITE_API_URL ou reverse proxy)`;
+  }
+  if (mime.startsWith('text/')) {
+    return `Réponse non JSON (texte brut) de l'API (statut ${res.status}) — la route doit renvoyer un objet JSON`;
+  }
+  return `Réponse non JSON de l'API (statut ${res.status}) — vérifiez le routage /api (VITE_API_URL ou reverse proxy)`;
+}
+
 async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
   const method = (options.method ?? 'GET').toUpperCase();
   const headers: Record<string, string> = {
@@ -136,9 +180,10 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
     parseFailed = true;
   }
   if (parseFailed) {
-    // Une réponse non-JSON (HTML du fallback SPA, page d'erreur, etc.) ne doit
-    // jamais masquer le vrai statut HTTP — erreur réseau explicite.
-    const err = new ApiError(res.status, { message: `Réponse non JSON de l'API (statut ${res.status}) — vérifiez le routage /api (VITE_API_URL ou reverse proxy)` });
+    // Une réponse non-JSON (fichier servi par la route, HTML du fallback SPA,
+    // page d'erreur…) ne doit jamais masquer le vrai statut HTTP — erreur
+    // réseau explicite, dont le message dit quoi corriger.
+    const err = new ApiError(res.status, { message: nonJsonMessage(res, text) });
     emitApiError(err, method, path);
     throw err;
   }

@@ -14,6 +14,15 @@ function jsonResponse(status: number, body: any) {
   };
 }
 
+function rawResponse(status: number, body: string, headers: Record<string, string> = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+    text: async () => body,
+  };
+}
+
 beforeEach(() => {
   fetchMock.mockReset();
 });
@@ -112,5 +121,65 @@ describe('api client — silent failure regression tests', () => {
     expect(await api.get('/things')).toEqual({ hello: 'world' });
     expect(listener).not.toHaveBeenCalled();
     unsub();
+  });
+});
+
+describe('api client — message d’une réponse non JSON', () => {
+  // Une route qui sert un fichier (attestation, export…) n'est pas une panne de
+  // routage : le message doit orienter vers un téléchargement.
+  async function messageOf(promise: Promise<unknown>): Promise<string> {
+    try {
+      await promise;
+    } catch (err) {
+      return (err as Error).message;
+    }
+    throw new Error('la requête aurait dû échouer');
+  }
+
+  it('un PDF est signalé comme fichier à ouvrir autrement, pas comme un souci de routage', async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawResponse(200, '%PDF-1.7', { 'content-type': 'application/pdf' }),
+    );
+    const message = await messageOf(api.get('/contracts/1/certificate'));
+    expect(message).toMatch(/un PDF/);
+    expect(message).toMatch(/window\.open/);
+    expect(message).not.toMatch(/VITE_API_URL/);
+  });
+
+  it('reconnaît un PDF à sa signature quand le Content-Type manque', async () => {
+    fetchMock.mockResolvedValueOnce(rawResponse(200, '%PDF-1.4'));
+    expect(await messageOf(api.get('/company/me/attestation'))).toMatch(/un PDF/);
+  });
+
+  it('un export CSV est signalé comme fichier', async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawResponse(200, 'date;montant\n2026-01-01;12000', { 'content-type': 'text/csv; charset=utf-8' }),
+    );
+    const message = await messageOf(api.get('/admin/accounting/export'));
+    expect(message).toMatch(/fichier CSV/);
+    expect(message).not.toMatch(/routage/);
+  });
+
+  it('une image est signalée comme fichier', async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawResponse(200, '\u0000\u0000binary', { 'content-type': 'image/jpeg' }),
+    );
+    expect(await messageOf(api.get('/files/1/view'))).toMatch(/une image/);
+  });
+
+  it('une page HTML garde l’indice de routage /api', async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawResponse(200, '<!DOCTYPE html><html><body>index</body></html>', {
+        'content-type': 'text/html; charset=utf-8',
+      }),
+    );
+    expect(await messageOf(api.get('/things'))).toMatch(/routage \/api/);
+  });
+
+  it('du texte brut est distingué d’une panne de routage', async () => {
+    fetchMock.mockResolvedValueOnce(rawResponse(200, 'OK', { 'content-type': 'text/plain' }));
+    const message = await messageOf(api.get('/things'));
+    expect(message).toMatch(/texte brut/);
+    expect(message).not.toMatch(/routage/);
   });
 });

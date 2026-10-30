@@ -128,6 +128,21 @@ function binaryLabel(mime: string, body: string): string | null {
 /** Message d'erreur d'une réponse que `JSON.parse` a refusée. */
 function nonJsonMessage(res: Response, body: string): string {
   const mime = (res.headers?.get?.('content-type') ?? '').split(';')[0].trim().toLowerCase();
+  // Une page HTML en 5xx n'est pas un fallback SPA : le statut dit que le serveur
+  // a échoué, et l'indice « vérifiez le routage /api » enverrait chercher une
+  // panne de proxy au lieu de constater que l'API est tombée.
+  if (res.status >= 500) {
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      return (
+        `API indisponible (statut ${res.status}) — le service ne répond pas ` +
+        `(arrêt ou redémarrage en cours) ; réessayez dans un instant`
+      );
+    }
+    return (
+      `Erreur serveur de l'API (statut ${res.status}) — le service a échoué côté serveur ; ` +
+      `réessayez dans un instant et vérifiez les logs de l'API`
+    );
+  }
   const label = binaryLabel(mime, body);
   if (label) {
     return (

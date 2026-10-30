@@ -176,6 +176,37 @@ describe('api client — message d’une réponse non JSON', () => {
     expect(await messageOf(api.get('/things'))).toMatch(/routage \/api/);
   });
 
+  it('une page HTML en 500 dit que l’API a échoué, pas que le routage est en cause', async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawResponse(500, '<html><body>Internal Server Error</body></html>', {
+        'content-type': 'text/html',
+      }),
+    );
+    const message = await messageOf(api.get('/things'));
+    expect(message).toMatch(/Erreur serveur/);
+    expect(message).toMatch(/statut 500/);
+    expect(message).not.toMatch(/routage/);
+    expect(message).not.toMatch(/VITE_API_URL/);
+  });
+
+  it('un 503 dit que l’API est indisponible plutôt que mal routée', async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawResponse(503, '<html><body>Service Unavailable</body></html>', {
+        'content-type': 'text/html',
+      }),
+    );
+    const message = await messageOf(api.get('/things'));
+    expect(message).toMatch(/API indisponible/);
+    expect(message).not.toMatch(/routage/);
+  });
+
+  it('un 404 HTML garde l’indice de routage (fallback SPA)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawResponse(404, '<!DOCTYPE html><html></html>', { 'content-type': 'text/html' }),
+    );
+    expect(await messageOf(api.get('/things'))).toMatch(/routage \/api/);
+  });
+
   it('du texte brut est distingué d’une panne de routage', async () => {
     fetchMock.mockResolvedValueOnce(rawResponse(200, 'OK', { 'content-type': 'text/plain' }));
     const message = await messageOf(api.get('/things'));

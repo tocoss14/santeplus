@@ -389,3 +389,161 @@ jobs:
           done
           echo "::error::Front santeplus.pages.dev ne répond pas 200 après déploiement wrangler."
           exit 1
+
+  # ──────────────────────────────────────────────
+  # Déploiement du front sur Vercel
+  # ──────────────────────────────────────────────
+  # Historique : Vercel était publié à la main (`npx vercel --prod`) et ne
+  # suivait donc pas Git — santeplus-sigma.vercel.app est resté deux jours en
+  # retard alors que Pages était à jour. Ce job aligne l'alias Vercel sur le
+  # commit qui vient de passer la CI, comme deploy-pages le fait pour
+  # Cloudflare.
+  #
+  # Auth : secret VERCEL_TOKEN + variables VERCEL_ORG_ID / VERCEL_PROJECT_ID.
+  #       Les deux identifiants ne sont pas des secrets (ils figurent dans
+  #       apps/web/.vercel/project.json, non versionné) : ils vont en variables
+  #       de dépôt, comme CLOUDFLARE_ACCOUNT_ID.
+  # ──────────────────────────────────────────────
+  deploy-vercel:
+    name: Déployer front sur Vercel
+    runs-on: ubuntu-latest
+    needs: [check-ci, docker-publish]
+    if: >-
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'schedule')
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_ALIAS: https://santeplus-sigma.vercel.app
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Guard — jeton et identifiants Vercel présents
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Même parti pris que deploy-pages : un front non déployé doit faire
+          # échouer le job plutôt que passer sous silence — c'est précisément
+          # l'écart de deux jours que ce job existe pour empêcher.
+          if [ -z "${VERCEL_TOKEN}" ]; then
+            echo "::error::Secret VERCEL_TOKEN absent — front Vercel non déployé. Créer un jeton (Account Settings → Tokens) puis : gh secret set VERCEL_TOKEN"
+            exit 1
+          fi
+          if [ -z "${VERCEL_ORG_ID}" ] || [ -z "${VERCEL_PROJECT_ID}" ]; then
+            echo "::error::Variables VERCEL_ORG_ID / VERCEL_PROJECT_ID absentes — front Vercel non déployé."
+            exit 1
+          fi
+
+      # Version majeure figée : le CLI est appelé plusieurs fois (déploiement
+      # puis boucle de certification) et un `npx vercel@latest` à chaque appel
+      # retéléchargerait le paquet à chaque itération.
+      - name: CLI Vercel
+        run: npm install --global vercel@50
+
+      - name: Déploiement Vercel (production, build distant)
+        id: deploy
+        working-directory: apps/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          # --format=json : l'identifiant du déploiement est indispensable à
+          # l'étape de certification, et le lire dans un JSON vaut mieux que
+          # découper la sortie humaine du CLI.
+          vercel deploy --prod --yes --format=json \
+            --token="${VERCEL_TOKEN}" > "${RUNNER_TEMP}/vercel-deploy.json"
+          # Le JSON est parfois précédé des lignes de progression du CLI :
+          # l'extracteur repère la première accolade avant de parser.
+          cat > "${RUNNER_TEMP}/vercel-field.mjs" <<'EOF'
+          import fs from 'node:fs';
+          const [file, field] = process.argv.slice(2);
+          const raw = fs.readFileSync(file, 'utf8');
+          const start = raw.indexOf('{');
+          if (start < 0) {
+            console.error(`Pas de JSON dans ${file}`);
+            process.exit(1);
+          }
+          const json = JSON.parse(raw.slice(start));
+          const read = (path) =>
+            path.split('.').reduce((acc, key) => (acc == null ? acc : acc[key]), json);
+          // `field` accepte plusieurs chemins séparés par des virgules : le
+          // premier présent gagne (le CLI range l'URL tantôt à la racine,
+          // tantôt sous `deployment`, selon la version).
+          let value;
+          for (const candidate of field.split(',')) {
+            const found = read(candidate.trim());
+            if (found != null && found !== '') {
+              value = found;
+              break;
+            }
+          }
+          if (value == null || value === '') {
+            console.error(`Champ ${field} absent de ${file}`);
+            process.exit(1);
+          }
+          console.log(typeof value === 'string' ? value.replace(/^https?:\/\//, '') : value);
+          EOF
+          # Selon la version du CLI, le JSON expose `id` et/ou `url` : on
+          # garde les deux et la certification accepte l'un ou l'autre.
+          ID=$(node "${RUNNER_TEMP}/vercel-field.mjs" "${RUNNER_TEMP}/vercel-deploy.json" id,deployment.id || true)
+          URL=$(node "${RUNNER_TEMP}/vercel-field.mjs" "${RUNNER_TEMP}/vercel-deploy.json" url,deployment.url || true)
+          if [ -z "${ID}" ] && [ -z "${URL}" ]; then
+            # Le déploiement a réussi : ne pas transformer un changement de
+            # format de sortie du CLI en échec de pipeline. La certification
+            # se rabattra sur la disponibilité de l'alias, en le signalant.
+            echo "::warning::Identifiant du déploiement Vercel introuvable dans la sortie du CLI — certification réduite à la disponibilité de l'alias."
+          fi
+          echo "id=${ID}" >> "$GITHUB_OUTPUT"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "Déploiement créé : ${ID:-?} ${URL:-}"
+
+      - name: Certification — l'alias Vercel pointe sur le déploiement créé
+        timeout-minutes: 8
+        env:
+          DEPLOY_ID: ${{ steps.deploy.outputs.id }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          # L'URL unique d'un déploiement est derrière Vercel Authentication
+          # (302) : on interroge le CLI, authentifié, sur l'alias public. Si le
+          # déploiement auquel l'alias répond est celui qu'on vient de créer,
+          # c'est bien le nouveau bundle qui est servi, pas une version
+          # antérieure restée collée au domaine.
+          REF="${DEPLOY_ID:-${DEPLOY_URL}}"
+          for i in $(seq 1 18); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+              "${VERCEL_ALIAS}/?cb=${RANDOM}" || true)
+            if [ -z "${REF}" ]; then
+              if [ "${CODE}" = "200" ]; then
+                echo "⚠️  ${VERCEL_ALIAS} répond 200, mais l'identifiant du déploiement est inconnu : version servie non certifiée."
+                exit 0
+              fi
+            else
+              vercel inspect "${VERCEL_ALIAS}" --format=json \
+                --token="${VERCEL_TOKEN}" > "${RUNNER_TEMP}/vercel-inspect.json" 2>/dev/null || true
+              CUR_ID=$(node "${RUNNER_TEMP}/vercel-field.mjs" "${RUNNER_TEMP}/vercel-inspect.json" id || true)
+              CUR_URL=$(node "${RUNNER_TEMP}/vercel-field.mjs" "${RUNNER_TEMP}/vercel-inspect.json" url || true)
+              SAME=0
+              if [ -n "${DEPLOY_ID}" ] && [ "${CUR_ID}" = "${DEPLOY_ID}" ]; then SAME=1; fi
+              if [ -n "${DEPLOY_URL}" ] && [ "${CUR_URL}" = "${DEPLOY_URL}" ]; then SAME=1; fi
+              if [ "${SAME}" = "1" ] && [ "${CODE}" = "200" ]; then
+                echo "✅ ${VERCEL_ALIAS} sert le déploiement ${REF} (HTTP 200)"
+                exit 0
+              fi
+              echo "Tentative ${i}/18 — alias → ${CUR_ID:-?} (${CUR_URL:-?}), attendu ${REF}, HTTP ${CODE}"
+            fi
+            sleep 10
+          done
+          # Deux cas très différents se ressemblent ici :
+          #  - identité illisible (sortie du CLI inattendue) alors que l'alias
+          #    répond 200 → lecture de confort, on signale sans bloquer ;
+          #  - identité lisible mais différente de celle créée → l'alias sert
+          #    réellement une autre version, c'est la panne que ce job traque.
+          if [ -z "${CUR_ID:-}${CUR_URL:-}" ] && [ "${CODE}" = "200" ]; then
+            echo "::warning::${VERCEL_ALIAS} répond 200 mais le déploiement servi n'a pas pu être identifié — certification partielle."
+            exit 0
+          fi
+          echo "::error::${VERCEL_ALIAS} ne sert pas le déploiement ${REF} après 3 min (dernier vu : ${CUR_ID:-aucun} / ${CUR_URL:-aucun}, HTTP ${CODE:-aucun})."
+          exit 1

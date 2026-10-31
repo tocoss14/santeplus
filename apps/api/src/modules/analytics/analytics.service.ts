@@ -9,10 +9,14 @@ function endOfMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 }
 
+// Décalage en mois calendaires, ancré au 1er du mois cible. Conserver le jour
+// du mois débordait dès que le mois courant en compte plus que le mois visé :
+// le 31 octobre − 1 mois donnait le 1er octobre (septembre n'a que 30 jours),
+// donc la série mensuelle affichait deux fois le mois courant et sautait le
+// précédent les 29, 30 et 31. Aucun appelant n'a besoin du jour : ils
+// découpent tous des mois entiers (startOfMonth/endOfMonth) ou un écart en mois.
 function subMonths(date: Date, months: number): Date {
-  const result = new Date(date);
-  result.setUTCMonth(result.getUTCMonth() - months);
-  return result;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - months, 1, 0, 0, 0, 0));
 }
 
 function formatYearMonth(date: Date): string {

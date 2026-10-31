@@ -305,7 +305,7 @@ export class CtsV2Service {
         solvencyRatio,
       });
     }
-    return { threshold, months: await this.mergePersistedHistory(series) };
+    return { threshold, months: await this.mergePersistedHistory(series, now) };
   }
 
   /**
@@ -318,6 +318,7 @@ export class CtsV2Service {
    */
   private async mergePersistedHistory(
     liveSeries: Array<{ month: string; label: string; contributions: number; claims: number; position: number; solvencyRatio: number }>,
+    now: Date,
   ) {
     let persisted: Array<{ weekKey: string; weekStart: Date; solvencyRatio: number; threshold: number; breach: boolean; contributions: number; engagedClaims: number; paidClaims: number; position: number }> = [];
     try {
@@ -330,7 +331,11 @@ export class CtsV2Service {
     }
     if (!persisted.length) return liveSeries;
 
-    const windowStart = new Date();
+    // Fenêtre ancrée sur l'instant demandé, pas sur l'horloge réelle : quand
+    // l'appelant passe un `now` (vue « à date », rattrapage, tests), les deux
+    // fenêtres doivent coïncider, sinon les points antérieurs au vrai `now`
+    // sortent de la fenêtre et sont réinjectés en double.
+    const windowStart = new Date(now.getTime());
     // Jour ancré au 1er AVANT le décalage de mois : le 29 février moins douze
     // mois tomberait sur un 29 février inexistant, et JavaScript glisserait au
     // 1er mars — la fenêtre démarrait alors un mois trop tard et laissait

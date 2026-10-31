@@ -207,4 +207,27 @@ describe('V2 — série mensuelle de la marge de solvabilité', () => {
     const s2 = await service.portfolioSolvencySeries(6);
     expect(s2.months).toHaveLength(6);
   });
+
+  it('cale la fenêtre d’historique sur le `now` demandé, pas sur l’horloge réelle', async () => {
+    // Vue « à date » : l'appelant demande une série arrêtée en septembre 2026
+    // alors que l'horloge réelle est en 2028. Le point d'août 2026 tombe dans
+    // la fenêtre DEMANDÉE, donc dans le recalcul vivant : il doit être écarté.
+    // Avec une fenêtre calée sur l'horloge réelle (2027-06), ce même point
+    // paraissait antérieur et était réinjecté → 13 points au lieu de 12.
+    prisma = makePrisma({
+      history: [
+        { weekKey: '2026-08-03', weekStart: new Date('2026-08-03T00:00:00.000Z'), solvencyRatio: 0.5, threshold: 1, breach: true, contributions: 100000, engagedClaims: 90000, paidClaims: 40000, position: -30000 },
+      ],
+    });
+    service = new CtsV2Service(prisma as any);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2028-06-15T12:00:00.000Z'));
+    try {
+      const s = await service.portfolioSolvencySeries(12, new Date('2026-09-15T12:00:00.000Z'));
+      expect(s.months).toHaveLength(12);
+      expect(s.months.find(m => m.month === '2026-08-03')).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

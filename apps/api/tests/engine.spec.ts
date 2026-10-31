@@ -56,8 +56,12 @@ describe('computeQuote', () => {
         { minAge: 51, maxAge: 65, factor: 1.8 },
       ],
     };
-    const { quote: quote30 } = computeQuote(pricingWithAgeLoadings, [{ birthDate: new Date('1996-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL');
-    const { quote: quote55 } = computeQuote(pricingWithAgeLoadings, [{ birthDate: new Date('1971-01-01'), relation: 'PRINCIPAL' }], 'ANNUAL');
+    // Âges dérivés de l'année courante : computeQuote lit l'horloge réelle,
+    // donc une année de naissance figée fait basculer de tranche au 1er janvier
+    // suivant (un « 30 ans » devenait 31 → facteur 1,3).
+    const year = new Date().getFullYear();
+    const { quote: quote30 } = computeQuote(pricingWithAgeLoadings, [{ birthDate: new Date(Date.UTC(year - 30, 0, 1)), relation: 'PRINCIPAL' }], 'ANNUAL');
+    const { quote: quote55 } = computeQuote(pricingWithAgeLoadings, [{ birthDate: new Date(Date.UTC(year - 55, 0, 1)), relation: 'PRINCIPAL' }], 'ANNUAL');
     // 30 ans → factor 1.0, pas de surcharge
     expect(quote30!.subtotalAnnual).toBe(45000);
     // 55 ans → factor 1.8, surcharge de 80%
@@ -73,10 +77,13 @@ describe('computeQuote', () => {
         { minAge: 31, maxAge: 50, factor: 1.5 },
       ],
     };
-    // Principal 25 ans, conjoint 45 ans → facteur 1.5 s'applique
+    // Principal 25 ans, conjoint 45 ans → facteur 1.5 s'applique.
+    // Naissances dérivées de l'année courante (même raison que ci-dessus) :
+    // en dur, ils passaient 31 et 51 ans et sortaient des tranches.
+    const year = new Date().getFullYear();
     const { quote } = computeQuote(pricingWithAgeLoadings, [
-      { birthDate: new Date('2001-01-01'), relation: 'PRINCIPAL' },
-      { birthDate: new Date('1981-01-01'), relation: 'SPOUSE' },
+      { birthDate: new Date(Date.UTC(year - 25, 0, 1)), relation: 'PRINCIPAL' },
+      { birthDate: new Date(Date.UTC(year - 45, 0, 1)), relation: 'SPOUSE' },
     ], 'ANNUAL');
     expect(quote!.subtotalAnnual).toBe(Math.round((45000 + 30000) * 1.5));
   });

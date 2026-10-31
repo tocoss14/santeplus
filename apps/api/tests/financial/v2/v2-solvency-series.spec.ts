@@ -174,6 +174,31 @@ describe('V2 — série mensuelle de la marge de solvabilité', () => {
     expect(s.months[0].month).not.toBe(history[69].weekKey);
   });
 
+  it('ancre la fenêtre au 1er du mois : aucun débordement un 29 février', async () => {
+    // Le 29 février 2028 moins douze mois donne un 29 février inexistant :
+    // sans ancrage au 1er, JavaScript glissait au 1er mars 2027 et la borne
+    // basse de la fenêtre reculait d'un mois, réinjectant février en double.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2028-02-29T12:00:00.000Z'));
+      prisma = makePrisma({
+        history: [
+          // Antérieur à la fenêtre (borne correcte = 2027-02-01) : conservé.
+          { weekKey: '2027-01-11', weekStart: new Date('2027-01-11T00:00:00.000Z'), solvencyRatio: 2.2, threshold: 1, breach: false, contributions: 200000, engagedClaims: 60000, paidClaims: 20000, position: 120000 },
+          // Dans la fenêtre : le recalcul vivant fait foi, le point est écarté.
+          { weekKey: '2027-02-15', weekStart: new Date('2027-02-15T00:00:00.000Z'), solvencyRatio: 0.4, threshold: 1, breach: true, contributions: 100000, engagedClaims: 90000, paidClaims: 40000, position: -30000 },
+        ],
+      });
+      service = new CtsV2Service(prisma as any);
+      const s = await service.portfolioSolvencySeries(3, new Date('2028-02-29T12:00:00.000Z'));
+
+      expect(s.months.find(m => m.month === '2027-01-11')).toBeTruthy();
+      expect(s.months.find(m => m.month === '2027-02-15')).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('tolère une table d\u2019historique vide ou absente (série vivante seule)', async () => {
     const s = await service.portfolioSolvencySeries(6);
     expect(s.months).toHaveLength(6);

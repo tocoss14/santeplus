@@ -331,8 +331,12 @@ export class CtsV2Service {
     if (!persisted.length) return liveSeries;
 
     const windowStart = new Date();
-    windowStart.setUTCMonth(windowStart.getUTCMonth() - 12);
+    // Jour ancré au 1er AVANT le décalage de mois : le 29 février moins douze
+    // mois tomberait sur un 29 février inexistant, et JavaScript glisserait au
+    // 1er mars — la fenêtre démarrait alors un mois trop tard et laissait
+    // réinjecter un mois déjà couvert par le recalcul vivant.
     windowStart.setUTCDate(1);
+    windowStart.setUTCMonth(windowStart.getUTCMonth() - 12);
     windowStart.setUTCHours(0, 0, 0, 0);
 
     // Un point persisté par mois calendaire (le dernier de son mois), hors

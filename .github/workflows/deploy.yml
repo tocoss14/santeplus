@@ -403,6 +403,13 @@ jobs:
   #       Les deux identifiants ne sont pas des secrets (ils figurent dans
   #       apps/web/.vercel/project.json, non versionné) : ils vont en variables
   #       de dépôt, comme CLOUDFLARE_ACCOUNT_ID.
+  #
+  # Bloquant : le jeton est désormais en place, donc une panne de déploiement
+  # ou un alias resté sur une version antérieure fait échouer Deploy — sans
+  # cela, le job ne protège de rien et l'écart qu'il traque repasserait
+  # inaperçu. Seule la disparition du secret VERCEL_TOKEN reste tolérée
+  # (avertissement + sortie 0), pour qu'un dépôt qui n'a pas encore branché
+  # l'intégration ne voie pas tous ses pushes en rouge.
   # ──────────────────────────────────────────────
   deploy-vercel:
     name: Déployer front sur Vercel
@@ -419,29 +426,31 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Tant que le jeton n'est pas en place, le job avertit et s'arrête sans
-      # rendre Deploy rouge : un push qui ne touche pas au front ne doit pas
-      # échouer parce qu'une intégration n'est pas encore configurée. Le
-      # résumé du run, lui, reste explicite sur le fait que l'alias n'a pas
-      # été mis à jour — c'est ce qui évite de recreuser l'écart de deux jours.
+      # Un seul régime reste tolérant : le secret absent, où le job avertit et
+      # s'arrête sans rendre Deploy rouge (un push qui ne touche pas au front
+      # ne doit pas échouer parce qu'une intégration n'est pas branchée). Le
+      # résumé du run reste explicite sur le fait que l'alias n'a pas été mis
+      # à jour — c'est ce qui évite de recreuser l'écart de deux jours. Dès que
+      # le secret existe, tout ce qui suit est bloquant.
       - name: Guard — configuration Vercel présente
         id: guard
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          MISSING=""
-          if [ -z "${VERCEL_TOKEN}" ]; then MISSING="VERCEL_TOKEN (secret)"; fi
-          if [ -z "${VERCEL_ORG_ID:-}" ]; then MISSING="${MISSING:+${MISSING}, }VERCEL_ORG_ID (variable)"; fi
-          if [ -z "${VERCEL_PROJECT_ID:-}" ]; then MISSING="${MISSING:+${MISSING}, }VERCEL_PROJECT_ID (variable)"; fi
-          if [ -n "${MISSING}" ]; then
+          # Seule l'absence du secret est tolérée : c'est le cas « intégration
+          # pas encore branchée », qui ne doit pas rendre Deploy rouge.
+          # `:-` et pas `${VERCEL_TOKEN}` nu : sous `set -u`, une variable
+          # totalement absente (secret supprimé du dépôt) tuerait le script
+          # avant le test, au lieu de basculer proprement en mode tolérant.
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Configuration Vercel incomplète (${MISSING}) — déploiement ignoré pour ce run, l'alias santeplus-sigma.vercel.app reste sur sa dernière version."
+            echo "::warning::Secret VERCEL_TOKEN absent — déploiement ignoré pour ce run, l'alias santeplus-sigma.vercel.app reste sur sa dernière version."
             {
               echo "## Front Vercel : non déployé"
               echo ""
-              echo "Configuration manquante : ${MISSING}."
-              echo "Le job est volontairement non bloquant tant que l'intégration n'est pas branchée."
+              echo "Configuration manquante : VERCEL_TOKEN (secret)."
+              echo "Le job n'est non bloquant **que tant que ce secret est absent** : dès qu'il est défini, toute panne de déploiement ou d'alias fait échouer Deploy."
               echo "Pour activer le déploiement automatique :"
               echo "  1. Vercel → Account Settings → Tokens → Create"
               echo '  2. `gh secret set VERCEL_TOKEN`'
@@ -450,6 +459,16 @@ jobs:
               echo "L'alias Vercel sert donc encore la dernière version publiée à la main."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
+          fi
+          # Le jeton est là : les identifiants de projet deviennent exigés. Leur
+          # absence n'est plus une intégration non branchée mais une variable
+          # effacée — la tolérance ne doit pas la couvrir.
+          MISSING=""
+          if [ -z "${VERCEL_ORG_ID:-}" ]; then MISSING="VERCEL_ORG_ID (variable)"; fi
+          if [ -z "${VERCEL_PROJECT_ID:-}" ]; then MISSING="${MISSING:+${MISSING}, }VERCEL_PROJECT_ID (variable)"; fi
+          if [ -n "${MISSING}" ]; then
+            echo "::error::Secret VERCEL_TOKEN présent mais ${MISSING} manquant(s) — la configuration Vercel est incomplète et le déploiement ne peut pas aboutir."
+            exit 1
           fi
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
@@ -509,10 +528,12 @@ jobs:
           ID=$(node "${RUNNER_TEMP}/vercel-field.mjs" "${RUNNER_TEMP}/vercel-deploy.json" id,deployment.id || true)
           URL=$(node "${RUNNER_TEMP}/vercel-field.mjs" "${RUNNER_TEMP}/vercel-deploy.json" url,deployment.url || true)
           if [ -z "${ID}" ] && [ -z "${URL}" ]; then
-            # Le déploiement a réussi : ne pas transformer un changement de
-            # format de sortie du CLI en échec de pipeline. La certification
-            # se rabattra sur la disponibilité de l'alias, en le signalant.
-            echo "::warning::Identifiant du déploiement Vercel introuvable dans la sortie du CLI — certification réduite à la disponibilité de l'alias."
+            # Sans identifiant, la certification ne peut plus prouver que
+            # l'alias sert ce qui vient d'être déployé. Le job étant bloquant,
+            # on échoue ici plutôt que de laisser passer un front figé sur une
+            # version antérieure sans le dire.
+            echo "::error::Identifiant du déploiement Vercel absent de la sortie du CLI — impossible de certifier l'alias."
+            exit 1
           fi
           echo "id=${ID}" >> "$GITHUB_OUTPUT"
           echo "url=${URL}" >> "$GITHUB_OUTPUT"
@@ -538,8 +559,8 @@ jobs:
               "${VERCEL_ALIAS}/?cb=${RANDOM}" || true)
             if [ -z "${REF}" ]; then
               if [ "${CODE}" = "200" ]; then
-                echo "⚠️  ${VERCEL_ALIAS} répond 200, mais l'identifiant du déploiement est inconnu : version servie non certifiée."
-                exit 0
+                echo "::error::${VERCEL_ALIAS} répond 200, mais aucun identifiant de déploiement n'est connu : version servie non certifiable."
+                exit 1
               fi
             else
               vercel inspect "${VERCEL_ALIAS}" --format=json \
@@ -557,14 +578,13 @@ jobs:
             fi
             sleep 10
           done
-          # Deux cas très différents se ressemblent ici :
-          #  - identité illisible (sortie du CLI inattendue) alors que l'alias
-          #    répond 200 → lecture de confort, on signale sans bloquer ;
-          #  - identité lisible mais différente de celle créée → l'alias sert
-          #    réellement une autre version, c'est la panne que ce job traque.
+          # Toute sortie par ici est un échec, y compris celle qui ressemble à
+          # un simple défaut de lecture : une identité illisible alors que
+          # l'alias répond 200 empêche de prouver que le bon bundle est servi,
+          # et c'est exactement la preuve que ce job doit apporter.
           if [ -z "${CUR_ID:-}${CUR_URL:-}" ] && [ "${CODE}" = "200" ]; then
-            echo "::warning::${VERCEL_ALIAS} répond 200 mais le déploiement servi n'a pas pu être identifié — certification partielle."
-            exit 0
+            echo "::error::${VERCEL_ALIAS} répond 200 mais le déploiement servi n'a pas pu être identifié — certification impossible."
+            exit 1
           fi
           echo "::error::${VERCEL_ALIAS} ne sert pas le déploiement ${REF} après 3 min (dernier vu : ${CUR_ID:-aucun} / ${CUR_URL:-aucun}, HTTP ${CODE:-aucun})."
           exit 1
